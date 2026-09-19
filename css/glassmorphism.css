@@ -1,0 +1,48 @@
+/* =====================================================================
+   glassmorphism.css — pantalla de acceso
+   Fondo con el degradado magenta → violeta → azul y tarjeta de vidrio.
+   Opcional: si copias una foto a img/login-bg.jpg, se ve con ese tinte encima.
+   ===================================================================== */
+.login{
+  position:relative;overflow:hidden;min-height:100vh;min-height:100dvh;
+  display:flex;align-items:center;justify-content:center;
+  padding:22px 16px calc(22px + env(safe-area-inset-bottom));
+  background:url(../img/textura.svg) 0 0/352px 352px,var(--surf);
+}
+.login::before,.login::after{content:"";position:absolute;border-radius:50%;pointer-events:none}
+.login::before{width:560px;height:560px;left:-190px;top:-170px;background:radial-gradient(circle,rgba(150,215,90,.26),transparent 66%)}
+.login::after{width:620px;height:620px;right:-230px;bottom:-230px;background:radial-gradient(circle,rgba(70,190,235,.38),transparent 66%)}
+.login-card{
+  position:relative;z-index:1;width:100%;max-width:440px;padding:24px 22px 20px;border-radius:28px;
+  background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.75);
+  box-shadow:0 30px 70px rgba(0,25,30,.5);
+  backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2);
+}
+.lg-brand{display:flex;gap:14px;align-items:center}
+.lg-logo{position:relative;width:64px;height:64px;border-radius:18px;background:var(--grad);display:grid;place-items:center;box-shadow:0 10px 24px rgba(0,60,50,.38);flex:none}
+.lg-logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.lg-fb{color:#fff;display:grid}
+.lg-fb .ic{width:30px;height:30px}
+.lg-title{min-width:0}
+.lg-title p{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--b3);line-height:1.3}
+.lg-title h1{font-size:clamp(22px,6.6vw,28px);font-weight:700;letter-spacing:-.01em;line-height:1.1;color:var(--ink);margin-top:3px}
+.lg-q,.lg-lbl{display:block;margin:18px 0 7px;font-size:13px;font-weight:600;color:var(--ink-2)}
+.lg-select{position:relative}
+.lg-select select{appearance:none;-webkit-appearance:none;padding:14px 44px 14px 16px;font-size:16px;font-weight:500;border-radius:14px;cursor:pointer;background:#fff}
+.lg-select .ic{position:absolute;right:15px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--g)}
+.lg-roles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:5px;border-radius:16px;background:#e8ebf6}
+.lg-role{display:flex;flex-direction:column;align-items:center;gap:3px;padding:11px 3px 10px;border-radius:12px;text-align:center;color:var(--ink-2);min-width:0;transition:background .15s,box-shadow .15s}
+.lg-role .ic{width:23px;height:23px}
+.lg-role b{font-size:13.5px;font-weight:700;color:var(--ink);line-height:1.15;max-width:100%;overflow-wrap:anywhere}
+.lg-role small{font-size:11.5px;color:var(--mut);line-height:1.2;max-width:100%}
+.lg-role.on{background:#fff;color:var(--g);box-shadow:0 2px 10px rgba(16,26,51,.16),inset 0 0 0 2px var(--g)}
+.lg-role.on b{color:var(--g-d)}
+.login-card input{padding:14px 16px;font-size:16px;border-radius:14px}
+.login-card .err{margin:10px 2px 6px}
+.login-card .btn.cta{margin-top:2px}
+.lg-help{margin-top:14px;text-align:center;color:var(--mut);font-size:12.5px;line-height:1.6}
+.lg-note{padding:13px 15px;border-radius:14px;background:#f4f5fb;border:1.5px dashed var(--line-2);color:var(--ink-2);font-size:14px}
+@media (max-width:380px){
+  .login-card{padding:20px 16px 18px}
+  .lg-role small{display:none}
+}

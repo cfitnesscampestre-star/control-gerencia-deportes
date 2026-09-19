@@ -1,0 +1,14 @@
+Imágenes de la app
+
+  logo.png              Logo de Campestre (encabezado, menú lateral y pantalla de acceso). PNG con fondo transparente.
+  icon-192.png / icon-512.png / apple-touch-icon.png / favicon-32.png
+                        Íconos para instalar la app en el teléfono y para la pestaña del navegador.
+  textura.svg           Textura de círculos para las superficies oscuras (acceso, encabezado, menú, tarjeta destacada).
+  textura-clara.svg     La misma textura, muy tenue, para el fondo claro de todo el sistema.
+
+Para cambiar el logo, reemplaza logo.png (y los íconos) conservando los nombres.
+Las texturas son SVG: se pueden editar con cualquier editor de texto (colores, transparencia, tamaño).
+
+  membrete.png          Hoja membretada de Campestre (tamaño carta): franja lateral, logo y banda inferior con pictogramas.
+                        Todos los reportes que se imprimen o se guardan en PDF usan esta imagen de fondo.
+                        Para cambiarla, reemplaza el archivo (mismo nombre, proporción carta 1275 x 1650 px).

@@ -1,0 +1,58 @@
+VÍNCULO CON FITNESS CONTROL
+===========================
+
+Qué hace
+--------
+Control Gerencia lee en tiempo real la información de Fitness Control (misma base de datos de Firebase,
+nodo "fitness") y la muestra en el área Fitness:
+
+  Fitness Control (instructores)  →  Profesores
+  Fitness Control (horarios)      →  Grupos / clases (días, hora, salón, cupo)
+  Fitness Control (registros)     →  Asistencia y aforo de cada clase, faltas y suplencias
+  Fitness Control (eventos)       →  Eventos (cada uno va al área que coincide con su "deporte"; si no hay, a Fitness),
+                                     con presupuesto, costo real y calificación
+
+Todo el historial que ya existe en Fitness Control aparece desde el primer momento: no hay que importar nada.
+Se actualiza solo cada vez que Fitness Control guarda algo.
+
+Reglas del vínculo
+------------------
+- SOLO LECTURA. Gerencia nunca escribe en el nodo "fitness". Fitness Control reescribe ese nodo completo cada
+  vez que guarda; cualquier dato ajeno ahí se perdería.
+- Los PIN de los instructores NO se copian.
+- Lo que se captura en Fitness Control (profesores, clases, aforos) no se edita en Gerencia.
+- Lo propio de Gerencia sí se captura aquí: incidencias, reporte semanal (el reporte de Fitness Control vive solo
+  en el teléfono donde se llena, no se sube a la nube) y eventos propios.
+- El área vinculada se elige en Ajustes → Áreas → Editar → "Origen de los datos".
+
+Configuración
+-------------
+1) En js/config.js cambia  CONECTAR_FIREBASE = false  por  CONECTAR_FIREBASE = true.
+   (El archivo ya trae la configuración de Firebase de Fitness Control, la misma que está en su repositorio.)
+   Mientras esté en false, la app no se conecta a nada y muestra datos de simulación.
+2) En Firebase Console → Realtime Database → Reglas, debe estar permitido leer "fitness" y leer/escribir
+   "gerencia_deportes". Si tus reglas ya permiten todo, no hay que cambiar nada. Si son por nodo, agrega:
+
+   {
+     "rules": {
+       "fitness":           { ".read": true, ".write": true },
+       "gerencia_deportes": { ".read": true, ".write": true }
+     }
+   }
+
+   (deja "fitness" exactamente como lo tengas hoy; solo agrega "gerencia_deportes").
+3) Abre la app como Gerencia → Ajustes → Fitness Control: debe decir "Conectado" y mostrar cuántos
+   instructores, clases y registros recibió. Si dice "Error", ese texto es el motivo (casi siempre son las reglas).
+
+Nota de seguridad
+-----------------
+Con reglas abiertas, cualquiera que conozca la dirección de la base puede leer o escribir. Ahí también están
+los PIN de los instructores (nodo fitness/instructores). Más adelante conviene activar Firebase Authentication.
+
+Simulación
+----------
+Mientras CONECTAR_FIREBASE = false, todas las áreas muestran datos de ejemplo (ficticios) para presentar y revisar.
+- No se guardan ni se envían a Firebase: viven solo en pantalla y son de solo lectura.
+- Se pueden quitar o volver a cargar en Ajustes → Simulación.
+- Desaparecen solos al poner CONECTAR_FIREBASE = true.
+- Lo que se capture a mano mientras tanto (grupos, eventos, reportes...) sí se guarda y se conserva.

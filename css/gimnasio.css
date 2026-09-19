@@ -1,0 +1,111 @@
+/* =====================================================================
+   gimnasio.css — Gimnasio: aforo por hora (mujeres / hombres) y personalizados
+   ===================================================================== */
+:root{--mu:#d94f9c;--ho:#1f7fd0}
+.an-leg i.mu,.gb .an-leg i.mu{background:var(--mu)}
+.an-leg i.ho,.gb .an-leg i.ho{background:var(--ho)}
+
+/* ---------- gráfica por hora ---------- */
+.gb-plot{position:relative;padding-top:6px}
+.gb-grid{position:absolute;left:0;right:0;top:6px;bottom:16px;pointer-events:none}
+.gb-l{position:absolute;left:0;right:0;height:0;border-top:1.5px dashed rgba(214,59,47,.55)}
+.gb-l.cap{border-top:1.5px solid rgba(16,34,43,.35)}
+.gb-l em{position:absolute;right:0;top:-15px;font-style:normal;font-size:10.5px;color:var(--ink-2);background:rgba(255,255,255,.85);padding:0 3px;border-radius:4px}
+.gb-cols{position:relative;display:flex;gap:4px;height:100%;align-items:stretch}
+.gb-c{flex:1;min-width:0;display:flex;flex-direction:column}
+.gb-s{flex:1;display:flex;flex-direction:column-reverse;justify-content:flex-start;background:#f1f5f5;border-radius:6px 6px 0 0;overflow:hidden}
+.gb-s i{display:block;width:100%}
+.gb-s i.mu{background:var(--mu)}
+.gb-s i.ho{background:var(--ho)}
+.gb-c span{height:16px;font-size:10px;text-align:center;color:var(--mut);line-height:16px}
+
+/* ---------- captura por hora ---------- */
+.ga-row{background:#fff;border-radius:20px;padding:14px;box-shadow:var(--sh);border:1px solid var(--line);border-left:6px solid #cfd6e6;margin-bottom:12px;transition:border-color .2s}
+.ga-row[data-st=saved]{border-left-color:var(--ok)}
+.ga-row[data-st=saving]{border-left-color:var(--warn)}
+.ga-row.now{box-shadow:0 0 0 2px var(--b3),var(--sh)}
+.ga-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ga-h b{font-size:20px;font-weight:700}
+.ga-h em{font-style:normal;font-size:11px;font-weight:700;color:#fff;background:var(--b3);padding:2px 8px;border-radius:99px;margin-left:6px;vertical-align:middle}
+.ga-c{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ga-g span{display:block;font-size:12.5px;font-weight:700;margin-bottom:5px}
+.ga-g.mu span{color:var(--mu)}
+.ga-g.ho span{color:var(--ho)}
+.ga-s{display:flex;align-items:center;gap:6px}
+.ga-s button{width:42px;height:48px;flex:none;border-radius:12px;border:1.5px solid var(--line-2);background:#fff;font-size:22px;line-height:1;text-align:center;color:var(--ink-2)}
+.ga-g.mu .ga-s button{border-color:rgba(217,79,156,.45)}
+.ga-g.ho .ga-s button{border-color:rgba(31,127,208,.45)}
+.ga-s button:active{background:var(--g-l)}
+.ga-in{min-width:0;width:100%;text-align:center;font-size:26px;font-weight:700;padding:6px 2px;border-radius:12px}
+.ga-ro{font-size:26px;font-weight:700}
+.ga-f{display:flex;align-items:center;gap:12px;margin-top:12px}
+.ga-f .bar{flex:1}
+.ga-t{font-size:14px;font-weight:700;white-space:nowrap}
+.ga-cp{margin-top:10px;font-size:13px;font-weight:600;color:var(--b3);text-decoration:underline;text-underline-offset:3px}
+.ga-table .ga-in{width:84px;font-size:22px}
+.ga-table td.num{font-weight:600}
+
+/* ---------- personalizados ---------- */
+.ptlist{display:grid;grid-template-columns:1fr;gap:10px}
+.ptc{display:flex;align-items:center;gap:14px;width:100%;background:#fff;border-radius:var(--r);padding:13px 14px;box-shadow:var(--sh);border:1px solid var(--line);border-left:5px solid var(--b2);margin-bottom:10px;text-align:left}
+.ptlist .ptc{margin-bottom:0}
+.ptc-b{flex:1;min-width:0}
+.ptc-b>b{display:block;font-weight:600;font-size:16px}
+.ptc-n{display:flex;gap:12px;flex-wrap:wrap;margin:4px 0 8px;font-size:12.5px;color:var(--ink-2)}
+.ptc-n b{font-size:16px;font-weight:700;color:var(--ink)}
+.ptc-n b.warn{color:#a86a00}.ptc-n b.ok{color:#0a7f63}
+.ptc-b small{display:block;margin-top:6px;color:var(--mut);font-size:12.5px}
+.ptp{margin-bottom:10px}
+.ptp-b{display:flex;align-items:center;gap:10px;margin-top:10px}
+.ptp-b .bar{flex:1}
+.ptp-b b{font-size:15px}
+.ptp-s{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
+.ptp-s span{font-size:12px;padding:3px 9px;border-radius:99px;background:#eef3f2}
+.ptp-s span.ok{background:var(--ok-l);color:#087a60}
+.ptp-x{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;color:var(--mut);margin-left:-4px}
+.ptp-x .ic{width:13px;height:13px}
+.ptp .btns{margin-top:10px}
+@media (min-width:900px){
+  .ptlist{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))}
+}
+.gm-hm .an-c{min-height:26px;font-size:11px;border-radius:6px}
+.gm-hm .an-hl{font-size:10.5px}
+
+/* ---------- Inicio del Gimnasio: acomodo de datos ---------- */
+.gi-hero{display:grid;grid-template-columns:1.2fr 1fr;margin-top:12px;border-radius:26px;color:#fff;overflow:hidden;
+  background:url(../img/textura.svg) 0 0/352px 352px,radial-gradient(320px 180px at 100% 0%,rgba(255,255,255,.16),transparent 60%),var(--surf);
+  box-shadow:0 16px 36px var(--sb2)}
+.gi-h1,.gi-h2{padding:18px 16px 16px;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:4px}
+.gi-h2{border-left:1px solid rgba(255,255,255,.28)}
+.gi-lbl{display:flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:rgba(255,255,255,.94);line-height:1.2;text-transform:none}
+.gi-h2 .gi-lbl{text-transform:uppercase;letter-spacing:.06em;font-size:12px;font-weight:700;align-items:flex-start;justify-content:space-between}
+.gi-lbl i{display:inline-block;width:11px;height:11px;border-radius:3px;flex:none}
+.gi-lbl i.mu{background:var(--mu)}.gi-lbl i.ho{background:var(--ho)}
+.gi-big{display:block;font-size:clamp(23px,7.6vw,36px);font-weight:700;line-height:1.05;letter-spacing:-.02em;color:#f3d98b;text-shadow:0 2px 10px rgba(0,0,0,.25);white-space:nowrap}
+.gi-h2 .gi-big{color:#fff}
+.gi-hero span{font-size:13px;color:rgba(255,255,255,.88);line-height:1.3}
+.gi-plus{flex:none;width:30px;height:30px;border-radius:50%;background:#e6c460;color:#4a3a06;font-size:22px;font-weight:700;line-height:1;display:grid;place-items:center;box-shadow:0 3px 8px rgba(0,0,0,.3)}
+.gi-hoy{padding:14px}
+.gi-now{display:flex;flex-wrap:wrap;gap:6px 18px;margin-bottom:10px;font-size:13.5px;color:var(--ink-2)}
+.gi-now b{font-size:17px;margin:0 2px}
+.gi-cap{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:13.5px;color:var(--ink-2)}
+.gi-cap b{font-size:17px;color:var(--ink)}
+.gi-30{display:grid;grid-template-columns:repeat(3,1fr);background:#f4efe2;border:1px solid #e4dbc3;border-radius:22px;padding:16px 4px;box-shadow:var(--sh)}
+.gi-30>div{padding:0 12px;min-width:0;display:flex;flex-direction:column;gap:3px}
+.gi-30>div+div{border-left:1px solid #ddd2b6}
+.gi-l{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);line-height:1.2;min-height:28px}
+.gi-30 b{font-size:31px;font-weight:700;line-height:1.05;letter-spacing:-.02em}
+.gi-30 b.gi-navy{color:#123a5e}
+.gi-30 small{font-size:12px;color:var(--ink-2);line-height:1.25}
+@media (max-width:380px){ .gi-big{font-size:31px} .gi-30 b{font-size:26px} }
+
+.gi-nums{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:13px;color:rgba(255,255,255,.92)}
+.gi-nums span{display:inline-flex;align-items:center;gap:5px}
+.gi-nums b{color:#fff;font-size:15px;font-weight:700}
+.gi-nums i{display:inline-block;width:10px;height:10px;border-radius:3px}
+.gi-nums i.mu{background:var(--mu)}.gi-nums i.ho{background:var(--ho)}
+.gi-now small{font-size:12.5px;color:var(--ink-2)}
+
+/* el botón + va junto al número, siempre dentro de la tarjeta, aun en pantallas angostas */
+.gi-numrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.gi-h2 .gi-lbl{font-size:11.5px;letter-spacing:.04em}

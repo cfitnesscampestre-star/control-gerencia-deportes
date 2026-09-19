@@ -1,0 +1,40 @@
+/* =====================================================================
+   app-mobile.css — vista de celular (menos de 900 px)
+   Encabezado con degradado, navegación inferior flotante y tarjetas
+   grandes para capturar aforos con el pulgar.
+   ===================================================================== */
+.only-d{display:none!important}
+.sidebar{display:none}
+.cols2{display:block}
+.topbar{
+  margin:calc(10px + env(safe-area-inset-top)) 12px 0;padding:12px 14px;border-radius:24px;color:#fff;
+  background:url(../img/textura.svg) 0 0/352px 352px,radial-gradient(260px 140px at 100% 0%,rgba(255,255,255,.18),transparent 60%),var(--surf);
+  box-shadow:0 12px 28px var(--sb2);
+}
+.topbar .tb-t b{color:#fff;font-size:19px}
+.topbar .tb-t small{color:rgba(255,255,255,.86)}
+.topbar .tb-t .cloud{color:rgba(255,255,255,.92)}
+.topbar .ibtn{width:40px;height:40px;background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.35);color:#fff}
+.topbar .ibtn:hover{background:rgba(255,255,255,.28)}
+.main{padding:16px 14px calc(136px + env(safe-area-inset-bottom))}
+/* Barra inferior: recuadro sólido y oscuro, con borde y sombra, para que se distinga del contenido */
+.bottomnav{
+  position:fixed;left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:40;
+  display:flex;gap:4px;padding:7px;border-radius:28px;
+  background:url(../img/textura.svg) 0 0/352px 352px,var(--surf);
+  border:2px solid rgba(255,255,255,.55);
+  box-shadow:0 16px 36px rgba(0,35,40,.5),0 3px 10px rgba(0,35,40,.3),0 0 0 4px rgba(255,255,255,.55);
+}
+.app:not(.fs)::after{content:"";position:fixed;left:0;right:0;bottom:0;height:calc(110px + env(safe-area-inset-bottom));z-index:39;pointer-events:none;
+  background:linear-gradient(to top,rgba(226,238,236,.97) 40%,rgba(226,238,236,0))}
+.bottomnav button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 2px 9px;border-radius:22px;color:rgba(255,255,255,.86);font-size:12px;font-weight:700;text-align:center;transition:background .12s,color .12s}
+.bottomnav button .ic,.bottomnav button svg{width:25px;height:25px}
+.bottomnav button.on{background:#fff;color:var(--g-d);box-shadow:0 4px 12px rgba(0,30,30,.35)}
+.app.fs .bottomnav{display:none}
+.app.fs .main{padding-bottom:40px}
+.app.fs .tb-logo{display:none}
+@media (max-width:380px){
+  .tb-logo{display:none}
+  .bottomnav button{font-size:10.5px}
+  .bottomnav button .ic,.bottomnav button svg{width:23px;height:23px}
+}
