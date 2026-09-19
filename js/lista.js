@@ -15,13 +15,14 @@ function lsState(aid,g,fecha){
   const pres=new Set(((rec&&rec.presentes)||[]).filter(n=>roster.includes(n)));
   const aus=new Set(((rec&&rec.ausentes)||[]).filter(n=>roster.includes(n)));
   const extras=rec?(roster.length?(rec.lista?(+rec.extras||0):0):(+rec.asistentes||0)):0;
-  return {rec,roster,pres,aus,extras,nota:rec?(rec.nota||''):'',omitida:!!(rec&&rec.omitida),manual:!!(rec&&!rec.lista&&!rec.omitida&&roster.length)};
+  const notasAl=Object.fromEntries(((rec&&rec.notasAl)||[]).filter(x=>x&&roster.includes(x.n)&&x.t).map(x=>[x.n,x.t]));
+  return {rec,roster,pres,aus,extras,notasAl,nota:rec?(rec.nota||''):'',omitida:!!(rec&&rec.omitida),manual:!!(rec&&!rec.lista&&!rec.omitida&&roster.length)};
 }
 function lsWrite(aid,g,fecha,s){
   const roster=s.roster, pres=roster.filter(n=>s.pres.has(n)), aus=roster.filter(n=>s.aus.has(n));
   const extras=Math.max(0,Math.round(+s.extras||0));
   const rec={id:`${g.id}_${fecha}`,grupoId:g.id,fecha,asistentes:s.omitida?0:pres.length+extras,presentes:pres,ausentes:aus,extras,
-    lista:roster.length>0,nota:s.nota||'',porProf:isProf()?session.profId:'dir',actualizado:new Date().toISOString()};
+    lista:roster.length>0,nota:s.nota||'',notasAl:Object.entries(s.notasAl||{}).filter(([n,t])=>t&&roster.includes(n)).map(([n,t])=>({n,t})),porProf:isProf()?session.profId:'dir',actualizado:new Date().toISOString()};
   if(s.omitida) rec.omitida=true;
   setPath(`data/${aid}/asistencia/${rec.id}`,rec);
 }
@@ -40,11 +41,12 @@ function lsRow(name,st,ro){
     <div class="ls-bg"><span class="bp">✔ Presente</span><span class="bf">Falta ✖</span></div>
     <div class="ls-card">
       <span class="ls-av">${esc(iniciales(name))}</span>
-      <div class="ls-n"><b>${esc(name)}</b><span class="ls-st">${m==='p'?'Presente':m==='f'?'Falta':'Sin marcar'}</span></div>
+      <div class="ls-n"><b>${esc(name)}</b><span class="ls-st">${m==='p'?'Presente':m==='f'?'Falta':'Sin marcar'}</span>${st.notasAl&&st.notasAl[name]?`<span class="ls-na">${esc(st.notasAl[name])}</span>`:''}</div>
       ${ro?'':`<button class="ls-btn f" data-act="lsMark" data-m="f" aria-label="Falta">✖</button><button class="ls-btn p" data-act="lsMark" data-m="p" aria-label="Presente">✔</button>`}
     </div></div>`;
 }
 function vLista(){
+  if(typeof lrEs==='function'&&lrEs()) return vListaRapida();
   const c=lsCtx(); if(!c){ ui.lista=null; return ''; }
   const {aid,g,fecha}=c, s=lsState(aid,g,fecha), ro=lsRO(), cupo=+g.cupo||0, tot=s.pres.size+s.extras;
   const p=cupo>0?Math.round(tot/cupo*100):null, cls=aforoCls(p);
@@ -64,7 +66,7 @@ function vLista(){
     ${s.omitida?`<div class="empty ls-off" id="ls_off">Esta clase está marcada como “no hubo clase”. Marca a alguien o pulsa “Reabrir clase”.</div>`:''}
     ${s.roster.length?`
       ${ro?'':`<div class="ls-hint">Desliza → presente · Desliza ← falta</div>
-      <div class="btns ls-bulk"><button class="btn sm" data-act="lsAll" data-m="p">Todos presentes</button><button class="btn sm" data-act="lsAll" data-m="f">Los demás, falta</button></div>`}
+      <div class="btns ls-bulk"><button class="btn sm primary" data-act="listaModo">${ic('bolt')} Lista rápida</button><button class="btn sm" data-act="lsAll" data-m="p">Todos presentes</button><button class="btn sm" data-act="lsAll" data-m="f">Los demás, falta</button></div>`}
       <div class="ls-list">${s.roster.map(n=>lsRow(n,s,ro)).join('')}</div>`
       :empty(ro?'Este grupo no tiene lista de alumnos.':'Este grupo todavía no tiene lista de alumnos. La dirección puede agregarla en Grupos. Mientras tanto captura el número de asistentes aquí abajo.')}
     <div class="card" style="margin-top:12px">

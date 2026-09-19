@@ -38,7 +38,8 @@ function vProfHoy(){
     hero=`<div class="hero">
       <div class="hero-t"><span>${act.estado==='curso'?'Clase en curso':'Próxima clase'}</span><b>${esc(g.nombre)}</b>
         <span>${esc(horaTxt(g))}${g.lugar?' · '+esc(g.lugar):''} · ${plu(n,'alumno','alumnos')}</span></div>
-      <button class="hero-b" data-act="openLista" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">Pasar lista</button></div>`;
+      <div class="hero-bs"><button class="hero-b" data-act="openLista" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">Pasar lista</button>
+        ${n&&!esVinculada(aid)&&!fcId(g.id)?`<button class="hero-b2" data-act="openListaRapida" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">${ic('bolt')} Lista rápida</button>`:''}</div></div>`;
   }
   return `
     <div class="sub">${hoy?'Estas son tus clases de hoy. La que va según el horario aparece arriba.':'Estás viendo otro día.'}</div>
@@ -51,10 +52,12 @@ function vProfHoy(){
     <div class="h2">Mis clases</div>
     ${gs.length?gs.map(g=>{
       const r=recs[g.id], info=regInfo(r,g), n=rosterOf(g).length;
-      return `<button class="line" style="--ac:${areaColor(aid)}" data-act="openLista" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">
+      const rapida=n&&!esVinculada(aid)&&!fcId(g.id);
+      return `<div class="pcl${rapida?' con-rapida':''}"><button class="line" style="--ac:${areaColor(aid)}" data-act="openLista" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">
         <div class="t">${esc(g.hi||'—')}</div>
         <div class="b"><b>${esc(g.nombre)}</b><small>${esc(g.lugar||'Sin lugar')} · ${plu(n,'alumno','alumnos')}</small></div>
-        <div class="r">${r?`<span class="${info.cls}">${esc(info.txt)}${info.p!=null?'<br>'+info.p+'%':''}</span>`:'<span class="warn">Pendiente</span>'}</div></button>`;
+        <div class="r">${r?`<span class="${info.cls}">${esc(info.txt)}${info.p!=null?'<br>'+info.p+'%':''}</span>`:'<span class="warn">Pendiente</span>'}</div></button>
+        ${rapida?`<button class="pcl-rapida" data-act="openListaRapida" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}" aria-label="Lista rápida de ${esc(g.nombre)}">${ic('bolt')} Lista rápida</button>`:''}</div>`;
     }).join(''):empty('No tienes clases programadas este día.')}`;
 }
 

@@ -81,7 +81,8 @@ const ICONS = {
   user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
   clip:'<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9zM9 14l2 2 4-4"/>',
   chart:'<path d="M4 20V11M10 20V4M16 20v-7M22 20H2"/>',
-  logout:'<path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/>'
+  logout:'<path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/>',
+  bolt:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>'
 };
 const ic = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||''}</svg>`;
 
