@@ -1,0 +1,109 @@
+/* =====================================================================
+   servicios.css — Nutrición y Fisioterapia: bitácora, reportes y calendario
+   ===================================================================== */
+
+/* ---------- aviso de privacidad ---------- */
+.sv-priv{display:flex;gap:10px;align-items:flex-start;background:var(--info-l);border:1px solid rgba(10,111,189,.22);color:var(--ink-2);border-radius:14px;padding:10px 12px;margin:12px 0 4px;font-size:13px;line-height:1.4}
+.sv-priv svg{flex:none;width:20px;height:20px;margin-top:1px;color:var(--info)}
+.sv-priv b{color:var(--ink)}
+
+/* ---------- periodo (día, semana, mes) ---------- */
+.sv-per{margin:4px 0 8px}
+.sv-per .chips{margin-bottom:0}
+
+/* ---------- tarjeta de cada especialista (resumen y detalle del día) ---------- */
+.sv-esp,.sv-card{background:#fff;border:1px solid var(--line);border-left:5px solid var(--g-m,var(--b2));border-radius:var(--r);padding:12px 14px;margin:10px 0;box-shadow:var(--sh)}
+.sv-esp-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sv-esp-h b{font-size:16.5px;font-weight:700}
+.sv-hm{flex:none;background:var(--g-l);color:var(--g-d);border-radius:99px;padding:4px 12px;font-weight:700;font-size:14px}
+.sv-esp-t{margin:8px 0 2px;font-size:14px;line-height:1.5;color:var(--ink-2)}
+.sv-esp-t b{color:var(--ink)}
+.sv-esp-f{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);font-size:12.5px;color:var(--mut)}
+.sv-esp-f b{font-size:16px;color:var(--ink);margin-right:3px}
+.sv-card .line{margin-top:8px}
+.sv-l .t{font-weight:700}
+
+/* ---------- calendario del mes ---------- */
+.sv-cal{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:12px;box-shadow:var(--sh)}
+.sv-cal-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sv-cal-h b{flex:1;text-align:center;font-size:17px;font-weight:700}
+.sv-cal-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.sv-cal-w{text-align:center;font-size:11.5px;font-weight:700;color:var(--mut);text-transform:uppercase;padding:2px 0 4px}
+.sv-cal-x{display:block}
+.sv-cal-d{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:52px;padding:14px 2px 3px;border-radius:10px;border:1.5px solid var(--line);background:#fff;color:var(--ink)}
+.sv-cal-d .n{position:absolute;top:3px;left:6px;font-size:11px;font-weight:600;color:var(--mut)}
+.sv-cal-d b{font-size:18px;line-height:1.1}
+.sv-cal-d small{font-size:10px;color:var(--ink-2);line-height:1.1;white-space:nowrap}
+.sv-cal-d.hay{background:var(--ok-l);border-color:rgba(14,159,126,.55)}
+.sv-cal-d.sin{background:var(--warn-l);border:1.5px dashed rgba(217,138,0,.75)}
+.sv-cal-d.off,.sv-cal-d.fut{background:transparent;border-color:transparent;opacity:.55}
+.sv-cal-d.hoy{box-shadow:0 0 0 2px var(--b3)}
+.sv-cal-d:active{transform:scale(.97)}
+.sv-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin:12px 0 4px;font-size:12px;color:var(--ink-2)}
+.sv-leg i{display:inline-block;width:11px;height:11px;border-radius:4px;margin-right:5px;vertical-align:-1px;border:1.5px solid var(--line)}
+.sv-leg i.hay{background:var(--ok-l);border-color:rgba(14,159,126,.7)}
+.sv-leg i.sin{background:var(--warn-l);border:1.5px dashed rgba(217,138,0,.85)}
+
+/* ---------- registro del especialista ---------- */
+.sv-durs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sv-durs .chip{padding:6px 12px}
+.sv .ibtn:disabled,.af-date .ibtn:disabled{opacity:.35;pointer-events:none}
+.btn.block{width:100%}
+
+/* ---------- días de atención (formulario del especialista) ---------- */
+.sv-dias{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 6px}
+.sv-d{position:relative;cursor:pointer}
+.sv-d input{position:absolute;opacity:0;pointer-events:none}
+.sv-d span{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:40px;padding:0 10px;border-radius:12px;border:1.5px solid var(--line-2);background:#fff;font-weight:600;font-size:14px;color:var(--ink-2);transition:background .15s,border-color .15s,color .15s}
+.sv-d input:checked+span{background:var(--g-l);border-color:var(--g-m);color:var(--g-d)}
+.sv-d input:focus-visible+span{outline:2px solid var(--b3);outline-offset:2px}
+.sv-d input:disabled+span{opacity:.6}
+
+/* ---------- comité / informe imprimible ---------- */
+.sv-pan{margin-bottom:22px}
+.sv-pan+.sv-pan{padding-top:16px;border-top:1px solid var(--line)}
+.sv-rp{margin-bottom:14px;break-inside:avoid}
+.sv-rp p{margin:4px 0 8px;line-height:1.5}
+
+@media (max-width:420px){ .sv-cal-d{min-height:46px} }
+@media print{ .sv-priv,.sv-per{display:none} .sv-pan{break-inside:avoid-page} }
+
+/* ---------- horario del especialista (formulario) ---------- */
+.sv-hor{display:flex;flex-direction:column;gap:8px;margin:6px 0 8px}
+.sv-hr{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.sv-hr .sv-d span{min-width:54px;height:42px}
+.sv-hr input[type=time]{flex:1;min-width:0;height:42px;padding:0 8px;border-radius:12px;border:1.5px solid var(--line-2);background:#fff;font:inherit;font-weight:600}
+.sv-hr em{font-style:normal;color:var(--mut);font-size:13px}
+.sv-hr:not(.on) input[type=time]{opacity:.4}
+.sv-hor-t{font-size:13px;color:var(--mut);margin:2px 0 4px}
+.sv-hor-t b{color:var(--ink)}
+
+/* ---------- barra del turno (servicio / no llegó / libre) ---------- */
+.sv-tl{margin:8px 0 6px}
+.sv-tl-b{position:relative;height:16px;border-radius:8px;background:#dfe6ea;overflow:hidden}
+.sv-tl-b i{position:absolute;top:0;bottom:0;display:block}
+.sv-tl-b i.att,.sv-tl-k i.att{background:var(--ok)}
+.sv-tl-b i.perd,.sv-tl-k i.perd{background:repeating-linear-gradient(45deg,#f0b040,#f0b040 4px,#f7d488 4px,#f7d488 8px)}
+.sv-tl-e{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;font-size:11.5px;color:var(--mut)}
+.sv-tl-k{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.sv-tl-k i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.sv-tl-k i.idle{background:#dfe6ea}
+
+/* ---------- ocupación del turno ---------- */
+.sv-u-ok{color:var(--ok)}.sv-u-warn{color:#b26a00}.sv-u-bad{color:var(--bad)}
+.sv-cal-d.hay.u-ok{background:var(--ok-l);border-color:rgba(14,159,126,.6)}
+.sv-cal-d.hay.u-warn{background:var(--warn-l);border-color:rgba(217,138,0,.6)}
+.sv-cal-d.hay.u-bad{background:var(--bad-l);border-color:rgba(214,59,47,.6)}
+.sv-leg i.u-ok{background:var(--ok-l);border-color:rgba(14,159,126,.7)}
+.sv-leg i.u-warn{background:var(--warn-l);border-color:rgba(217,138,0,.7)}
+.sv-leg i.u-bad{background:var(--bad-l);border-color:rgba(214,59,47,.7)}
+.sv-warn{display:flex;gap:10px;align-items:center;background:var(--warn-l);border:1px solid rgba(217,138,0,.35);border-radius:14px;padding:10px 12px;margin:8px 0;font-size:13.5px}
+.sv-warn svg{flex:none;width:20px;height:20px;color:var(--warn)}
+
+/* ---------- registro: estado y hora de captura ---------- */
+.sv-dur{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-2px 0 10px;font-size:14px}
+.sv-late{color:#b26a00;font-weight:600}
+.sv-tag{display:inline-block;background:var(--warn-l);color:#b26a00;border-radius:99px;padding:1px 8px;font-size:11.5px;font-weight:700;margin-right:4px}
+.sv-l.sv-no{opacity:.92;border-left-color:var(--warn)}
+.sv-l small.mut{display:block;margin-top:1px}
+@media (max-width:420px){ .sv-tl-k{font-size:10.5px;gap:6px} }
