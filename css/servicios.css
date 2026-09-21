@@ -107,3 +107,20 @@
 .sv-l.sv-no{opacity:.92;border-left-color:var(--warn)}
 .sv-l small.mut{display:block;margin-top:1px}
 @media (max-width:420px){ .sv-tl-k{font-size:10.5px;gap:6px} }
+
+/* ---------- Gimnasio: horario y capacidad por día (Ajustes) ---------- */
+.gh{display:flex;flex-direction:column;gap:8px;margin:6px 0 8px}
+.gh-r{display:grid;grid-template-columns:auto 1fr auto 1fr 76px;align-items:center;gap:6px}
+.gh-r .sv-d span{min-width:54px;height:42px}
+.gh-r select,.gh-r input.gh_cap{height:42px;min-width:0;padding:0 6px;border-radius:12px;border:1.5px solid var(--line-2);background:#fff;font:inherit;font-weight:600}
+.gh-r input.gh_cap{width:100%;text-align:center}
+.gh-r em{font-style:normal;color:var(--mut);font-size:13px}
+.gh-r:not(.on) select,.gh-r:not(.on) input.gh_cap{opacity:.4}
+
+/* ---------- Gimnasio: pantalla del instructor ---------- */
+.gpf .card.ptp{margin-bottom:10px}
+.gpf .btns{margin-top:10px}
+
+/* encabezados con dos botones (Personalizados en celular): que bajen de renglón en vez de salirse de la pantalla */
+.h2{flex-wrap:wrap;row-gap:8px}
+.gh-r .sv-d span{width:58px;min-width:58px}
