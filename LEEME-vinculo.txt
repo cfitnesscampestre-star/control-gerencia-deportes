@@ -89,3 +89,25 @@ PRIMERA CONEXIÓN (importante)
 AL SUBIR CAMBIOS A GITHUB
 - Sube el número ?v= en index.html y VERSION en sw.js (van juntos, ahora 33).
 - Si agregas un archivo nuevo en css/, js/ o img/, agrégalo a la lista ARCHIVOS de sw.js.
+
+
+REPARTO POR ÁREA DE LAS CLASES DE FITNESS CONTROL (v35)
+=========================================================
+En Fitness Control todos los profesores siguen en un solo grupo, sin cambios ahí.
+En Control Gerencia, cada clase que llega de Fitness Control se manda al área cuyo NOMBRE
+coincida con el nombre de la clase (igual que ya pasaba con los eventos, que se mandan por "deporte"):
+
+  Ejemplo: la clase "Gimnasia rítmica" contiene la palabra "Gimnasia" → cae en el área Gimnasia.
+  Cualquier otra clase (CrossFit, Spinning, Yoga...) cae en el área Fitness, como antes.
+
+Una instructora puede aparecer en dos áreas a la vez si da clases que caen en las dos (por ejemplo,
+Fitness y Gimnasia): en cada área solo se ve a ella y sus clases de esa área, de solo lectura.
+
+El área que recibe estas clases "de rebote" (como Gimnasia) NO queda marcada como área vinculada:
+su director sigue pudiendo capturar ahí lo que ya manejaba (Academia, incidencias, lo propio de esa
+disciplina). Solo las clases y profesores que vienen de Fitness Control se ven de solo lectura, con
+un aviso "Algunas clases vienen de Fitness Control" en Dashboard, Profesores, Registros y Aforos.
+
+Si el nombre de una clase en Fitness Control no debe repartirse (por ejemplo, cambia de nombre o hay
+que corregir a qué área va), se ajusta en Fitness Control (nombre de la clase) o pidiendo un ajuste
+al reparto en Control Gerencia — no hace falta tocar nada del lado de Fitness Control para esto.
