@@ -111,3 +111,26 @@ un aviso "Algunas clases vienen de Fitness Control" en Dashboard, Profesores, Re
 Si el nombre de una clase en Fitness Control no debe repartirse (por ejemplo, cambia de nombre o hay
 que corregir a qué área va), se ajusta en Fitness Control (nombre de la clase) o pidiendo un ajuste
 al reparto en Control Gerencia — no hace falta tocar nada del lado de Fitness Control para esto.
+
+
+ÁREA 100% MANUAL, SIN NADA AUTOMÁTICO DE FITNESS CONTROL (v36)
+=================================================================
+Si una clase de Fitness Control se estaba repartiendo sola a un área por el nombre (ver v35) y en esa
+área SÍ quieres dar de alta la lista de alumnos y pasar lista real (cosa que Fitness Control no hace,
+solo cuenta aforo), puedes apagar el reparto automático para esa área:
+
+  Ajustes → Áreas → Editar el área → activa "No traer clases automáticas de Fitness Control a esta área"
+
+Con esto esa área deja de recibir CUALQUIER clase, profesor, aforo o evento automático de Fitness
+Control: queda 100% manual, como cualquier otra área sin vínculo. Ahí sí puedes dar de alta a la
+profesora (con su PIN), crear su grupo con la lista real de alumnas y ella pasa lista deslizando
+(presente/ausente), igual que cualquier otro grupo de Gerencia.
+
+Por defecto, al actualizar a esta versión, el área GIMNASIA queda así (100% manual) — es justo el caso
+de Sara, Valeria y Jimena: sus clases de "Gimnasia rítmica" que capturabas por aforo en Fitness Control
+ya no se reflejan solas en Gerencia; ahí ahora se da de alta la lista real por separado. Si algún día
+prefieres volver a traerlas automáticas (sin lista, solo aforo de Fitness Control), apaga esa casilla.
+
+Los dos números (el aforo que anotas en Fitness Control y el que resulte de pasar lista en Gerencia)
+son capturas independientes que no se mezclan ni se sincronizan solas: si quieres compararlos o llevar
+uno solo como definitivo, es un paso manual tuyo.
