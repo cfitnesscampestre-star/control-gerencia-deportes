@@ -58,11 +58,13 @@ const SIM_APOYOS = { gimnasio:'Autorizar dos mancuernas de 30 kg para la zona de
 
 /* Gimnasio: conteo por hora (mujeres y hombres) de las últimas 12 semanas y paquetes de personalizados por instructor */
 function simGimnasio(a,ai,D,profs,rnd,t,nombreAlumno){
-  const c={cap:+a.cap||60,abre:a.abre!=null?+a.abre:6,cierra:a.cierra!=null?+a.cierra:22};
+  const DD=gimDias(a.id);                                                       // horario y capacidad de cada día de la semana
   const curva={6:.42,7:.6,8:.52,9:.36,10:.28,11:.3,12:.4,13:.42,14:.3,15:.3,16:.38,17:.6,18:.8,19:.9,20:.72,21:.4};      // ocupación típica por hora (entre semana)
   const mujeres={6:.42,7:.4,8:.5,9:.62,10:.66,11:.6,12:.5,13:.48,14:.52,15:.5,16:.46,17:.4,18:.36,19:.34,20:.38,21:.4};    // proporción de mujeres por hora
   for(let k=0;k<84;k++){
     const f=addDays(t,-k), wd=wdIdx(f), fdia=wd>=5?(wd===5?.62:.45):1, hoyHoras=k===0?new Date().getHours():99;
+    const dd0=DD[wd]; if(!dd0) continue;                                        // el gimnasio no abre ese día
+    const c=dd0;
     if(rnd()<.03) continue;                                                     // día sin conteos
     for(let h=c.abre;h<c.cierra;h++){
       if(k===0&&h>hoyHoras) continue;

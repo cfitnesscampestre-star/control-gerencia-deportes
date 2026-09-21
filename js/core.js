@@ -13,7 +13,7 @@ const DEF_PASS_GER = 'gerencia2026', DEF_PASS_DIR = 'direccion2026';
 const COLORS = ['#0f7a5a','#0a6fbd','#5fb336','#2aaed6','#0e8f8f','#d98a00','#e0562f','#5b5bd6','#c2187a','#7a2b8f','#3b82c4','#8a5cf5'];
 const DEFAULT_AREAS = [
   {id:'gimnasia',nombre:'Gimnasia',icono:'gimnasia'},
-  {id:'gimnasio',nombre:'Gimnasio',icono:'pesas',tipo:'gimnasio',cap:60,abre:6,cierra:22,estancia:1.25},
+  {id:'gimnasio',nombre:'Gimnasio',icono:'pesas',tipo:'gimnasio',cap:60,abre:6,cierra:23,estancia:1.25,horario:{d0:{a:6,c:23},d1:{a:6,c:23},d2:{a:6,c:23},d3:{a:6,c:23},d4:{a:6,c:23},d5:{a:6,c:23},d6:{a:9,c:16}}},
   {id:'fitness',nombre:'Fitness',icono:'fitness',vinculo:true},
   {id:'tenis',nombre:'Tenis',icono:'tenis'},
   {id:'futbol',nombre:'Fútbol',icono:'futbol'},
@@ -139,7 +139,7 @@ function ensureSeed(){
     state.cfg.gimAdd=true; ch=true;
     if(!Object.values(state.cfg.areas).some(a=>a.tipo==='gimnasio')){
       const orden=Math.max(0,...Object.values(state.cfg.areas).map(a=>a.orden||0))+1;
-      state.cfg.areas.gimnasio={id:'gimnasio',nombre:'Gimnasio',icono:'pesas',tipo:'gimnasio',cap:60,abre:6,cierra:22,estancia:1.25,orden,color:COLORS[Object.keys(state.cfg.areas).length%COLORS.length]};
+      state.cfg.areas.gimnasio={id:'gimnasio',nombre:'Gimnasio',icono:'pesas',tipo:'gimnasio',cap:60,abre:6,cierra:23,estancia:1.25,horario:{d0:{a:6,c:23},d1:{a:6,c:23},d2:{a:6,c:23},d3:{a:6,c:23},d4:{a:6,c:23},d5:{a:6,c:23},d6:{a:9,c:16}},orden,color:COLORS[Object.keys(state.cfg.areas).length%COLORS.length]};
     }
   }
   if(!state.cfg.servAdd){                                 // configuraciones anteriores: se agregan Nutrición y Fisioterapia una sola vez
@@ -286,6 +286,7 @@ function safeRender(){                          // no redibuja mientras se escri
 function validateSession(){
   if(session&&session.rol!=='ger'&&!getArea(session.area)){ session=null; saveSession(); }
   if(session&&session.rol==='prof'&&!getProf(session.area,session.profId)){ session=null; saveSession(); }
+  if(session&&session.rol==='rec'&&!getRec(session.area,session.recId)){ session=null; saveSession(); }
   if(ui.gArea&&!getArea(ui.gArea)) ui.gArea=null;
 }
 

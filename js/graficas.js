@@ -66,11 +66,11 @@ function chClases(aid,dim,R){
 
 /* ---------- datos: gimnasio (personas por hora, mujeres y hombres) ---------- */
 function chGim(aid,dim,R){
-  const cap=gimCfg(aid).cap, recs=coll(aid,'accesos').filter(r=>r.fecha>=R.desde&&r.fecha<=R.hasta), map={};
+  const recs=coll(aid,'accesos').filter(r=>r.fecha>=R.desde&&r.fecha<=R.hasta), map={}, cap=recs.length?Math.round(recs.reduce((n,r)=>n+gimCapDia(aid,r.fecha),0)/recs.length):gimCfg(aid).cap;
   recs.forEach(r=>{
     const k=dim==='hora'?String(+r.hora):chClave(dim,r.fecha);
     const b=map[k]=map[k]||{k,mu:0,ho:0,ses:0,ratios:[]};
-    const mu=+r.mu||0, ho=+r.ho||0; b.mu+=mu; b.ho+=ho; b.ses++; b.ratios.push((mu+ho)/cap*100);
+    const mu=+r.mu||0, ho=+r.ho||0; b.mu+=mu; b.ho+=ho; b.ses++; b.ratios.push((mu+ho)/gimCapDia(aid,r.fecha)*100);
   });
   const promedia=(dim==='hora'||dim==='dsem');                    // por hora del día y por día de la semana: promedio por hora contada
   const claves=dim==='hora'?gimHoras(aid).map(String):chSlots(dim,R.desde,R.hasta);

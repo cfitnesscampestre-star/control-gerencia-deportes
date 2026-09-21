@@ -13,8 +13,12 @@ const NAV_M_GIM = [
   {id:'inicio',label:'Inicio',ic:'home',tabs:['inicio']},
   {id:'gimaforo',label:'Aforo',ic:'gauge',tabs:['gimaforo']},
   {id:'gimpt',label:'Personal.',ic:'users',tabs:['gimpt']},
-  {id:'profesores',label:'Instructores',ic:'clip',tabs:['profesores','eventos']},
+  {id:'profesores',label:'Equipo',ic:'clip',tabs:['profesores','recepcion','eventos']},
   {id:'reporte',label:'Reporte',ic:'doc',tabs:['reporte']}
+];
+const NAV_M_REC = [
+  {id:'gimaforo',label:'Aforo',ic:'gauge',tabs:['gimaforo']},
+  {id:'gimpt',label:'Personalizados',ic:'users',tabs:['gimpt']}
 ];
 const NAV_M_SERV = [
   {id:'inicio',label:'Resumen',ic:'cal',tabs:['inicio']},
@@ -32,16 +36,17 @@ const NAV_M_GER = [
 ];
 
 function viewBottomNav(){
-  const ger=session.rol==='ger', prof=session.rol==='prof';
-  if(prof&&esServ(session.area)) return '';            // el especialista solo tiene su bitácora: no hace falta barra inferior
-  const items=ger?NAV_M_GER:prof?NAV_M_PROF:(esServ(session.area)?NAV_M_SERV:esGim(session.area)?NAV_M_GIM:NAV_M_DIR), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';
+  const ger=session.rol==='ger', prof=session.rol==='prof', rec=session.rol==='rec';
+  if(prof&&(esServ(session.area)||esGim(session.area))) return '';            // el especialista solo tiene su bitácora: no hace falta barra inferior
+  const items=ger?NAV_M_GER:prof?NAV_M_PROF:rec?NAV_M_REC:(esServ(session.area)?NAV_M_SERV:esGim(session.area)?NAV_M_GIM:NAV_M_DIR), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';
   return `<nav class="bottomnav" aria-label="Navegación">${items.map(n=>
     `<button class="${n.tabs.includes(cur)?'on':''}" data-act="${act}" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')}</nav>`;
 }
 
 /* En celular, Calendario y Eventos comparten la pestaña "Agenda". */
-function gimSwitch(){                          // gimnasio: Instructores | Eventos comparten la pestaña
-  return `<div class="seg only-m" style="margin-top:6px"><button class="${ui.aTab==='profesores'?'on':''}" data-act="aTab" data-tab="profesores">Instructores</button><button class="${ui.aTab==='eventos'?'on':''}" data-act="aTab" data-tab="eventos">Eventos</button></div>`;
+function gimSwitch(){                          // gimnasio: Instructores | Recepción | Eventos comparten la pestaña
+  const b=(t,l)=>`<button class="${ui.aTab===t?'on':''}" data-act="aTab" data-tab="${t}">${l}</button>`;
+  return `<div class="seg only-m" style="margin-top:6px">${b('profesores','Instructores')}${b('recepcion','Recepción')}${b('eventos','Eventos')}</div>`;
 }
 function agendaSwitch(){
   if(session.rol==='dir'&&esServ(curArea())) return servSwitch();

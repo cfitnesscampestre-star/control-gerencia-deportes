@@ -26,7 +26,7 @@ function vProfesores(aid){
     <div class="h2">${pfNom(aid,1)} ${ro?'':`<button class="btn sm primary" data-act="openProfesor">+ ${pfNom(aid,0)}</button>`}</div>
     ${vinculoBanner(aid)}
     ${gruposSwitch()}
-    <div class="sub">${esServ(aid)?(ro?'Especialistas del área y su clave de acceso.':'Da de alta a cada especialista con su horario y su clave: con ella entra a registrar los servicios que da cada día.'):ro?'Profesores del área y sus clases.':(esGim(aid)?'Da de alta a los instructores del gimnasio. Sus personalizados se registran en la pestaña Personalizados.':'Da de alta a tus profesores y asígnales clases en Grupos. Con su PIN entran a pasar lista.')}</div>
+    <div class="sub">${esServ(aid)?(ro?'Especialistas del área y su clave de acceso.':'Da de alta a cada especialista con su horario y su clave: con ella entra a registrar los servicios que da cada día.'):ro?'Profesores del área y sus clases.':(esGim(aid)?'Da de alta a los instructores del gimnasio con su PIN: con él entran a registrar sus sesiones de personalizado. Recepción les asigna los personalizados.':'Da de alta a tus profesores y asígnales clases en Grupos. Con su PIN entran a pasar lista.')}</div>
     ${ps.length?`<div class="plist">${ps.map(p=>pCard(aid,p)).join('')}</div>`
       :empty(ro?'Esta área todavía no tiene '+pfNom(aid,1).toLowerCase()+' dados de alta.':'Aún no hay '+pfNom(aid,1).toLowerCase()+'. Da de alta al primero con “+ '+pfNom(aid,0)+'”.')}`;
 }
@@ -47,9 +47,9 @@ function openProfesor(pid){
     </div>
     <label class="f"><span>Especialidades</span><input id="pf_esp" value="${esc(p.especialidad)}" placeholder="${esServ(aid)?'Ej. Rehabilitación deportiva, Nutrición deportiva':'Ej. Pilates, CrossFit'}"${dis}></label>
     ${esServ(aid)?svProfCampos(aid,p,ro):''}
-    ${(ro||esGim(aid))?'':`<div class="f"><span class="lb">PIN de acceso (4 a 6 dígitos)</span>
+    ${ro?'':`<div class="f"><span class="lb">PIN de acceso (4 a 6 dígitos)</span>
       <div class="pinrow"><input id="pf_pin" inputmode="numeric" maxlength="6" autocomplete="off" value="${esc(p.pin)}"><button class="btn sm" data-act="pfGenPin">Generar</button></div>
-      <small class="mut">El profesor usa este PIN, junto con su nombre, para entrar y pasar lista.</small></div>`}
+      <small class="mut">${esGim(aid)?'El instructor usa este PIN, junto con su nombre, para entrar a registrar sus sesiones de personalizado.':esServ(aid)?'El especialista usa este PIN, junto con su nombre, para entrar a registrar sus servicios.':'El profesor usa este PIN, junto con su nombre, para entrar y pasar lista.'}</small></div>`}
     ${(pid&&!esServ(aid))?`<div class="h2 sm">Clases asignadas (${clases.length})</div>
       ${clases.length?clases.map(g=>`<div class="line" style="--ac:${areaColor(aid)}"><div class="t">${esc(g.hi||'—')}</div><div class="b"><b>${esc(g.nombre)}</b><small>${esc(diasArr(g).map(i=>DIAS[i]).join(' · ')||'Sin días')}${g.lugar?' · '+esc(g.lugar):''}</small></div><div class="r">${rosterOf(g).length} alumnos</div></div>`).join(''):empty('Todavía no tiene clases asignadas.')}`:''}
     ${ro?`<div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`:`
@@ -80,7 +80,7 @@ Object.assign(actions,{
     const aid=curArea(), nombre=$('#pf_nombre').value.trim(), pin=($('#pf_pin')||{value:''}).value.trim();
     if(!nombre){ toast('Escribe el nombre del profesor'); return; }
     const errH=svProfError(aid); if(errH){ toast(errH); return; }
-    if(!esGim(aid)&&!/^\d{4,6}$/.test(pin)){ toast('El PIN debe tener de 4 a 6 dígitos'); return; }
+    if(!/^\d{4,6}$/.test(pin)){ toast('El PIN debe tener de 4 a 6 dígitos'); return; }
     const id=d.id||('p'+uid()), prev=d.id?(getProf(aid,id)||{}):{};
     setPath(`data/${aid}/profesores/${id}`,{...prev,id,nombre,pin,tipo:$('#pf_tipo').value,activo:$('#pf_activo').value==='1',especialidad:$('#pf_esp').value.trim(),foto:pfFotoData||'',...svProfLeer(aid)});
     if(prev.nombre&&prev.nombre!==nombre) clasesDe(aid,id).forEach(g=>setPath(`data/${aid}/grupos/${g.id}/prof`,nombre));

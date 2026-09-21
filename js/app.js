@@ -18,25 +18,26 @@ function shell({title,sub,body,back,fs}){
 function render(){
   const app=$('#app');
   if(!session){ app.innerHTML=viewLogin(); return; }
-  app.innerHTML = session.rol==='ger' ? viewGerencia() : session.rol==='dir' ? viewDireccion() : viewProfesor();
+  app.innerHTML = session.rol==='ger' ? viewGerencia() : session.rol==='dir' ? viewDireccion() : session.rol==='rec' ? viewRecepcion() : viewProfesor();
   if(typeof chAlFinal==='function') chAlFinal();
 }
 
 /* ----- contenido de un área (dirección edita, gerencia solo lee) ----- */
 function areaTabs(){
   const T=esServ(ui.gArea)?svTabs(ui.gArea):esGim(ui.gArea)
-    ?[['inicio','Resumen'],['gimaforo','Aforo por hora'],['gimpt','Personalizados'],['profesores','Instructores'],['eventos','Eventos'],['reporte','Reporte']]
+    ?[['inicio','Resumen'],['gimaforo','Aforo por hora'],['gimpt','Personalizados'],['profesores','Instructores'],['recepcion','Recepción'],['eventos','Eventos'],['reporte','Reporte']]
     :[['inicio','Resumen'],['aforos','Aforos'],['grupos','Grupos'],['profesores','Profesores'],['calendario','Calendario'],['eventos','Eventos'],['reporte','Reporte']];
   return `<div class="chips">${T.map(([id,l])=>`<button class="chip${ui.aTab===id?' on':''}" data-act="aTab" data-tab="${id}">${l}</button>`).join('')}</div>`;
 }
 function areaBody(aid){
   const gim=esGim(aid), srv=esServ(aid);
-  if(gim&&!['inicio','gimaforo','gimpt','profesores','eventos','reporte'].includes(ui.aTab)) ui.aTab='inicio';
+  if(gim&&!['inicio','gimaforo','gimpt','profesores','recepcion','eventos','reporte'].includes(ui.aTab)) ui.aTab='inicio';
   if(srv&&!svTabs(aid).some(t=>t[0]===ui.aTab)) ui.aTab='inicio';
   if(!gim&&['gimaforo','gimpt'].includes(ui.aTab)) ui.aTab='inicio';
   switch(ui.aTab){
     case 'gimaforo': return vGimAforo(aid);
     case 'gimpt': return vGimPT(aid);
+    case 'recepcion': return vGimRecepcion(aid);
     case 'aforos': return vAforos(aid);
     case 'grupos': return vGrupos(aid);
     case 'profesores': return vProfesores(aid);

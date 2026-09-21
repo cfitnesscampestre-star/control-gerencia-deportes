@@ -54,16 +54,20 @@ function openAreaForm(id){
       <label class="f"><span>Color de identificación</span><input id="a_color" type="color" value="${esc(a.color)}"></label>
     </div>
     <div class="f"><span class="lb">Ícono</span><input id="a_icono" type="hidden" value="${esc(iconKey(a))}"><div class="ico-pick" id="ico_pick">${AREA_ICON_LIST.map(k=>`<button type="button" class="ico-op${iconKey(a)===k?' on':''}" data-act="pickIco" data-k="${k}" title="${esc(AREA_ICONS[k].n)}" aria-label="${esc(AREA_ICONS[k].n)}">${areaSvg(k,24)}</button>`).join('')}</div></div>
-    ${id?'':`<label class="f"><span>Tipo de área</span><select id="a_tipo"><option value="">Deportiva: grupos, clases y aforos por clase</option><option value="gimnasio">Gimnasio: aforo por hora (mujeres y hombres) y personalizados</option><option value="nutricion">Nutrición: agenda de consultas y casos</option><option value="fisioterapia">Fisioterapia: agenda de sesiones y casos</option></select></label>`}
+    ${id?'':`<label class="f"><span>Tipo de área</span><select id="a_tipo"><option value="">Deportiva: grupos, clases y aforos por clase</option><option value="gimnasio">Gimnasio: aforo por hora (mujeres y hombres) y personalizados</option><option value="nutricion">Nutrición: bitácora de servicios y horarios</option><option value="fisioterapia">Fisioterapia: bitácora de servicios y horarios</option></select></label>`}
     <div id="a_gim"${(a.tipo==='gimnasio')?'':' hidden'}>
       <div class="two">
-        <label class="f"><span>Capacidad de la sala (personas)</span><input id="a_cap" type="number" inputmode="numeric" min="1" value="${esc(a.cap||60)}"></label>
+        <label class="f"><span>Capacidad general de la sala (personas)</span><input id="a_cap" type="number" inputmode="numeric" min="1" value="${esc(a.cap||60)}"></label>
         <label class="f"><span>Permanencia promedio (horas)</span><input id="a_est" type="number" inputmode="decimal" step="0.25" min="0.5" value="${esc(a.estancia||1.25)}"></label>
       </div>
-      <div class="two">
-        <label class="f"><span>Abre a las (hora)</span><input id="a_abre" type="number" inputmode="numeric" min="0" max="23" value="${esc(a.abre!=null?a.abre:6)}"></label>
-        <label class="f"><span>Cierra a las (hora)</span><input id="a_cierra" type="number" inputmode="numeric" min="1" max="24" value="${esc(a.cierra!=null?a.cierra:22)}"></label>
-      </div>
+      <div class="f"><span class="lb">Horario y capacidad de cada día</span>
+        <div class="gh">${DIAS.map((l,i)=>{ const D=(typeof gimDias==='function'&&a.tipo==='gimnasio')?gimDias(a.id)[i]:(a.horario?null:{abre:i===6?9:6,cierra:i===6?16:23}); const X=a.horario?(a.horario['d'+i]||{}):{}; const ab=D?D.abre:6, ci=D?D.cierra:23;
+          return `<div class="gh-r${D?' on':''}"><label class="sv-d"><input type="checkbox" class="gh_on" value="${i}"${D?' checked':''}><span>${l}</span></label>
+            <select class="gh_a" aria-label="Abre ${l}">${Array.from({length:24},(_,h)=>`<option value="${h}"${h===ab?' selected':''}>${h}:00</option>`).join('')}</select><em>a</em>
+            <select class="gh_c" aria-label="Cierra ${l}">${Array.from({length:24},(_,k)=>k+1).map(h=>`<option value="${h}"${h===ci?' selected':''}>${h}:00</option>`).join('')}</select>
+            <input class="gh_cap" type="number" inputmode="numeric" min="1" placeholder="${esc(a.cap||60)}" value="${esc(X.cap||'')}" aria-label="Capacidad ${l}"></div>`; }).join('')}</div>
+        <button type="button" class="btn sm" data-act="ghCopiar">Copiar el primer día abierto a todos los demás</button>
+        <small class="mut">Desmarca los días que cierra. La última columna es la capacidad máxima de ese día: déjala vacía para usar la general. Ponla solo si ese día de verdad admite menos gente (por ejemplo, el domingo).</small></div>
       <div class="sub">La permanencia sirve para estimar las visitas a partir de los conteos por hora.</div>
     </div>
     <label class="f"><span>Origen de los datos</span><select id="a_vinc"><option value="0"${a.vinculo?'':' selected'}>Se capturan en Gerencia</option><option value="1"${a.vinculo?' selected':''}>Vienen de Fitness Control (solo lectura)</option></select><small class="mut">Solo un área puede recibir los datos de Fitness Control: sus profesores, clases y aforos.</small></label>
@@ -77,7 +81,8 @@ function aplicarTema(){
   const t=temaActual(); document.documentElement.dataset.tema=t;
   const m=document.querySelector('meta[name=theme-color]'); if(m) m.content=t==='magenta'?'#7a2b8f':'#0f7a5a';
 }
-document.addEventListener('change',e=>{ if(e.target.id==='a_tipo'){ const g=$('#a_gim'); if(g) g.hidden=e.target.value!=='gimnasio'; } });
+document.addEventListener('change',e=>{ if(e.target.classList&&e.target.classList.contains('gh_on')){ const r=e.target.closest('.gh-r'); if(r) r.classList.toggle('on',e.target.checked); }
+  if(e.target.id==='a_tipo'){ const g=$('#a_gim'); if(g) g.hidden=e.target.value!=='gimnasio'; } });
 Object.assign(actions,{
   pickIco(d){ $('#a_icono').value=d.k; document.querySelectorAll('.ico-op').forEach(b=>b.classList.toggle('on',b.dataset.k===d.k)); },
   tema(d){ try{ localStorage.setItem('gd_tema',d.t); }catch(e){} aplicarTema(); render(); },
@@ -93,6 +98,12 @@ Object.assign(actions,{
     setPath(d.kind==='ger'?'cfg/pass/ger':`cfg/pass/dir/${d.id}`,hashPass(n1));
     closeModal(); toast('Contraseña actualizada');
   },
+  ghCopiar(){                                            // copia el horario del primer día abierto a los demás días abiertos
+    const f=[...document.querySelectorAll('.gh-r')].filter(r=>r.querySelector('.gh_on').checked); if(f.length<2) return;
+    const a=f[0].querySelector('.gh_a').value, c=f[0].querySelector('.gh_c').value, k=f[0].querySelector('.gh_cap').value;
+    f.slice(1).forEach(r=>{ r.querySelector('.gh_a').value=a; r.querySelector('.gh_c').value=c; r.querySelector('.gh_cap').value=k; });
+    toast('Horario copiado a los días abiertos');
+  },
   areaNew(){ openAreaForm(''); },
   areaEdit(d){ openAreaForm(d.id); },
   saveArea(d){
@@ -101,8 +112,17 @@ Object.assign(actions,{
     const icono=$('#a_icono').value.trim()||'trofeo', color=$('#a_color').value;
     const vinculo=$('#a_vinc').value==='1'&&!(((getArea(d.id)||{}).tipo==='gimnasio')||(($('#a_tipo')||{}).value==='gimnasio')||SERV_TIPOS.includes((getArea(d.id)||{}).tipo)||SERV_TIPOS.includes(($('#a_tipo')||{}).value));
     const tipo=d.id?((getArea(d.id)||{}).tipo||''):(($('#a_tipo')||{}).value||'');
-    const gim=tipo==='gimnasio'?{tipo,cap:Math.max(1,parseInt($('#a_cap').value)||60),estancia:Math.max(.5,parseFloat($('#a_est').value)||1.25),abre:Math.min(23,Math.max(0,parseInt($('#a_abre').value)||0)),cierra:Math.min(24,Math.max(1,parseInt($('#a_cierra').value)||22))}:{};
-    if(gim.cierra!=null&&gim.cierra<=gim.abre){ toast('El cierre debe ser después de la apertura'); return; }
+    let gim={};
+    if(tipo==='gimnasio'){
+      const horario={}; let err='';
+      document.querySelectorAll('.gh-r').forEach(r=>{ const c=r.querySelector('.gh_on'); if(!c.checked) return;
+        const ab=+r.querySelector('.gh_a').value, ci=+r.querySelector('.gh_c').value, cap=parseInt(r.querySelector('.gh_cap').value)||0;
+        if(ci<=ab) err=`El cierre del ${DIAS[+c.value]} debe ser después de la apertura`;
+        horario['d'+c.value]={a:ab,c:ci,cap:cap>0?cap:''}; });
+      if(err){ toast(err); return; }
+      const H=Object.values(horario); if(!H.length){ toast('Marca al menos un día en que abre el gimnasio'); return; }
+      gim={tipo,cap:Math.max(1,parseInt($('#a_cap').value)||60),estancia:Math.max(.5,parseFloat($('#a_est').value)||1.25),horario,abre:Math.min(...H.map(x=>x.a)),cierra:Math.max(...H.map(x=>x.c))};
+    }
     if(vinculo) areasList().forEach(x=>{ if(x.id!==d.id&&x.vinculo) setPath(`cfg/areas/${x.id}`,{...x,vinculo:false}); });
     if(d.id){ setPath(`cfg/areas/${d.id}`,{...getArea(d.id),nombre,icono,color,vinculo,...gim}); }
     else {

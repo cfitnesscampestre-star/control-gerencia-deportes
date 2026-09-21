@@ -84,7 +84,7 @@ function svRetraso(x){                                   // minutos entre que te
 
 /* ---------- horario del especialista ---------- */
 const svHor = p => (p&&p.horario&&typeof p.horario==='object')?p.horario:null;
-const spDias = p => svHor(p) ? Object.keys(svHor(p)).map(Number) : [];
+const spDias = p => svHor(p) ? Object.keys(svHor(p)).filter(k=>svHor(p)[k]).map(Number) : [];
 function svTurnoDia(p,f){ const h=svHor(p)&&svHor(p)[wdIdx(f)]; if(!h) return null; const a=svMin(h.i), b=svMin(h.f); return (a==null||b==null||b<=a)?null:[a,b]; }
 function svHorarioTxt(p){
   const H=svHor(p); if(!H||!Object.keys(H).length) return 'Sin horario';

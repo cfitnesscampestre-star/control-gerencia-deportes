@@ -343,7 +343,7 @@ function pApoyo(d){
 /* ---------- Gimnasio ---------- */
 function gimHeatHTML(S,horas){
   return `<div class="an-hm gm-hm"><div class="an-hh"></div>${DIAS.map(x=>`<div class="an-hh">${x}</div>`).join('')}
-    ${horas.map(h=>`<div class="an-hl">${pad(h)} h</div>${[0,1,2,3,4,5,6].map(dw=>{ const c=S.heat[dw+'_'+h], p=c?Math.round(c.t/c.n/S.cap*100):null;
+    ${horas.map(h=>`<div class="an-hl">${pad(h)} h</div>${[0,1,2,3,4,5,6].map(dw=>{ const c=S.heat[dw+'_'+h], p=c?Math.round(c.t/c.cap*100):null;
       return `<div class="an-c ${p==null?'':aforoCls(p)}" title="${p==null?'Sin conteos':`${p}% de la capacidad · ${c.n} conteos`}">${p==null?'':p}</div>`; }).join('')}`).join('')}</div>
     <div class="an-leg"><span><i class="ok"></i>≥ 75%</span><span><i class="warn"></i>30–75%</span><span><i class="bad"></i>&lt; 30%</span><span><i class="mt"></i>sin conteos</span><span>Valores = % de la capacidad</span></div>`;
 }

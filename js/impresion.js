@@ -126,7 +126,7 @@ function repDocHTML(aid,wk){
 
 /* ---------- gimnasio: hoja de aforo por hora y hoja de personalizados ---------- */
 function gaDocHTML(aid,fecha){
-  const c=gimCfg(aid), horas=gimHoras(aid), S=gimStats(aid,fecha,fecha), serie=gimSerie(aid,fecha);
+  const c={cap:gimCapDia(aid,fecha)}, horas=gimHoras(aid,fecha), S=gimStats(aid,fecha,fecha), serie=gimSerie(aid,fecha);
   const fila=h=>{ const r=getPath(`data/${aid}/accesos/${fecha}_${pad(h)}`), t=r?gimTot(r):null, p=r?Math.round(t/c.cap*100):null;
     return `<tr><td>${hh(h)} – ${hh(h+1)}</td><td class="n">${r?(+r.mu||0):'—'}</td><td class="n">${r?(+r.ho||0):'—'}</td><td class="n"><b>${r?t:'—'}</b></td><td class="n ${aforoCls(p)}">${p==null?'—':p+'%'}</td></tr>`; };
   return `<div class="kpis an-kpis">

@@ -8,7 +8,7 @@ const loginUI = { rol:'ger', area:'all', prof:'', err:'' };
 (function recordarUltimoAcceso(){
   try{
     const l=JSON.parse(localStorage.getItem(LAST_KEY));
-    if(l){ loginUI.rol = ['ger','dir','prof'].includes(l.rol) ? l.rol : 'ger'; loginUI.area = l.area || 'all'; loginUI.prof = l.prof || ''; }
+    if(l){ loginUI.rol = ['ger','dir','prof','rec'].includes(l.rol) ? l.rol : 'ger'; loginUI.area = l.area || 'all'; loginUI.prof = l.prof || ''; }
   }catch(e){}
 })();
 
@@ -16,6 +16,13 @@ function loginProfHTML(){
   const a=loginUI.area==='all'?null:getArea(loginUI.area);
   const q='<p class="lg-q">Selecciona tu nombre:</p>';
   if(!a) return `${q}<div class="lg-note">Elige primero tu área en el filtro de arriba.</div>`;
+  if(loginUI.rol==='rec'){                                  // recepción: solo el gimnasio
+    if(!esGim(a.id)) return `${q}<div class="lg-note">Recepción es del Gimnasio. Elige arriba el área del gimnasio.</div>`;
+    const rs=recepcion(a.id).filter(r=>r.activo!==false&&r.pin);
+    if(!rs.length) return `${q}<div class="lg-note">${esc(a.nombre)} todavía no tiene personal de recepción. La dirección del área debe darlo de alta.</div>`;
+    if(!rs.some(r=>r.id===loginUI.prof)) loginUI.prof=rs.length===1?rs[0].id:'';
+    return `${q}<div class="lg-select"><select id="loginProf" aria-label="Recepción"><option value="">Elige tu nombre…</option>${rs.map(r=>`<option value="${esc(r.id)}"${loginUI.prof===r.id?' selected':''}>${esc(r.nombre)}</option>`).join('')}</select>${ic('chev')}</div>`;
+  }
   if(esVinculada(a.id)) return `${q}<div class="lg-note">Los profesores de ${esc(a.nombre)} pasan lista en Fitness Control.</div>`;
   const ps=profesores(a.id).filter(p=>p.activo!==false&&!p.sim&&p.pin);        // los profesores de simulación no tienen acceso
   if(!ps.length) return `${q}<div class="lg-note">${esc(a.nombre)} todavía no tiene profesores. La dirección del área debe darlos de alta.</div>`;
@@ -24,17 +31,18 @@ function loginProfHTML(){
 }
 function refreshLogin(){                             // actualiza en su lugar, sin perder lo escrito
   const box=$('#loginProfBox'); if(!box) return;
-  box.hidden = loginUI.rol!=='prof';
-  if(loginUI.rol==='prof') box.innerHTML=loginProfHTML();
+  const pin=['prof','rec'].includes(loginUI.rol);
+  box.hidden = !pin;
+  if(pin) box.innerHTML=loginProfHTML();
   const lbl=$('#pwLbl'), pw=$('#pw');
-  if(lbl) lbl.textContent = loginUI.rol==='prof' ? 'PIN' : 'Contraseña';
-  if(pw){ pw.placeholder = loginUI.rol==='prof' ? 'Ingresa tu PIN…' : 'Ingresa tu contraseña…'; pw.setAttribute('inputmode', loginUI.rol==='prof'?'numeric':'text'); }
+  if(lbl) lbl.textContent = pin ? 'PIN' : 'Contraseña';
+  if(pw){ pw.placeholder = pin ? 'Ingresa tu PIN…' : 'Ingresa tu contraseña…'; pw.setAttribute('inputmode', pin?'numeric':'text'); }
 }
 
 function viewLogin(){
   const as=areasList();
   if(loginUI.area!=='all'&&!getArea(loginUI.area)) loginUI.area='all';
-  const prof=loginUI.rol==='prof';
+  const prof=loginUI.rol==='prof', pin=['prof','rec'].includes(loginUI.rol);
   return `
   <div class="login">
     <div class="login-card">
@@ -56,18 +64,20 @@ function viewLogin(){
         <button class="lg-role${loginUI.rol==='ger'?' on':''}" data-act="pickRol" data-rol="ger">${ic('shield')}<b>Gerencia</b><small>Todas las áreas</small></button>
         <button class="lg-role${loginUI.rol==='dir'?' on':''}" data-act="pickRol" data-rol="dir">${ic('user')}<b>Dirección</b><small>Mi área</small></button>
         <button class="lg-role${prof?' on':''}" data-act="pickRol" data-rol="prof">${ic('clip')}<b>Profesor</b><small>Pasar lista</small></button>
+        <button class="lg-role${loginUI.rol==='rec'?' on':''}" data-act="pickRol" data-rol="rec">${ic('users')}<b>Recepción</b><small>Gimnasio</small></button>
       </div>
 
-      <div id="loginProfBox"${prof?'':' hidden'}>${prof?loginProfHTML():''}</div>
+      <div id="loginProfBox"${pin?'':' hidden'}>${pin?loginProfHTML():''}</div>
 
-      <label class="lg-lbl" id="pwLbl" for="pw">${prof?'PIN':'Contraseña'}</label>
-      <input id="pw" type="password" placeholder="${prof?'Ingresa tu PIN…':'Ingresa tu contraseña…'}" autocomplete="current-password"${prof?' inputmode="numeric"':''}>
+      <label class="lg-lbl" id="pwLbl" for="pw">${pin?'PIN':'Contraseña'}</label>
+      <input id="pw" type="password" placeholder="${pin?'Ingresa tu PIN…':'Ingresa tu contraseña…'}" autocomplete="current-password"${pin?' inputmode="numeric"':''}>
       <div class="err" id="loginErr">${esc(loginUI.err)}</div>
       <button class="btn cta block" data-act="login">Entrar <span aria-hidden="true">→</span></button>
       <div class="lg-help">
         <p>Gerencia: resumen y consulta de todas las áreas</p>
         <p>Dirección: profesores, grupos, aforos y reportes de tu área</p>
-        <p>Profesor: pasar lista de tus clases. Nutrición y Fisioterapia: registrar tus consultas del día</p>
+        <p>Profesor: pasar lista de tus clases. Nutrición y Fisioterapia: registrar tus servicios. Gimnasio: registrar tus sesiones de personalizado</p>
+        <p>Recepción del gimnasio: aforo por hora y alta de personalizados</p>
         ${simActiva()?'<p class="lg-sim">Modo simulación: se ven datos de ejemplo en todas las áreas</p>':''}
       </div>
     </div>
@@ -88,6 +98,12 @@ function doLogin(){
     if(loginUI.area==='all'||!getArea(loginUI.area)) return fail('Elige arriba el área a la que entras como dirección.');
     if(hashPass(pw)!==state.cfg.pass.dir[loginUI.area]) return fail('Contraseña de dirección incorrecta.');
     session={rol:'dir',area:loginUI.area}; ui.aTab='inicio';
+  } else if(loginUI.rol==='rec'){
+    if(loginUI.area==='all'||!getArea(loginUI.area)||!esGim(loginUI.area)) return fail('Elige arriba el área del gimnasio.');
+    const r=getRec(loginUI.area,loginUI.prof);
+    if(!r||r.activo===false) return fail('Elige tu nombre en la lista.');
+    if(String(pw).trim()!==String(r.pin)) return fail('PIN incorrecto.');
+    session={rol:'rec',area:loginUI.area,recId:r.id}; ui.aTab='gimaforo';
   } else {
     if(loginUI.area==='all'||!getArea(loginUI.area)) return fail('Elige arriba tu área.');
     const p=getProf(loginUI.area,loginUI.prof);
