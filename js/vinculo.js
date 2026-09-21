@@ -27,21 +27,27 @@ function fcAreaPorDeporte(dep,fallback){
 }
 
 /* ---------- conversión (función pura, se puede probar sin Firebase) ---------- */
+/* Cada clase se manda al área cuyo nombre coincida con el nombre de la clase (igual que los eventos,
+   ver fcAreaPorDeporte); si ninguna coincide, cae en el área vinculada (areaId). Así una instructora
+   de Fitness Control puede aparecer en Gerencia repartida: sus clases de "Gimnasia rítmica" cuentan
+   en el área Gimnasia y el resto en Fitness, sin tocar nada en Fitness Control. */
 function fcAdapt(raw,areaId,areas){
   raw=raw||{};
   const insts=fcArr(raw.instructores), regs=fcArr(raw.registros), sals=fcArr(raw.salones), evs=fcArr(raw.eventos);
   const instPorId=Object.fromEntries(insts.map(i=>[String(i.id),i]));
   const TIPO_SALON={salon:'Salón general',spinning:'Ciclismo indoor',yoga:'Mente y cuerpo',funcional:'Funcional',cardio:'Cardio',piscina:'Acuática',exterior:'Exterior',multiusos:'Multiusos'};
   const capDe=clase=>{ const s=sals.find(x=>fcArr(x.clases).some(c=>fcNorm(c)===fcNorm(clase))); return s?{cap:+s.cap||20,salon:s.nombre||'',tipo:TIPO_SALON[s.tipo]||''}:{cap:20,salon:'',tipo:''}; };
-  const profesores={}, grupos={}, asistencia={}, eventos={};
-
-  insts.forEach(i=>{ const id='fc_p'+i.id; profesores[id]={id,nombre:String(i.nombre||'Sin nombre'),tipo:i.tipo||'Planta',activo:i.activo!==false,especialidad:i.esp||'',foto:i.foto||'',fc:true}; });
+  const grupos={}, eventos={};
+  const profIdsPorArea={};                                    // aid -> Set de ids de instructor (fc_pID) con al menos una clase ahí
 
   const gid=(iid,clase,hora)=>`fc_g${iid}_${fcNorm(clase).replace(/[^a-z0-9]/g,'')}_${hora.replace(':','')}`;
   const mk=(iid,clase,hora)=>{
     const id=gid(iid,clase,hora);
     if(!grupos[id]){ const c=capDe(clase), inst=instPorId[String(iid)];
-      grupos[id]={id,nombre:String(clase),prof:inst?String(inst.nombre):'',profId:inst?'fc_p'+iid:'',dias:'',hi:hora,hf:'',lugar:c.salon,tipo:c.tipo,cupo:c.cap,inscritos:0,alumnos:'',fc:true,_d:new Set(),_prog:false,_last:'',_capF:''}; }
+      const aid=(areas&&fcAreaPorDeporte(clase,areaId))||areaId;
+      grupos[id]={id,nombre:String(clase),prof:inst?String(inst.nombre):'',profId:inst?'fc_p'+iid:'',dias:'',hi:hora,hf:'',lugar:c.salon,tipo:c.tipo,cupo:c.cap,inscritos:0,alumnos:'',fc:true,_d:new Set(),_prog:false,_last:'',_capF:'',_aid:aid};
+      (profIdsPorArea[aid]=profIdsPorArea[aid]||new Set()).add(grupos[id].profId);
+    }
     return grupos[id];
   };
   // 1) horario vigente de cada instructor
@@ -58,11 +64,13 @@ function fcAdapt(raw,areaId,areas){
     if(r.fecha>g._last) g._last=r.fecha;
     if(r.estado!=='falta'&&+r.cap>0&&r.fecha>=g._capF){ g.cupo=+r.cap; g._capF=r.fecha; }
   });
-  // 3) asistencia
+  // 3) asistencia (se guarda junto con el grupo, en el área que le tocó a esa clase)
+  const asisPorArea={};
   const guardar=(g,r,extra)=>{
-    const id=`${g.id}_${r.fecha}`, prev=asistencia[id];
+    const bolsa=(asisPorArea[g._aid]=asisPorArea[g._aid]||{});
+    const id=`${g.id}_${r.fecha}`, prev=bolsa[id];
     if(prev&&(+prev.updatedAt||0)>(+r.updatedAt||0)) return;
-    asistencia[id]={id,grupoId:g.id,fecha:r.fecha,asistentes:0,fc:true,updatedAt:+r.updatedAt||0,...extra};
+    bolsa[id]={id,grupoId:g.id,fecha:r.fecha,asistentes:0,fc:true,updatedAt:+r.updatedAt||0,...extra};
   };
   const buscarManual=r=>{
     const pid='fc_p'+r.inst_id, cl=fcNorm(r.clase), d=fcDia(r.dia);
@@ -82,11 +90,24 @@ function fcAdapt(raw,areaId,areas){
     const g=grupos[gid(r.inst_id,r.clase,fcHora(r.hora))]; if(!g) return;
     guardar(g,r,{asistentes:Math.max(0,parseInt(r.asistentes)||0),...(r.estado==='sub'?{sup:true,supId:r.suplente_id?'fc_p'+r.suplente_id:'',motivo:r.motivo_suplencia||''}:{})});
   });
-  // 4) cierre de grupos
+  // 4) cierre de grupos: se calculan sus días y se reparten en el área que le tocó a cada clase
+  const gruposPorArea={};
   Object.values(grupos).forEach(g=>{
     g.dias=[...g._d].sort().join(',');
     if(!g._prog&&g._last) g.fin=addDays(g._last,7);          // clase que ya no se imparte: no cuenta como “sin captura” después
-    delete g._d; delete g._prog; delete g._last; delete g._capF;
+    const aid=g._aid;
+    delete g._d; delete g._prog; delete g._last; delete g._capF; delete g._aid;
+    (gruposPorArea[aid]=gruposPorArea[aid]||{})[g.id]=g;
+  });
+  // profesores: cada área ve solo a quien de verdad tiene clases ahí (una instructora puede aparecer
+  // en dos áreas a la vez si imparte, por ejemplo, tanto Fitness como Gimnasia)
+  const profesoresPorArea={};
+  Object.keys(profIdsPorArea).forEach(aid=>{
+    const bolsa=(profesoresPorArea[aid]={});
+    profIdsPorArea[aid].forEach(pid=>{
+      const iid=String(pid).replace(/^fc_p/,''), i=instPorId[iid]; if(!i) return;
+      bolsa[pid]={id:pid,nombre:String(i.nombre||'Sin nombre'),tipo:i.tipo||'Planta',activo:i.activo!==false,especialidad:i.esp||'',foto:i.foto||'',fc:true};
+    });
   });
   // 5) eventos (Fitness Control los maneja por deporte)
   evs.forEach(e=>{
@@ -98,7 +119,8 @@ function fcAdapt(raw,areaId,areas){
       participantes:parseInt(e.participantes)||0,presupuesto:+e.presupuesto||0,costoReal:+e.costoReal||0,calificacion:+e.calificacion||0,
       deporte:e.deporte||'',categoria:e.categoria||'',notas:[e.observaciones,e.mejoras].filter(Boolean).join('\n'),fc:true};
   });
-  return {profesores,grupos,asistencia,eventos,meta:{instructores:insts.length,registros:regs.length,grupos:Object.keys(grupos).length,eventos:evs.length,ultimo}};
+  return {profesoresPorArea,gruposPorArea,asisPorArea,eventos,
+    meta:{instructores:insts.length,registros:regs.length,grupos:Object.values(gruposPorArea).reduce((n,g)=>n+Object.keys(g).length,0),eventos:evs.length,ultimo}};
 }
 
 /* ---------- aplicar y conectar ---------- */
@@ -106,8 +128,10 @@ function fcAplicar(raw){
   const aid=fcAreaVinculada();
   if(!aid){ LINK={}; LINKMETA={estado:'sin-area',msg:'Ninguna área está marcada como vinculada.',n:{},ts:Date.now()}; safeRender(); return; }
   const A=fcAdapt(raw,aid,true), L={};
-  L[aid]={profesores:A.profesores,grupos:A.grupos,asistencia:A.asistencia,eventos:A.eventos[aid]||{}};
-  Object.keys(A.eventos).forEach(a=>{ if(a!==aid) L[a]={eventos:A.eventos[a]}; });
+  const areasConDatos=new Set([aid,...Object.keys(A.gruposPorArea),...Object.keys(A.eventos)]);
+  areasConDatos.forEach(a=>{
+    L[a]={profesores:A.profesoresPorArea[a]||{},grupos:A.gruposPorArea[a]||{},asistencia:A.asisPorArea[a]||{},eventos:A.eventos[a]||{}};
+  });
   LINK=L; LINKMETA={estado:'ok',msg:'',n:A.meta,ts:Date.now(),demo:!!(typeof window!=='undefined'&&window.FC_DEMO)};
   safeRender();
 }
@@ -140,11 +164,23 @@ function fcConectar(db){
 }
 
 /* ---------- avisos y panel de estado ---------- */
+/* Una clase de Fitness Control puede caer en un área distinta a la vinculada (ver fcAdapt: se manda
+   al área cuyo nombre coincida con el nombre de la clase, p. ej. "Gimnasia rítmica" → área Gimnasia).
+   Esa área secundaria no queda 100% vinculada (su director sigue capturando lo suyo aparte), pero sí
+   recibe profesores/grupos/aforo de solo lectura, así que se avisa igual. */
+const tieneVinculoSecundario = aid => aid!==fcAreaVinculada() && !!(LINK[aid]&&(Object.keys(LINK[aid].grupos||{}).length||Object.keys(LINK[aid].profesores||{}).length));
 function vinculoBanner(aid){
-  if(!esVinculada(aid)) return '';
-  const m=LINKMETA, ok=m.estado==='ok';
-  return `<div class="vinc ${ok?'':'off'}"><b>${ok?'Datos vinculados desde Fitness Control':m.estado==='error'?'No se pudo leer Fitness Control':'Conectando con Fitness Control…'}</b>
-    <span>${ok&&m.cache&&!online?`Sin internet · última copia guardada (${esc(fmtFecha(ymd(new Date(m.cache))))})`:ok?`Solo lectura · se actualizan solos${m.n.ultimo?' · último registro '+esc(fmtFecha(m.n.ultimo)):''}`:esc(m.msg||'Los profesores, grupos y aforos de esta área se capturan en Fitness Control.')}</span></div>`;
+  if(esVinculada(aid)){
+    const m=LINKMETA, ok=m.estado==='ok';
+    return `<div class="vinc ${ok?'':'off'}"><b>${ok?'Datos vinculados desde Fitness Control':m.estado==='error'?'No se pudo leer Fitness Control':'Conectando con Fitness Control…'}</b>
+      <span>${ok&&m.cache&&!online?`Sin internet · última copia guardada (${esc(fmtFecha(ymd(new Date(m.cache))))})`:ok?`Solo lectura · se actualizan solos${m.n.ultimo?' · último registro '+esc(fmtFecha(m.n.ultimo)):''}`:esc(m.msg||'Los profesores, grupos y aforos de esta área se capturan en Fitness Control.')}</span></div>`;
+  }
+  if(tieneVinculoSecundario(aid)){
+    const n=Object.keys(LINK[aid].grupos||{}).length;
+    return `<div class="vinc"><b>Algunas clases vienen de Fitness Control</b>
+      <span>${n} clase${n===1?'':'s'} y sus profesores se leen de Fitness Control (solo lectura, se actualizan solos). El resto de esta área se captura aquí.</span></div>`;
+  }
+  return '';
 }
 function gVinculoCard(){
   const m=LINKMETA, aid=fcAreaVinculada(), a=aid?getArea(aid):null;
