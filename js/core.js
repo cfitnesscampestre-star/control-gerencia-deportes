@@ -121,10 +121,51 @@ function setPath(p,val){                       // val === undefined → borrar
   const last=keys[keys.length-1];
   if(val===undefined) delete o[last]; else o[last]=val;
   lsSave();
-  if(fbRef){
-    const r=fbRef.child(p);
-    (val===undefined ? r.remove() : r.set(clean(val))).catch(()=>toast('Sin conexión: guardado solo en este equipo'));
-  }
+  if(FIREBASE_CONFIG.databaseURL){ obPush(p,val); obFlush(); }
+}
+
+/* ---------- COLA DE CAMBIOS PENDIENTES (trabajo sin internet) ----------
+   Cada cambio se guarda primero en el equipo y en esta cola. La cola vive en localStorage,
+   así que sobrevive aunque se cierre la app o se apague el celular sin señal.
+   Cuando vuelve la conexión, se suben en orden y se van quitando de la cola. */
+const OB_KEY = 'gd_outbox_v1';
+let outbox = (()=>{ try{ return JSON.parse(localStorage.getItem(OB_KEY))||[]; }catch(e){ return []; } })();
+let obEnviando = false;
+const obSave = () => { try{ localStorage.setItem(OB_KEY,JSON.stringify(outbox)); }catch(e){} };
+const pendientes = () => outbox.length;
+function obPush(p,val){
+  // un cambio nuevo sustituye a los pendientes de la misma ruta o de rutas dentro de ella
+  outbox = outbox.filter(o=>o.p!==p && !o.p.startsWith(p+'/'));
+  outbox.push({id:uid(),p,v:val===undefined?null:clean(val),t:Date.now()});
+  obSave();
+}
+function obAplicarLocal(){                          // vuelve a poner encima los cambios que aún no llegan a la nube
+  outbox.forEach(o=>{
+    const keys=o.p.split('/'); let x=state;
+    for(let i=0;i<keys.length-1;i++){ if(typeof x[keys[i]]!=='object'||x[keys[i]]===null) x[keys[i]]={}; x=x[keys[i]]; }
+    const last=keys[keys.length-1];
+    if(o.v===null) delete x[last]; else x[last]=clean(o.v);
+  });
+}
+function obFlush(){
+  if(!fbRef||!online||obEnviando||!outbox.length) return;
+  obEnviando=true;
+  const lote=outbox.slice();
+  Promise.all(lote.map(o=>{
+    const r=fbRef.child(o.p);
+    return (o.v===null?r.remove():r.set(o.v)).then(()=>{
+      outbox=outbox.filter(x=>x.id!==o.id); obSave();
+    });
+  })).catch(e=>{ console.warn('No se pudo subir un cambio',e); toast('Un cambio no se pudo subir: se reintentará'); })
+    .finally(()=>{ obEnviando=false; safeRender(); if(outbox.length&&online) setTimeout(obFlush,4000); });
+}
+/* texto del indicador de nube (barra superior y menú lateral) */
+function cloudChip(){
+  if(simActiva()) return {cls:'sim',txt:'Datos de simulación'};
+  const n=pendientes();
+  if(!FIREBASE_CONFIG.databaseURL) return {cls:'',txt:'Solo en este equipo'};
+  if(online) return n?{cls:'on',txt:`Subiendo ${n} cambio${n>1?'s':''}…`}:{cls:'on',txt:'Guardado en la nube ✔'};
+  return {cls:'',txt:n?`Sin internet · ${n} por subir`:'Sin internet · guardando en el equipo'};
 }
 
 function ensureSeed(){
@@ -162,29 +203,44 @@ function ensureSeed(){
   return ch;
 }
 
-const loadScript = src => new Promise((ok,ko)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=ko; document.head.appendChild(s); });
+const loadScript = src => new Promise((ok,ko)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=()=>{ s.remove(); ko(new Error('No cargó '+src)); }; document.head.appendChild(s); });
+let fbIniciado = false;
 async function initFirebase(){
+  if(fbIniciado) return;
   try{
-    await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
-    await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js');
-    firebase.initializeApp(FIREBASE_CONFIG);
+    if(typeof firebase==='undefined'||!firebase.database){
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js');
+    }
+    fbIniciado=true;
+    if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);              // app de Gerencia (por defecto)
     const db=firebase.database();
-    db.ref('.info/connected').on('value',s=>{ online=!!s.val(); safeRender(); });
-    if(typeof fcConectar==='function') fcConectar(db);   // lectura de Fitness Control (solo lectura)
+    db.ref('.info/connected').on('value',s=>{ online=!!s.val(); if(online) obFlush(); safeRender(); });
+    if(typeof fcConectar==='function'){                                            // segunda app: solo lectura de Fitness Control
+      const appFC = firebase.apps.find(a=>a.name==='fitness') || firebase.initializeApp(FIREBASE_CONFIG_FITNESS,'fitness');
+      fcConectar(appFC.database());
+    }
     const ref=db.ref(DB_ROOT);
     let first=true;
     ref.on('value',snap=>{
       const v=snap.val();
       if(first){
         first=false; fbRef=ref;
-        if(v===null){ ensureSeed(); ref.set(clean(state)); lsSave(); return; }   // nube vacía: sube lo que hay en el equipo
+        if(v===null){                                        // nube vacía: sube lo que hay en este equipo
+          ensureSeed(); ref.set(clean(state)); outbox=[]; obSave(); lsSave(); safeRender(); return;
+        }
       }
       state=v||{};
+      obAplicarLocal();                                      // lo capturado sin internet no se pierde al llegar la nube
       if(ensureSeed()) ref.child('cfg').set(clean(state.cfg));
-      lsSave(); validateSession(); safeRender();
+      lsSave(); validateSession(); safeRender(); obFlush();
     },err=>{ console.warn(err); toast('No se pudo leer Firebase: usando la copia de este equipo'); });
-  }catch(e){ console.warn('Firebase no disponible',e); }
+  }catch(e){
+    // sin internet al abrir: la app sigue con la copia del equipo y se conecta cuando vuelva la señal
+    console.warn('Firebase no disponible todavía',e);
+  }
 }
+if(typeof window!=='undefined') window.addEventListener('online',()=>{ if(FIREBASE_CONFIG.databaseURL&&!fbIniciado) initFirebase(); else obFlush(); });
 
 /* ---------- acceso a datos ---------- */
 const areasList = () => Object.values((state.cfg&&state.cfg.areas)||{}).sort((a,b)=>(a.orden||0)-(b.orden||0));

@@ -66,7 +66,7 @@ function viewSidebar(){
     ${areas}
     <div class="sb-foot">
       <div class="sb-user"><b>${ger?'Gerencia':rec?'Recepción':prof?(esServ(session.area)?pfNom(session.area,0):esGim(session.area)?'Instructor':'Profesor'):'Dirección'}</b>${ger?'Todas las áreas':(prof||rec)?esc(pr.nombre):areaIco(a,{size:15})+' '+esc(a.nombre)}</div>
-      <div class="cloud ${simActiva()?'sim':online?'on':''}"><i></i>${simActiva()?'Datos de simulación':online?'Guardado en la nube ✔':'Solo en este equipo'}</div>
+      ${(c=>`<div class="cloud ${c.cls}"><i></i>${c.txt}</div>`)(cloudChip())}
       <button class="btn sm block" data-act="logout">${ic('logout')} Salir</button>
     </div>
   </aside>`;

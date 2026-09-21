@@ -111,12 +111,27 @@ function fcAplicar(raw){
   LINK=L; LINKMETA={estado:'ok',msg:'',n:A.meta,ts:Date.now(),demo:!!(typeof window!=='undefined'&&window.FC_DEMO)};
   safeRender();
 }
+/* Copia de Fitness Control en el equipo: el área Fitness se ve aunque no haya internet */
+const FC_CACHE = 'gd_fc_cache_v1';
+function fcGuardarCache(raw){
+  try{
+    const c={...raw};
+    if(c.instructores) c.instructores=fcArr(c.instructores).map(({foto,pin,PIN,...r})=>r);  // sin fotos ni PIN
+    localStorage.setItem(FC_CACHE,JSON.stringify({ts:Date.now(),raw:c}));
+  }catch(e){ console.warn('Copia de Fitness Control demasiado grande para el equipo',e); }
+}
+function fcDesdeCache(){
+  try{
+    const c=JSON.parse(localStorage.getItem(FC_CACHE)); if(!c||!c.raw) return;
+    fcAplicar(c.raw); LINKMETA.cache=c.ts;
+  }catch(e){}
+}
 function fcConectar(db){
-  LINKMETA={estado:'conectando',msg:'',n:{},ts:0};
+  if(LINKMETA.estado!=='ok') LINKMETA={estado:'conectando',msg:'',n:{},ts:0};
   FC_PARTES.forEach(k=>{
     db.ref(`${FC_NODO}/${k}`).on('value',snap=>{
       fcRaw[k]=snap.val(); fcRecv[k]=true; clearTimeout(fcT);
-      fcT=setTimeout(()=>{ if(fcRecv.instructores&&fcRecv.registros) fcAplicar(fcRaw); },300);
+      fcT=setTimeout(()=>{ if(fcRecv.instructores&&fcRecv.registros){ fcAplicar(fcRaw); fcGuardarCache(fcRaw); } },300);
     },err=>{
       LINKMETA={estado:'error',msg:(err&&err.message)||String(err),n:{},ts:0};
       safeRender();
@@ -129,7 +144,7 @@ function vinculoBanner(aid){
   if(!esVinculada(aid)) return '';
   const m=LINKMETA, ok=m.estado==='ok';
   return `<div class="vinc ${ok?'':'off'}"><b>${ok?'Datos vinculados desde Fitness Control':m.estado==='error'?'No se pudo leer Fitness Control':'Conectando con Fitness Control…'}</b>
-    <span>${ok?`Solo lectura · se actualizan solos${m.n.ultimo?' · último registro '+esc(fmtFecha(m.n.ultimo)):''}`:esc(m.msg||'Los profesores, grupos y aforos de esta área se capturan en Fitness Control.')}</span></div>`;
+    <span>${ok&&m.cache&&!online?`Sin internet · última copia guardada (${esc(fmtFecha(ymd(new Date(m.cache))))})`:ok?`Solo lectura · se actualizan solos${m.n.ultimo?' · último registro '+esc(fmtFecha(m.n.ultimo)):''}`:esc(m.msg||'Los profesores, grupos y aforos de esta área se capturan en Fitness Control.')}</span></div>`;
 }
 function gVinculoCard(){
   const m=LINKMETA, aid=fcAreaVinculada(), a=aid?getArea(aid):null;

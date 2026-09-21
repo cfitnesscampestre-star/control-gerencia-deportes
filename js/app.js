@@ -8,7 +8,7 @@ function viewTopbar(title,sub,back){
     ${back?`<button class="ibtn" data-act="${back}" aria-label="Volver">${ic('back')}</button>`:''}
     <div class="tb-logo only-m"><span>C</span><img src="img/logo.png" alt="Club Campestre" data-fallback></div>
     <div class="tb-t"><b>${title}</b><small>${sub}</small>
-      <span class="cloud ${simActiva()?'sim':online?'on':''}"><i></i>${simActiva()?'Datos de simulación':online?'Guardado en la nube ✔':'Solo en este equipo'}</span></div>
+      ${(c=>`<span class="cloud ${c.cls}"><i></i>${c.txt}</span>`)(cloudChip())}</div>
     <button class="ibtn only-m" data-act="logout" aria-label="Salir">${ic('logout')}</button>
   </header>`;
 }
@@ -102,6 +102,12 @@ function boot(){
   simIniciar();                                            // datos de ejemplo (solo si no hay base de datos conectada)
   if(window.FC_DEMO_RAW) fcAplicar(window.FC_DEMO_RAW);      // solo en la versión de demostración
   render();
-  if(FIREBASE_CONFIG.databaseURL) initFirebase();
+  if(FIREBASE_CONFIG.databaseURL){ fcDesdeCache(); initFirebase(); }
+  registrarSW();
+}
+/* Service worker: guarda la app en el equipo para que abra aunque no haya internet */
+function registrarSW(){
+  if(!('serviceWorker' in navigator) || location.protocol==='file:') return;
+  navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW',e));
 }
 boot();

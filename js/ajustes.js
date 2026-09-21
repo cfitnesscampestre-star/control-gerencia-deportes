@@ -4,8 +4,9 @@
    ===================================================================== */
 function gAjustes(){
   const as=areasList();
-  const nube = online ? 'Firebase conectado: los datos se sincronizan entre dispositivos.'
-    : FIREBASE_CONFIG.databaseURL ? 'Firebase sin conexión: se usa la copia de este equipo.'
+  const nPend = pendientes();
+  const nube = online ? 'Firebase conectado: los datos se sincronizan entre dispositivos.'+(nPend?` Subiendo ${nPend} cambio(s) pendientes.`:'')
+    : FIREBASE_CONFIG.databaseURL ? `Sin internet: se guarda en este equipo${nPend?` (${nPend} cambio(s) por subir)`:''} y se sube solo al volver la señal.`
     : 'Firebase no está configurado: los datos viven solo en este equipo.';
   return `<div class="dash">
     <div class="d-att">
