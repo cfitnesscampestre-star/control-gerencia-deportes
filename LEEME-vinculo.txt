@@ -1,10 +1,31 @@
 VÍNCULO CON FITNESS CONTROL
 ===========================
 
+DOS PROYECTOS DE FIREBASE (desde v34)
+--------------------------------------
+Gerencia y Fitness Control ya NO comparten una sola base: cada uno tiene su propio proyecto de Firebase,
+con su propia cuota (1 GB de almacenamiento y 10 GB de descarga al mes cada uno en el plan gratis):
+
+  - registro-gerencia          → base propia de Gerencia. Lee y escribe aquí.
+  - fitness-campestre-e218c    → base de Fitness Control. Gerencia SOLO LEE de aquí, nunca escribe.
+
+En js/config.js hay dos configuraciones: FIREBASE_GERENCIA_REAL (la propia) y FIREBASE_FITNESS_REAL
+(la de Fitness Control, ya trae la misma configuración que usa su repositorio). La app inicializa las
+dos al mismo tiempo (js/core.js) y js/vinculo.js sigue leyendo de la de Fitness Control exactamente
+igual que antes: solo lectura, sin copiar PIN.
+
+Reglas de Firebase — ahora son dos consolas distintas:
+  1) Proyecto registro-gerencia → Realtime Database → Reglas: deja el modo de prueba, o si quieres
+     cerrarlo más adelante, algo como { "rules": { ".read": true, ".write": true } } (o por nodo, igual
+     que se explica más abajo, cambiando "fitness" y "gerencia_deportes" por lo que uses en este proyecto).
+  2) Proyecto fitness-campestre-e218c → Realtime Database → Reglas: debe seguir permitiendo LECTURA del
+     nodo "fitness" desde fuera (Gerencia ahora es una app distinta, con sus propias credenciales, así
+     que si las reglas de Fitness Control exigen autenticación del mismo proyecto, Gerencia no podrá leer).
+
 Qué hace
 --------
-Control Gerencia lee en tiempo real la información de Fitness Control (misma base de datos de Firebase,
-nodo "fitness") y la muestra en el área Fitness:
+Control Gerencia lee en tiempo real la información de Fitness Control (su base de Firebase, nodo "fitness")
+y la muestra en el área Fitness:
 
   Fitness Control (instructores)  →  Profesores
   Fitness Control (horarios)      →  Grupos / clases (días, hora, salón, cupo)
@@ -27,20 +48,10 @@ Reglas del vínculo
 
 Configuración
 -------------
-1) En js/config.js cambia  CONECTAR_FIREBASE = false  por  CONECTAR_FIREBASE = true.
-   (El archivo ya trae la configuración de Firebase de Fitness Control, la misma que está en su repositorio.)
-   Mientras esté en false, la app no se conecta a nada y muestra datos de simulación.
-2) En Firebase Console → Realtime Database → Reglas, debe estar permitido leer "fitness" y leer/escribir
-   "gerencia_deportes". Si tus reglas ya permiten todo, no hay que cambiar nada. Si son por nodo, agrega:
-
-   {
-     "rules": {
-       "fitness":           { ".read": true, ".write": true },
-       "gerencia_deportes": { ".read": true, ".write": true }
-     }
-   }
-
-   (deja "fitness" exactamente como lo tengas hoy; solo agrega "gerencia_deportes").
+1) js/config.js ya viene con  CONECTAR_FIREBASE = true  y las dos configuraciones cargadas
+   (registro-gerencia y fitness-campestre-e218c). Si quieres volver a la simulación, ponlo en false.
+2) Revisa las reglas EN LOS DOS PROYECTOS (ver arriba "DOS PROYECTOS DE FIREBASE"). Con modo de prueba
+   en registro-gerencia y las reglas actuales de fitness-campestre-e218c sin cambios, ya debería funcionar.
 3) Abre la app como Gerencia → Ajustes → Fitness Control: debe decir "Conectado" y mostrar cuántos
    instructores, clases y registros recibió. Si dice "Error", ese texto es el motivo (casi siempre son las reglas).
 
@@ -56,3 +67,25 @@ Mientras CONECTAR_FIREBASE = false, todas las áreas muestran datos de ejemplo (
 - Se pueden quitar o volver a cargar en Ajustes → Simulación.
 - Desaparecen solos al poner CONECTAR_FIREBASE = true.
 - Lo que se capture a mano mientras tanto (grupos, eventos, reportes...) sí se guarda y se conserva.
+
+
+VARIOS DISPOSITIVOS Y SIN INTERNET (v33)
+=======================================
+- Todos los equipos (computadora de gerencia, celulares de dirección, profesores, recepción) leen y
+  escriben la misma base: lo que captura uno aparece en los demás en segundos.
+- La app se guarda en el equipo (sw.js): abre aunque no haya señal, después de haberla abierto una vez con internet.
+- Sin internet se puede seguir capturando (lista, aforo, bitácoras...). Cada cambio queda en una cola del
+  equipo, que sobrevive aunque se cierre la app o se apague el celular, y se sube sola al volver la señal.
+- El indicador de arriba dice: "Guardado en la nube ✔", "Subiendo N cambios…" o "Sin internet · N por subir".
+  Antes de borrar datos del navegador o desinstalar la app, espera a que diga "Guardado en la nube".
+- Fitness Control también queda copiado en el equipo (sin fotos ni PIN): el área Fitness se ve sin señal.
+- Si dos personas cambian EXACTAMENTE el mismo dato sin internet, queda el último que se sube.
+
+PRIMERA CONEXIÓN (importante)
+- Si la nube está vacía, el PRIMER equipo que se conecta sube lo que tenga guardado.
+- Abre primero la app en el equipo donde capturaste datos reales durante las pruebas; los demás equipos
+  toman lo de la nube y su copia local de prueba se reemplaza.
+
+AL SUBIR CAMBIOS A GITHUB
+- Sube el número ?v= en index.html y VERSION en sw.js (van juntos, ahora 33).
+- Si agregas un archivo nuevo en css/, js/ o img/, agrégalo a la lista ARCHIVOS de sw.js.
