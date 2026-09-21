@@ -196,6 +196,10 @@ function ensureSeed(){
     state.cfg.ver=THEME_VER; ch=true;
   }
   Object.values(state.cfg.areas).forEach(a=>{ if(a.id==='fitness'&&a.vinculo===undefined){ a.vinculo=true; ch=true; } });
+  if(!state.cfg.gimExclAdd){                              // una sola vez: Gimnasia deja de recibir clases automáticas de Fitness Control
+    state.cfg.gimExclAdd=true; ch=true;
+    if(state.cfg.areas.gimnasia&&state.cfg.areas.gimnasia.fcExcluir===undefined) state.cfg.areas.gimnasia.fcExcluir=true;
+  }
   if(!state.cfg.pass){ state.cfg.pass={}; ch=true; }
   if(!state.cfg.pass.ger){ state.cfg.pass.ger=hashPass(DEF_PASS_GER); ch=true; }
   if(!state.cfg.pass.dir){ state.cfg.pass.dir={}; ch=true; }

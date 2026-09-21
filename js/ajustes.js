@@ -72,6 +72,8 @@ function openAreaForm(id){
       <div class="sub">La permanencia sirve para estimar las visitas a partir de los conteos por hora.</div>
     </div>
     <label class="f"><span>Origen de los datos</span><select id="a_vinc"><option value="0"${a.vinculo?'':' selected'}>Se capturan en Gerencia</option><option value="1"${a.vinculo?' selected':''}>Vienen de Fitness Control (solo lectura)</option></select><small class="mut">Solo un área puede recibir los datos de Fitness Control: sus profesores, clases y aforos.</small></label>
+    <label class="f" id="a_fcexcl_f"${a.vinculo?' hidden':''}><span class="sv-d" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="a_fcexcl"${a.fcExcluir?' checked':''}><span>No traer clases automáticas de Fitness Control a esta área</span></span></label>
+    <small class="mut" id="a_fcexcl_s"${a.vinculo?' hidden':''}>Si una clase de Fitness Control coincide con el nombre de esta área (como "Gimnasia" con "Gimnasia rítmica"), normalmente aparece aquí de solo lectura y sin lista de alumnos. Actívalo para que esta área sea 100% manual: esas clases dejan de aparecer y puedes dar de alta tus propios grupos con su lista de alumnos para pasar lista aquí.</small>
     ${id?'':`<div class="sub">La contraseña inicial de dirección será “${DEF_PASS_DIR}”. Cámbiala en Ajustes.</div>`}
     <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="saveArea" data-id="${esc(id||'')}">Guardar área</button></div>
     ${id?`<div class="btns"><button class="btn danger" data-act="delArea" data-id="${esc(id)}">Eliminar área y sus datos</button></div>`:''}`);
@@ -83,7 +85,8 @@ function aplicarTema(){
   const m=document.querySelector('meta[name=theme-color]'); if(m) m.content=t==='magenta'?'#7a2b8f':'#0f7a5a';
 }
 document.addEventListener('change',e=>{ if(e.target.classList&&e.target.classList.contains('gh_on')){ const r=e.target.closest('.gh-r'); if(r) r.classList.toggle('on',e.target.checked); }
-  if(e.target.id==='a_tipo'){ const g=$('#a_gim'); if(g) g.hidden=e.target.value!=='gimnasio'; } });
+  if(e.target.id==='a_tipo'){ const g=$('#a_gim'); if(g) g.hidden=e.target.value!=='gimnasio'; }
+  if(e.target.id==='a_vinc'){ const es1=e.target.value==='1'; const f=$('#a_fcexcl_f'), s=$('#a_fcexcl_s'); if(f) f.hidden=es1; if(s) s.hidden=es1; } });
 Object.assign(actions,{
   pickIco(d){ $('#a_icono').value=d.k; document.querySelectorAll('.ico-op').forEach(b=>b.classList.toggle('on',b.dataset.k===d.k)); },
   tema(d){ try{ localStorage.setItem('gd_tema',d.t); }catch(e){} aplicarTema(); render(); },
@@ -112,6 +115,7 @@ Object.assign(actions,{
     if(!nombre){ toast('Escribe el nombre del área'); return; }
     const icono=$('#a_icono').value.trim()||'trofeo', color=$('#a_color').value;
     const vinculo=$('#a_vinc').value==='1'&&!(((getArea(d.id)||{}).tipo==='gimnasio')||(($('#a_tipo')||{}).value==='gimnasio')||SERV_TIPOS.includes((getArea(d.id)||{}).tipo)||SERV_TIPOS.includes(($('#a_tipo')||{}).value));
+    const fcExcluir=!vinculo&&!!($('#a_fcexcl')&&$('#a_fcexcl').checked);
     const tipo=d.id?((getArea(d.id)||{}).tipo||''):(($('#a_tipo')||{}).value||'');
     let gim={};
     if(tipo==='gimnasio'){
@@ -125,10 +129,10 @@ Object.assign(actions,{
       gim={tipo,cap:Math.max(1,parseInt($('#a_cap').value)||60),estancia:Math.max(.5,parseFloat($('#a_est').value)||1.25),horario,abre:Math.min(...H.map(x=>x.a)),cierra:Math.max(...H.map(x=>x.c))};
     }
     if(vinculo) areasList().forEach(x=>{ if(x.id!==d.id&&x.vinculo) setPath(`cfg/areas/${x.id}`,{...x,vinculo:false}); });
-    if(d.id){ setPath(`cfg/areas/${d.id}`,{...getArea(d.id),nombre,icono,color,vinculo,...gim}); }
+    if(d.id){ setPath(`cfg/areas/${d.id}`,{...getArea(d.id),nombre,icono,color,vinculo,fcExcluir,...gim}); }
     else {
       const id=slug(nombre)+'-'+uid().slice(-4), orden=areasList().reduce((m,a)=>Math.max(m,a.orden||0),0)+1;
-      setPath(`cfg/areas/${id}`,{id,nombre,icono,color,orden,vinculo,...gim,...(SERV_TIPOS.includes(tipo)?{tipo}:{})});
+      setPath(`cfg/areas/${id}`,{id,nombre,icono,color,orden,vinculo,fcExcluir,...gim,...(SERV_TIPOS.includes(tipo)?{tipo}:{})});
       setPath(`cfg/pass/dir/${id}`,hashPass(DEF_PASS_DIR));
     }
     closeModal(); render(); toast('Área guardada');

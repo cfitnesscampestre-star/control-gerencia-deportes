@@ -41,14 +41,17 @@ function fcAdapt(raw,areaId,areas){
   const profIdsPorArea={};                                    // aid -> Set de ids de instructor (fc_pID) con al menos una clase ahí
 
   const gid=(iid,clase,hora)=>`fc_g${iid}_${fcNorm(clase).replace(/[^a-z0-9]/g,'')}_${hora.replace(':','')}`;
+  const excluida = a => !!(getArea(a)||{}).fcExcluir;
   const mk=(iid,clase,hora)=>{
     const id=gid(iid,clase,hora);
-    if(!grupos[id]){ const c=capDe(clase), inst=instPorId[String(iid)];
-      const aid=(areas&&fcAreaPorDeporte(clase,areaId))||areaId;
-      grupos[id]={id,nombre:String(clase),prof:inst?String(inst.nombre):'',profId:inst?'fc_p'+iid:'',dias:'',hi:hora,hf:'',lugar:c.salon,tipo:c.tipo,cupo:c.cap,inscritos:0,alumnos:'',fc:true,_d:new Set(),_prog:false,_last:'',_capF:'',_aid:aid};
-      (profIdsPorArea[aid]=profIdsPorArea[aid]||new Set()).add(grupos[id].profId);
-    }
-    return grupos[id];
+    if(grupos[id]) return grupos[id];
+    const c=capDe(clase), inst=instPorId[String(iid)];
+    const aid=(areas&&fcAreaPorDeporte(clase,areaId))||areaId;
+    const g={id,nombre:String(clase),prof:inst?String(inst.nombre):'',profId:inst?'fc_p'+iid:'',dias:'',hi:hora,hf:'',lugar:c.salon,tipo:c.tipo,cupo:c.cap,inscritos:0,alumnos:'',fc:true,_d:new Set(),_prog:false,_last:'',_capF:'',_aid:aid};
+    if(excluida(aid)) return g;                                // esta área es 100% manual: no se guarda ni se cuenta en ningún lado
+    grupos[id]=g;
+    (profIdsPorArea[aid]=profIdsPorArea[aid]||new Set()).add(g.profId);
+    return g;
   };
   // 1) horario vigente de cada instructor
   insts.forEach(i=>fcArr(i.horario).forEach(h=>{
@@ -113,6 +116,7 @@ function fcAdapt(raw,areaId,areas){
   evs.forEach(e=>{
     if(!e.fecha||!e.nombre) return;
     const aid=(areas&&fcAreaPorDeporte(e.deporte,areaId))||areaId;
+    if(excluida(aid)) return;                                 // área 100% manual: tampoco recibe eventos automáticos
     const id='fc_'+String(e.id).replace(/[.#$/\[\]]/g,'_');
     (eventos[aid]=eventos[aid]||{})[id]={id,nombre:String(e.nombre),fecha:e.fecha,hora:e.horaIni||'',lugar:e.lugar||'',
       tipo:'Torneo',estado:['planificado','realizado','cancelado','pospuesto'].includes(e.estado)?e.estado:'planificado',
