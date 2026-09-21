@@ -22,12 +22,15 @@ const DEFAULT_AREAS = [
   {id:'taekwondo',nombre:'Taekwondo',icono:'taekwondo'},
   {id:'squash',nombre:'Squash',icono:'squash'},
   {id:'basquetbol',nombre:'Básquetbol',icono:'basquet'},
-  {id:'frontenis',nombre:'Frontenis',icono:'frontenis'}
+  {id:'frontenis',nombre:'Frontenis',icono:'frontenis'},
+  {id:'nutricion',nombre:'Nutrición',icono:'nutricion',tipo:'nutricion'},
+  {id:'fisioterapia',nombre:'Fisioterapia',icono:'fisio',tipo:'fisioterapia'}
 ];
+const SERV_TIPOS = ['nutricion','fisioterapia'];        // áreas de servicio con cita (ver js/servicios.js)
 const DIAS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const DIAS_L = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const TIPOS_EV = ['Torneo','Exhibición','Clínica o curso','Evento social','Competencia externa','Otro'];
+const TIPOS_EV = ['Torneo','Exhibición','Clínica o curso','Evento social','Competencia externa','Jornada de salud','Otro'];
 const EST_EV = ['planificado','realizado','cancelado','pospuesto'];
 const EST_EV_CLS = {planificado:'info',realizado:'ok',cancelado:'mut',pospuesto:'warn'};
 const TIPOS_INC = ['Lesión o accidente','Disciplina','Instalaciones','Personal o instructor','Queja de socio','Material o equipo','Otro'];
@@ -130,7 +133,7 @@ function ensureSeed(){
   if(!state.cfg.areas){
     state.cfg.areas={};
     DEFAULT_AREAS.forEach((a,i)=>{ state.cfg.areas[a.id]={...a,orden:i,color:COLORS[i%COLORS.length]}; });
-    state.cfg.gimAdd=true; ch=true;
+    state.cfg.gimAdd=true; state.cfg.servAdd=true; ch=true;
   }
   if(!state.cfg.gimAdd){                                  // configuraciones anteriores: se agrega el área Gimnasio una sola vez
     state.cfg.gimAdd=true; ch=true;
@@ -138,6 +141,14 @@ function ensureSeed(){
       const orden=Math.max(0,...Object.values(state.cfg.areas).map(a=>a.orden||0))+1;
       state.cfg.areas.gimnasio={id:'gimnasio',nombre:'Gimnasio',icono:'pesas',tipo:'gimnasio',cap:60,abre:6,cierra:22,estancia:1.25,orden,color:COLORS[Object.keys(state.cfg.areas).length%COLORS.length]};
     }
+  }
+  if(!state.cfg.servAdd){                                 // configuraciones anteriores: se agregan Nutrición y Fisioterapia una sola vez
+    state.cfg.servAdd=true; ch=true;
+    DEFAULT_AREAS.filter(x=>SERV_TIPOS.includes(x.tipo)).forEach(x=>{
+      if(Object.values(state.cfg.areas).some(a=>a.tipo===x.tipo)) return;
+      const orden=Math.max(0,...Object.values(state.cfg.areas).map(a=>a.orden||0))+1;
+      state.cfg.areas[x.id]={...x,orden,color:COLORS[Object.keys(state.cfg.areas).length%COLORS.length]};
+    });
   }
   if(state.cfg.ver!==THEME_VER){                       // paleta nueva del tema claro
     areasList().forEach((a,i)=>{ state.cfg.areas[a.id].color=COLORS[i%COLORS.length]; });
@@ -229,13 +240,15 @@ function areaStats(aid){
   const ult=Object.values(reps).filter(r=>r.entregado).sort((a,b)=>b.semana.localeCompare(a.semana))[0];
   const prog=gs.filter(g=>diasArr(g).includes(wd));
   const hoyRecs=new Set(coll(aid,'asistencia').filter(r=>r.fecha===t).map(r=>r.grupoId));
-  return {
+  const R={
     grupos:gs.length, alumnos:gs.reduce((s,g)=>s+inscritos(g),0), aforo:aforoArea(aid,addDays(t,-30)), aforoN:aforoAreaN(aid,addDays(t,-30)),
     incAbiertas:coll(aid,'incidencias').filter(i=>i.estado!=='resuelta').length,
     proxEvento:evs[0]||null, eventos:evs, reporte:rep?(rep.entregado?'entregado':'borrador'):'pendiente', ultimoReporte:ult?ult.semana:null,
     profes:profesores(aid).filter(p=>p.activo!==false).length,
     hoyProg:prog.length, hoyCap:prog.filter(g=>hoyRecs.has(g.id)).length
   };
+  if(typeof esServ==='function'&&esServ(aid)) Object.assign(R,servAreaStats(aid));      // Nutrición y Fisioterapia: citas y casos en lugar de grupos
+  return R;
 }
 function dayItems(aid,d){
   const wd=wdIdx(d);

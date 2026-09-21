@@ -15,6 +15,7 @@ const AN_Q = [
   ['personas','¿A cuánta gente atendemos?','Alumnos, asistentes y sesiones'],
   ['profes','¿Cómo rinden los profesores?','Ranking y cumplimiento por profesor'],
   ['gimnasio','¿Cómo va el gimnasio?','Aforo por hora, mujeres y hombres, personalizados'],
+  ['servicios','¿Cómo van Nutrición y Fisioterapia?','Servicios y horas por especialista, y canalizaciones'],
   ['cumple','¿Estamos cumpliendo?','Captura de aforos y reportes semanales'],
   ['incid','¿Qué incidencias hay?','Abiertas, gravedad y tipo'],
   ['eventos','¿Qué eventos hay?','Realizados y próximos'],
@@ -118,7 +119,7 @@ function anReportes(aids,desde,hasta){
   const t=todayStr(), semActual=mondayOf(t), wks=[];
   for(let w=mondayOf(desde); w<=hasta&&w<=semActual; w=addDays(w,7)) wks.push(w);
   const cols=wks.slice(-6);
-  const rows=aids.map(aid=>{
+  const rows=aids.filter(aid=>!esServ(aid)).map(aid=>{
     const reps=areaData(aid).reportes||{};
     const cells=cols.map(w=>{ const r=reps[w]; return r?(r.entregado?'ok':'info'):(w===semActual?'mut':'bad'); });
     const esperados=wks.filter(w=>w<semActual).length, entregados=wks.filter(w=>w<semActual&&reps[w]&&reps[w].entregado).length;
@@ -164,6 +165,10 @@ function anInsights(d){
     out.push({c:'info',h:'Horarios',x:`Mejor franja: ${DIAS_L[m.wd]} de ${AN_BLOQUES[m.b][2].replace('–',' a ')} h (${m.v}%). Más baja: ${DIAS_L[p.wd]} de ${AN_BLOQUES[p.b][2].replace('–',' a ')} h (${p.v}%).`}); }
   out.push({c:t.cumple==null?'mut':t.cumple>=90?'ok':t.cumple>=70?'warn':'bad',h:'Cumplimiento',x:t.prog?`Se capturó el aforo del ${t.cumple}% de las clases programadas (${t.sinCaptura} sin captura). ${t.omit?`Hubo ${plu(t.omit,'clase marcada','clases marcadas')} como “no hubo clase”.`:'Ninguna clase se marcó como “no hubo clase”.'}`:'No hay clases programadas en el período.'});
   const gid=aids.find(esGim); if(gid){ const gi=gimInsights(gid,d); if(gi.length) out.push({c:gi[0].c,h:'Gimnasio',x:gi[0].x+(gi[1]?' '+gi[1].x:'')}); }
+  aids.filter(esServ).forEach(id=>{                      // Nutrición y Fisioterapia: una línea por área
+    const ar=getArea(id), sv=servStats(id,r.desde,r.hasta); if(!sv.n) return;
+    out.push({c:sv.sinCap.length?'warn':'info',h:ar.nombre,x:`${plu(sv.n,'servicio registrado','servicios registrados')}, ${svHm(sv.min)} de servicio${sv.sinCap.length?` y ${plu(sv.sinCap.length,'día sin bitácora','días sin bitácora')}`:''}.`});
+  });
   if(t.faltas||t.subs) out.push({c:t.faltas?'warn':'info',h:'Faltas y suplencias',x:`${plu(t.faltas,'falta de profesor','faltas de profesores')} y ${plu(t.subs,'clase cubierta','clases cubiertas')} por suplente en el período.`});
   const rp=anReportes(aids,r.desde,r.hasta);
   if(rp.esperados) out.push({c:rp.entregados===rp.esperados?'ok':rp.entregados/rp.esperados>=.7?'warn':'bad',h:'Reportes semanales',x:`${rp.entregados} de ${rp.esperados} reportes entregados a tiempo en el período.`});
@@ -376,7 +381,7 @@ function pGimnasio(d){
       ${fila.map(x=>{ const pct=x.contratadas?Math.round(x.realizadas/x.contratadas*100):0, enP=ses.filter(y=>y.pk.profId===x.p.id).length; return `<tr><td>${esc(x.p.nombre)}</td><td>${x.act.length}</td><td>${x.contratadas}</td><td>${x.realizadas}</td><td>${x.saldo}</td><td class="${aforoCls(pct)}"><b>${pct}%</b></td><td class="${x.porVencer?'warn':''}">${x.porVencer}</td><td>${enP}</td></tr>`; }).join('')}
       <tr class="tot"><td>Total</td><td>${T.paquetes}</td><td>${T.contratadas}</td><td>${T.realizadas}</td><td>${T.saldo}</td><td>${T.contratadas?Math.round(T.realizadas/T.contratadas*100):0}%</td><td>${T.porVencer}</td><td>${ses.length}</td></tr></tbody></table></div>`:empty('Todavía no hay personalizados contratados.')}</div>`;
 }
-const AN_PANELES = {resumen:pResumen,ocupacion:pOcupacion,clases:pClases,horarios:pHorarios,personas:pPersonas,profes:pProfes,gimnasio:pGimnasio,cumple:pCumple,incid:pIncid,eventos:pEventos,apoyo:pApoyo};
+const AN_PANELES = {resumen:pResumen,ocupacion:pOcupacion,clases:pClases,horarios:pHorarios,personas:pPersonas,profes:pProfes,gimnasio:pGimnasio,servicios:pServicios,cumple:pCumple,incid:pIncid,eventos:pEventos,apoyo:pApoyo};
 
 /* ---------- vista ---------- */
 const anHoyDia = () => ui.an.per==='dia'&&(ui.an.dia||todayStr())===todayStr();
@@ -407,7 +412,7 @@ function anFiltros(){
 }
 function anCuerpo(d){                          // secciones + nota (sirve para pantalla y para imprimir)
   const q=ui.an.q;
-  const qs = q==='todo' ? AN_Q.filter(x=>x[0]!=='todo'&&(x[0]!=='gimnasio'||d.aids.some(esGim))).map(x=>x[0]) : [q];
+  const qs = q==='todo' ? AN_Q.filter(x=>x[0]!=='todo'&&(x[0]!=='gimnasio'||d.aids.some(esGim))&&(x[0]!=='servicios'||d.aids.some(esServ))).map(x=>x[0]) : [q];
   return `${qs.map(id=>{ const meta=AN_Q.find(x=>x[0]===id); return `<section class="an-p"><div class="h2">${esc(meta[1])}</div>${AN_PANELES[id](d)}</section>`; }).join('')}
     <div class="an-nota">Aforo = asistentes ÷ cupo de cada clase impartida, promediado. Semáforo: verde ≥ 75%, amarillo 30–75%, rojo &lt; 30%. La captura de aforo compara las clases programadas contra las que tienen asistencia registrada. En el gimnasio, el aforo es el número de personas en la sala contra su capacidad y las visitas se estiman con la permanencia promedio. Los cambios se comparan contra el período anterior de igual duración.</div>`;
 }

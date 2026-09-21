@@ -109,13 +109,14 @@ function simGenerar(){
   areas.forEach((a,ai)=>{
     const aid=a.id, plan=SIM_PLAN[aid]||SIM_GENERICO, D={profesores:{},grupos:{},asistencia:{},eventos:{},incidencias:{},reportes:{},accesos:{},paquetes:{}};
     // profesores (2 a 4 por área, nombres inventados)
-    const gimA=a.tipo==='gimnasio';
-    const nProf=gimA?4:Math.min(4,Math.max(2,Math.ceil(plan.length/2)));
+    const gimA=a.tipo==='gimnasio', svA=!!(typeof SERV!=='undefined'&&SERV[a.tipo]);
+    const nProf=gimA?4:svA?(a.tipo==='fisioterapia'?3:2):Math.min(4,Math.max(2,Math.ceil(plan.length/2)));
     const profs=[]; for(let i=0;i<nProf;i++){ const id=`sim_p${ai}_${i}`, nombre=SIM_PROFES[(ai*4+i)%SIM_PROFES.length];
       D.profesores[id]={id,nombre,tipo:i===nProf-1&&nProf>2?'Externo':'Planta',activo:true,especialidad:'',foto:'',sim:true}; profs.push(id); }
     if(gimA){ simGimnasio(a,ai,D,profs,rnd,t,nombreAlumno); }
+    if(svA){ simServicio(a,ai,D,profs,rnd,t,nombreAlumno); }     // Nutrición y Fisioterapia: casos, citas y vigencias en lugar de grupos
     // grupos, asistencia
-    plan.forEach(([nombre,hi,dias,lugar,cupo,base],gi)=>{
+    (svA?[]:plan).forEach(([nombre,hi,dias,lugar,cupo,base],gi)=>{
       const gid=`sim_g${ai}_${gi}`, pid=profs[gi%profs.length], prof=D.profesores[pid].nombre;
       const conLista=cupo<=20&&rnd()<.6&&aid!=='fitness', nAl=Math.max(3,Math.round(cupo*(.72+rnd()*.28)));
       const roster=conLista?Array.from({length:nAl},(_,i)=>nombreAlumno(ai*97+gi*31+i)):[];

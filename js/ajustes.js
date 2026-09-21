@@ -54,7 +54,7 @@ function openAreaForm(id){
       <label class="f"><span>Color de identificación</span><input id="a_color" type="color" value="${esc(a.color)}"></label>
     </div>
     <div class="f"><span class="lb">Ícono</span><input id="a_icono" type="hidden" value="${esc(iconKey(a))}"><div class="ico-pick" id="ico_pick">${AREA_ICON_LIST.map(k=>`<button type="button" class="ico-op${iconKey(a)===k?' on':''}" data-act="pickIco" data-k="${k}" title="${esc(AREA_ICONS[k].n)}" aria-label="${esc(AREA_ICONS[k].n)}">${areaSvg(k,24)}</button>`).join('')}</div></div>
-    ${id?'':`<label class="f"><span>Tipo de área</span><select id="a_tipo"><option value="">Deportiva: grupos, clases y aforos por clase</option><option value="gimnasio">Gimnasio: aforo por hora (mujeres y hombres) y personalizados</option></select></label>`}
+    ${id?'':`<label class="f"><span>Tipo de área</span><select id="a_tipo"><option value="">Deportiva: grupos, clases y aforos por clase</option><option value="gimnasio">Gimnasio: aforo por hora (mujeres y hombres) y personalizados</option><option value="nutricion">Nutrición: agenda de consultas y casos</option><option value="fisioterapia">Fisioterapia: agenda de sesiones y casos</option></select></label>`}
     <div id="a_gim"${(a.tipo==='gimnasio')?'':' hidden'}>
       <div class="two">
         <label class="f"><span>Capacidad de la sala (personas)</span><input id="a_cap" type="number" inputmode="numeric" min="1" value="${esc(a.cap||60)}"></label>
@@ -99,7 +99,7 @@ Object.assign(actions,{
     const nombre=$('#a_nombre').value.trim();
     if(!nombre){ toast('Escribe el nombre del área'); return; }
     const icono=$('#a_icono').value.trim()||'trofeo', color=$('#a_color').value;
-    const vinculo=$('#a_vinc').value==='1'&&!(((getArea(d.id)||{}).tipo==='gimnasio')||(($('#a_tipo')||{}).value==='gimnasio'));
+    const vinculo=$('#a_vinc').value==='1'&&!(((getArea(d.id)||{}).tipo==='gimnasio')||(($('#a_tipo')||{}).value==='gimnasio')||SERV_TIPOS.includes((getArea(d.id)||{}).tipo)||SERV_TIPOS.includes(($('#a_tipo')||{}).value));
     const tipo=d.id?((getArea(d.id)||{}).tipo||''):(($('#a_tipo')||{}).value||'');
     const gim=tipo==='gimnasio'?{tipo,cap:Math.max(1,parseInt($('#a_cap').value)||60),estancia:Math.max(.5,parseFloat($('#a_est').value)||1.25),abre:Math.min(23,Math.max(0,parseInt($('#a_abre').value)||0)),cierra:Math.min(24,Math.max(1,parseInt($('#a_cierra').value)||22))}:{};
     if(gim.cierra!=null&&gim.cierra<=gim.abre){ toast('El cierre debe ser después de la apertura'); return; }
@@ -107,7 +107,7 @@ Object.assign(actions,{
     if(d.id){ setPath(`cfg/areas/${d.id}`,{...getArea(d.id),nombre,icono,color,vinculo,...gim}); }
     else {
       const id=slug(nombre)+'-'+uid().slice(-4), orden=areasList().reduce((m,a)=>Math.max(m,a.orden||0),0)+1;
-      setPath(`cfg/areas/${id}`,{id,nombre,icono,color,orden,vinculo,...gim});
+      setPath(`cfg/areas/${id}`,{id,nombre,icono,color,orden,vinculo,...gim,...(SERV_TIPOS.includes(tipo)?{tipo}:{})});
       setPath(`cfg/pass/dir/${id}`,hashPass(DEF_PASS_DIR));
     }
     closeModal(); render(); toast('Área guardada');

@@ -16,6 +16,10 @@ const NAV_M_GIM = [
   {id:'profesores',label:'Instructores',ic:'clip',tabs:['profesores','eventos']},
   {id:'reporte',label:'Reporte',ic:'doc',tabs:['reporte']}
 ];
+const NAV_M_SERV = [
+  {id:'inicio',label:'Resumen',ic:'cal',tabs:['inicio']},
+  {id:'profesores',label:'Equipo',ic:'clip',tabs:['profesores']}
+];
 const NAV_M_PROF = [
   {id:'hoy',label:'Hoy',ic:'clip',tabs:['hoy']},
   {id:'horario',label:'Horario',ic:'cal',tabs:['horario']}
@@ -29,7 +33,8 @@ const NAV_M_GER = [
 
 function viewBottomNav(){
   const ger=session.rol==='ger', prof=session.rol==='prof';
-  const items=ger?NAV_M_GER:prof?NAV_M_PROF:(esGim(session.area)?NAV_M_GIM:NAV_M_DIR), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';
+  if(prof&&esServ(session.area)) return '';            // el especialista solo tiene su bitácora: no hace falta barra inferior
+  const items=ger?NAV_M_GER:prof?NAV_M_PROF:(esServ(session.area)?NAV_M_SERV:esGim(session.area)?NAV_M_GIM:NAV_M_DIR), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';
   return `<nav class="bottomnav" aria-label="Navegación">${items.map(n=>
     `<button class="${n.tabs.includes(cur)?'on':''}" data-act="${act}" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')}</nav>`;
 }
@@ -39,6 +44,7 @@ function gimSwitch(){                          // gimnasio: Instructores | Event
   return `<div class="seg only-m" style="margin-top:6px"><button class="${ui.aTab==='profesores'?'on':''}" data-act="aTab" data-tab="profesores">Instructores</button><button class="${ui.aTab==='eventos'?'on':''}" data-act="aTab" data-tab="eventos">Eventos</button></div>`;
 }
 function agendaSwitch(){
+  if(session.rol==='dir'&&esServ(curArea())) return servSwitch();
   if(session.rol==='dir'&&esGim(curArea())) return gimSwitch();
   if(session.rol!=='dir') return '';
   return `<div class="seg only-m" style="margin-top:6px"><button class="${ui.aTab==='calendario'?'on':''}" data-act="aTab" data-tab="calendario">Calendario</button><button class="${ui.aTab==='eventos'?'on':''}" data-act="aTab" data-tab="eventos">Eventos</button></div>`;
@@ -46,6 +52,7 @@ function agendaSwitch(){
 
 /* En celular, Grupos y Profesores comparten la pestaña "Grupos". */
 function gruposSwitch(){
+  if(session.rol==='dir'&&esServ(curArea())) return servSwitch();
   if(session.rol==='dir'&&esGim(curArea())) return gimSwitch();
   if(session.rol!=='dir') return '';
   return `<div class="seg only-m" style="margin-top:6px"><button class="${ui.aTab==='grupos'?'on':''}" data-act="aTab" data-tab="grupos">Grupos</button><button class="${ui.aTab==='profesores'?'on':''}" data-act="aTab" data-tab="profesores">Profesores</button></div>`;

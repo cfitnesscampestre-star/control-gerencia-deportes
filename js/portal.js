@@ -17,8 +17,9 @@ function claseActual(gs,fecha){                       // clase en curso o la pr�
 }
 function viewProfesor(){
   const a=getArea(session.area), p=getProf(session.area,session.profId);
-  const body = ui.lista ? vLista() : (ui.pTab==='horario' ? vProfHorario() : vProfHoy());
-  return shell({title:esc(p.nombre),sub:`Profesor · ${areaIco(a,{size:14})} ${esc(a.nombre)}`,body,back:ui.lista?'listaBack':null,fs:!!ui.lista});
+  const srv=esServ(session.area);
+  const body = srv ? vServProf() : ui.lista ? vLista() : (ui.pTab==='horario' ? vProfHorario() : vProfHoy());
+  return shell({title:esc(p.nombre),sub:`${srv?pfNom(session.area,0):'Profesor'} · ${areaIco(a,{size:14})} ${esc(a.nombre)}`,body,back:(!srv&&ui.lista)?'listaBack':null,fs:!srv&&!!ui.lista});
 }
 
 function vProfHoy(){

@@ -24,14 +24,15 @@ function render(){
 
 /* ----- contenido de un área (dirección edita, gerencia solo lee) ----- */
 function areaTabs(){
-  const T=esGim(ui.gArea)
+  const T=esServ(ui.gArea)?svTabs(ui.gArea):esGim(ui.gArea)
     ?[['inicio','Resumen'],['gimaforo','Aforo por hora'],['gimpt','Personalizados'],['profesores','Instructores'],['eventos','Eventos'],['reporte','Reporte']]
     :[['inicio','Resumen'],['aforos','Aforos'],['grupos','Grupos'],['profesores','Profesores'],['calendario','Calendario'],['eventos','Eventos'],['reporte','Reporte']];
   return `<div class="chips">${T.map(([id,l])=>`<button class="chip${ui.aTab===id?' on':''}" data-act="aTab" data-tab="${id}">${l}</button>`).join('')}</div>`;
 }
 function areaBody(aid){
-  const gim=esGim(aid);
+  const gim=esGim(aid), srv=esServ(aid);
   if(gim&&!['inicio','gimaforo','gimpt','profesores','eventos','reporte'].includes(ui.aTab)) ui.aTab='inicio';
+  if(srv&&!svTabs(aid).some(t=>t[0]===ui.aTab)) ui.aTab='inicio';
   if(!gim&&['gimaforo','gimpt'].includes(ui.aTab)) ui.aTab='inicio';
   switch(ui.aTab){
     case 'gimaforo': return vGimAforo(aid);
@@ -42,7 +43,7 @@ function areaBody(aid){
     case 'calendario': return vCalendario(aid);
     case 'eventos': return vEventos(aid);
     case 'reporte': return vReporte(aid);
-    default: return gim?vGimInicio(aid):vInicio(aid);
+    default: return srv?vServInicio(aid):gim?vGimInicio(aid):vInicio(aid);
   }
 }
 function viewGerencia(){

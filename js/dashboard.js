@@ -3,6 +3,7 @@
    dashboard.js — Resumen de gerencia, tarjetas por área e Inicio de un área
    ===================================================================== */
 function areaNum(a,pa,s){                            // "709 de 1,369 lugares" (o el promedio de personas del gimnasio)
+  if(esServ(a.id)){ const v=(pa&&pa.sv)||servStats(a.id,addDays(todayStr(),-29),todayStr()); return v.n?`${plu(v.n,'servicio atendido','servicios atendidos')} · ${svHm(v.min)}${v.util!=null?` · ocupación ${v.util}%`:''}`:'sin servicios registrados en el período'; }
   if(esGim(a.id)){ const g=pa&&pa.g; return g&&g.recs?`promedio ${Math.round(g.personasHora/g.recs)} de ${g.cap} personas`:'sin conteos en el período'; }
   const n=pa&&pa.lugares!=null?{asis:pa.asisL,lugares:pa.lugares}:{asis:s.aforoN.asis,lugares:s.aforoN.lugares};
   return n.lugares?numLugares(n.asis,n.lugares):'sin asistencia capturada';
@@ -11,24 +12,24 @@ function areaMini(a,pa){                            // tarjeta compacta: icono, 
   const s=areaStats(a.id), af=pa?pa.aforo:s.aforo, cls=aforoCls(af);
   return `<button class="amini" data-act="openArea" data-id="${esc(a.id)}" style="--ac:${esc(a.color)}">
     <div class="am-h">${areaIco(a,{tile:true,size:19})}<b>${esc(a.nombre)}</b></div>
-    <div class="am-b"><div class="bar"><i class="${cls}" style="width:${Math.min(af||0,100)}%"></i></div><em class="${cls}">${af==null?'—':af+'%'}</em></div>
+    <div class="am-b">${esServ(a.id)?`<div class="bar"><i class="ok" style="width:${pa&&pa.sv&&pa.sv.n?100:0}%"></i></div><em>${esc(svHm(pa&&pa.sv?pa.sv.min:0))}</em>`:`<div class="bar"><i class="${cls}" style="width:${Math.min(af||0,100)}%"></i></div><em class="${cls}">${af==null?'—':af+'%'}</em>`}</div>
     <div class="am-n">${esc(areaNum(a,pa,s))}</div>
   </button>`;
 }
 function areaCard(a,pa){                        // pa = datos del período (opcional): {aforo, d}
-  const s=areaStats(a.id), af=pa?pa.aforo:s.aforo, cls=aforoCls(af), lbl=pa?anPerLabel():'30 días', gim=esGim(a.id);
+  const s=areaStats(a.id), af=pa?pa.aforo:s.aforo, cls=aforoCls(af), lbl=pa?anPerLabel():'30 días', gim=esGim(a.id), sv=esServ(a.id);
   const hoyG=gim?gimStats(a.id,todayStr(),todayStr()):null, PT=gim?ptTotales(a.id):null;
   return `<button class="acard" data-act="openArea" data-id="${esc(a.id)}" style="--ac:${esc(a.color)}">
-    <div class="ac-h">${areaIco(a,{tile:true,size:22})}<b>${esc(a.nombre)}</b>${repPill(s.reporte)}</div>
+    <div class="ac-h">${areaIco(a,{tile:true,size:22})}<b>${esc(a.nombre)}</b>${sv?'':repPill(s.reporte)}</div>
     <div class="ac-m">
-      <div class="ac-p ${cls}">${af==null?'—':af+'%'}<small>aforo, ${esc(lbl)} ${pa?anDeltaChip(pa.d):''}</small></div>
-      <div class="ac-r"><div class="bar"><i class="${cls}" style="width:${Math.min(af||0,100)}%"></i></div>
+      <div class="ac-p ${sv?'':cls}">${sv?esc(svHm(pa&&pa.sv?pa.sv.min:0)):(af==null?'—':af+'%')}<small>${sv?'de servicio':'aforo'}, ${esc(lbl)} ${pa&&!sv?anDeltaChip(pa.d):''}</small></div>
+      <div class="ac-r"><div class="bar"><i class="${sv?'ok':cls}" style="width:${sv?(pa&&pa.sv&&pa.sv.n?100:0):Math.min(af||0,100)}%"></i></div>
         <div class="ac-n">${esc(areaNum(a,pa,s))}</div>
-        <div class="ac-c">${gim
+        <div class="ac-c">${sv?svChips(a.id,s):gim
           ?`<span>${plu(profCount(a.id),'instructor','instructores')}</span><span>${plu(PT.paquetes,'personalizado activo','personalizados activos')}</span><span class="${s.incAbiertas?'bad':''}">${plu(s.incAbiertas,'incidencia','incidencias')}</span>`
           :`<span>${plu(s.grupos,'grupo','grupos')}</span>${s.profes?`<span>${plu(s.profes,'profesor','profesores')}</span>`:''}<span>${plu(s.alumnos,'alumno','alumnos')}</span><span class="${s.incAbiertas?'bad':''}">${plu(s.incAbiertas,'incidencia','incidencias')}</span>`}</div></div>
     </div>
-    <div class="ac-e">${ic('gauge')}<span>${gim?(hoyG.recs?`Hoy: ${hoyG.recs} horas capturadas · mujeres ${hoyG.pctMu}% / hombres ${hoyG.pctHo}%`:'Hoy todavía no hay conteos por hora'):(s.hoyProg?`Hoy: ${s.hoyCap} de ${s.hoyProg} ${s.hoyProg===1?'clase con aforo capturado':'clases con aforo capturado'}`:'Hoy no hay clases programadas')}</span></div>
+    <div class="ac-e">${ic('gauge')}<span>${sv?svHoyTxt(a.id,s):gim?(hoyG.recs?`Hoy: ${hoyG.recs} horas capturadas · mujeres ${hoyG.pctMu}% / hombres ${hoyG.pctHo}%`:'Hoy todavía no hay conteos por hora'):(s.hoyProg?`Hoy: ${s.hoyCap} de ${s.hoyProg} ${s.hoyProg===1?'clase con aforo capturado':'clases con aforo capturado'}`:'Hoy no hay clases programadas')}</span></div>
     ${s.proxEvento?`<div class="ac-e">${ic('flag')}<span>${esc(fmtFecha(s.proxEvento.fecha))} · ${esc(s.proxEvento.nombre)}</span></div>`:''}
   </button>`;
 }
@@ -39,6 +40,11 @@ function resumenPeriodo(aids){                  // aforo por área en el períod
     if(!esGim(id)) return;
     const g=gimStats(id,r.desde,r.hasta), gp=r.prev?gimStats(id,r.prev.desde,r.prev.hasta):null;
     por[id]={...por[id],gim:true,g,pt:ptTotales(id),aforo:g.aforo,d:gp?anDelta(g.aforo,gp.aforo):null,asisTot:g.visitas,ses:g.recs,grupos:0};
+  });
+  aids.forEach(id=>{                                   // Nutrición y Fisioterapia: consultas de la bitácora y cuadre con la agenda del club
+    if(!esServ(id)) return;
+    const v=servStats(id,r.desde,r.hasta), vp=r.prev?servStats(id,r.prev.desde,r.prev.hasta):null;
+    por[id]={...por[id],serv:true,sv:v,aforo:null,d:null,asisTot:v.n,ses:0,grupos:0};
   });
   return {r,cur,prev,por};
 }
@@ -104,11 +110,12 @@ function gResumen(){
   const P=resumenPeriodo(aids), T=P.cur.tot, r=P.r;
   const st=as.map(a=>({a,s:areaStats(a.id)}));
   const inc=st.reduce((n,x)=>n+x.s.incAbiertas,0);
-  const alum=st.reduce((n,x)=>n+x.s.alumnos,0);
-  const hoyProg=st.reduce((n,x)=>n+x.s.hoyProg,0), hoyCap=st.reduce((n,x)=>n+x.s.hoyCap,0);
+  const stG=st.filter(x=>!esServ(x.a.id));                 // Nutrición y Fisioterapia cuentan casos y citas, no alumnos ni clases
+  const alum=stG.reduce((n,x)=>n+x.s.alumnos,0);
+  const hoyProg=stG.reduce((n,x)=>n+x.s.hoyProg,0), hoyCap=stG.reduce((n,x)=>n+x.s.hoyCap,0);
   const dAf=anDelta(T.aforo,P.prev?P.prev.tot.aforo:null);
   const dAs=P.prev&&P.prev.tot.asisTot?Math.round((T.asisTot-P.prev.tot.asisTot)/P.prev.tot.asisTot*100):null;
-  const rp=anReportes(aids,r.desde,r.hasta), entregSem=st.filter(x=>x.s.reporte==='entregado').length;
+  const rp=anReportes(aids,r.desde,r.hasta), entregSem=stG.filter(x=>x.s.reporte==='entregado').length;
 
   const atn=[];
   as.forEach(a=>coll(a.id,'incidencias').filter(i=>i.estado!=='resuelta').forEach(i=>atn.push({a,i})));
@@ -117,6 +124,7 @@ function gResumen(){
   as.forEach(a=>{
     Object.values(areaData(a.id).reportes||{}).filter(r=>r.semana>=minWk&&String(r.apoyo||'').trim()).sort((p,q)=>q.semana.localeCompare(p.semana)).slice(0,1).forEach(r=>apoyos.push({a,r}));
   });
+  const svAt=svAtencionGerencia();
   const evs=[];
   as.forEach(a=>areaStats(a.id).eventos.forEach(e=>evs.push({a,e})));
   evs.sort((x,y)=>(x.e.fecha+(x.e.hora||'')).localeCompare(y.e.fecha+(y.e.hora||'')));
@@ -132,7 +140,8 @@ function gResumen(){
         ${kpi('Aforo de clases',anPct(T.aforo),`${anDeltaChip(dAf)||`Período: ${anPerLabel()}`}<span class="k-n">${T.lugares?numLugares(T.asisL,T.lugares):''}</span>`,{k:'aforo',cls:aforoCls(T.aforo),color:'var(--b1)'})}
         ${kpi('Captura de aforo',T.cumple==null?'—':T.cumple+'%',`${plu(T.sinCaptura,'clase','clases')} ${anHoyDia()?'por capturar o iniciar':'sin captura'}`,{k:'captura',cls:T.cumple==null?'':T.cumple>=90?'ok':T.cumple>=70?'warn':'bad',color:'var(--b4)'})}
         ${kpi('Incidencias abiertas',inc,inc?'Requieren seguimiento':'Todo en orden',{k:'incid',cls:inc?'bad':'',color:'var(--bad)'})}
-        ${kpi('Reportes semanales',rp.esperados?`${rp.entregados}/${rp.esperados}`:`${entregSem}/${as.length}`,rp.esperados?'entregados a tiempo':'entregados esta semana',{k:'reportes',cls:rp.esperados?(rp.entregados===rp.esperados?'ok':''):(entregSem===as.length&&as.length?'ok':''),color:'var(--warn)'})}
+        ${kpi('Reportes semanales',rp.esperados?`${rp.entregados}/${rp.esperados}`:`${entregSem}/${stG.length}`,rp.esperados?'entregados a tiempo':'entregados esta semana',{k:'reportes',cls:rp.esperados?(rp.entregados===rp.esperados?'ok':''):(entregSem===stG.length&&stG.length?'ok':''),color:'var(--warn)'})}
+        ${svKpisResumen()}
       </div>
     </div>
 
@@ -145,7 +154,8 @@ function gResumen(){
 
     <div class="d-att">
       <div class="h2">Notificaciones de atención requerida</div>
-      ${(atn.length||apoyos.length)?`
+      ${(atn.length||apoyos.length||svAt)?`
+        ${svAt}
         ${atn.slice(0,6).map(x=>`<button class="line" style="--ac:${x.a.color}" data-act="openIncFrom" data-aid="${x.a.id}" data-id="${x.i.id}">
           <div class="t">${areaIco(x.a,{tile:true,size:20})}</div>
           <div class="b"><b>${esc(x.i.tipo||'Incidencia')} · ${esc(x.a.nombre)}</b><small>${esc((x.i.desc||'').slice(0,90))}</small></div>

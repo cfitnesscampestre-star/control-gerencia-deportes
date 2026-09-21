@@ -67,7 +67,7 @@ function viewLogin(){
       <div class="lg-help">
         <p>Gerencia: resumen y consulta de todas las áreas</p>
         <p>Dirección: profesores, grupos, aforos y reportes de tu área</p>
-        <p>Profesor: pasar lista de tus clases</p>
+        <p>Profesor: pasar lista de tus clases. Nutrición y Fisioterapia: registrar tus consultas del día</p>
         ${simActiva()?'<p class="lg-sim">Modo simulación: se ven datos de ejemplo en todas las áreas</p>':''}
       </div>
     </div>

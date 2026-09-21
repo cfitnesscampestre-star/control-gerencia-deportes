@@ -59,7 +59,7 @@ function dgAsistencia(ctx,modo){
       :dgFila(esc(x.g.nombre),dgSubClase(x),'—','sin sesiones capturadas',null)).join('');
     return dgArea(a,s.lugares?numLugares(s.asisL,s.lugares):`${dgN(s.asisTot)} asistentes`,
       modo==='aforo'?`<b class="${aforoCls(s.aforo)}">${anPct(s.aforo)}</b><small>${plu(s.ses,'sesión','sesiones')}</small>`:`<b>${dgN(s.asisTot)}</b><small>${anPct(s.aforo)} de aforo</small>`,rows);
-  }).join('')+gims.map(aid=>dgGimnasio(aid,ctx.r,modo)).join('');
+  }).join('')+gims.map(aid=>dgGimnasio(aid,ctx.r,modo)).join('')+ctx.aids.filter(esServ).map(aid=>dgServicio(aid,ctx.r,modo)).join('');
   const resumen=dgCaja(dgN(T.asisTot),'asistentes a clases')+dgCaja(T.lugares?dgN(T.lugares):'—','lugares disponibles')+dgCaja(anPct(T.aforo),'aforo',aforoCls(T.aforo));
   dgHoja(modo==='aforo'?'Aforo por área y por clase':'Asistentes por área y por clase',ctx,resumen,cuerpo,
     modo==='aforo'?'Aforo = asistentes ÷ lugares disponibles (el cupo de cada clase impartida). Ordenado de mayor a menor aforo.':'Ordenado de mayor a menor número de asistentes. Toca un área para ver sus clases.');
