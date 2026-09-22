@@ -237,11 +237,17 @@ function svTarjetasEsp(aid,R){
   if(!L.length) return empty(`Todavía no hay ${esc(servDe(aid).espP.toLowerCase())} dados de alta.`);
   return L.map(({id,p})=>{
     const s=servStats(aid,R.desde,R.hasta,id,B), d=servStats(aid,rd.desde,rd.hasta,id,B).n, w=servStats(aid,rs.desde,rs.hasta,id,B).n, m=servStats(aid,rm.desde,rm.hasta,id,B).n;
+    const filasServ=s.n?s.porServ.map(x=>`<tr><td>${esc(x.n===1?(svSrv(aid,x.k).u||svSrv(aid,x.k).s.toLowerCase()):svSrv(aid,x.k).p)}</td><td>${x.n}</td></tr>`).join(''):`<tr><td colspan="2" class="mut">Sin servicios atendidos en el período.</td></tr>`;
+    const filasTurno=!s.turno?`<tr><td colspan="2" class="mut">${s.todas&&s.todas.length?'Sin turno para comparar: falta el horario de ese día.':'Sin registros para comparar con el turno.'}</td></tr>`
+      :`<tr><td>Turno</td><td>${esc(svHm(s.turno))}</td></tr><tr><td>En servicio</td><td>${esc(svHm(s.enTurno))}</td></tr><tr><td>Ocupación</td><td class="sv-u-${svUtilCls(s.util)}">${s.util}%</td></tr><tr><td>Tiempo muerto</td><td>${esc(svHm(s.idle))}</td></tr>${s.perdida?`<tr><td colspan="2" class="mut sv-tbl-note">${esc(svHm(s.perdida))} por citas que no llegaron y ${esc(svHm(s.libre))} sin cita</td></tr>`:''}`;
     return `<div class="sv-esp"><div class="sv-esp-h"><b>${esc(p?p.nombre:'Especialista dado de baja')}</b><span class="sv-hm">${esc(svHm(s.min))}</span></div>
       ${p?`<div class="sv-hor-t">${esc(svHorarioTxt(p))}</div>`:''}
-      <div class="sv-esp-t">${svFrase(aid,s)}</div>
-      <div class="sv-esp-t">${svTurnoHTML(s)}</div>
-      <div class="sv-esp-f"><span><b>${d}</b> el día</span><span><b>${w}</b> la semana</span><span><b>${m}</b> el mes</span>${s.rt.pct!=null?`<span><b>${s.rt.pct}%</b> registrado en el momento</span>`:''}</div></div>`;
+      <table class="sv-tbl"><tbody>
+        ${filasServ}
+        ${filasTurno}
+        <tr><td>Hoy</td><td>${d}</td></tr><tr><td>Esta semana</td><td>${w}</td></tr><tr><td>Este mes</td><td>${m}</td></tr>
+        ${s.rt.pct!=null?`<tr><td>Registrado en el momento</td><td>${s.rt.pct}%</td></tr>`:''}
+      </tbody></table></div>`;
   }).join('');
 }
 function svDiaInfo(aid,f,B){
@@ -270,7 +276,7 @@ function svCalendario(aid){
   </div>`;
 }
 function vServInicio(aid){
-  const S=servDe(aid), {per,ref}=ui.sv, R=svRango(per,ref), s=servStats(aid,R.desde,R.hasta), nProf=profesores(aid).filter(p=>p.activo!==false).length;
+  const S=servDe(aid), nProf=profesores(aid).filter(p=>p.activo!==false).length;
   const sinH=profesores(aid).filter(p=>p.activo!==false&&!spDias(p).length);
   const medir=!esParamed(aid);                          // Gerencia no mide el servicio de Paramédicos: solo agendan citas a Fisioterapia
   return `<div class="sv">
@@ -280,9 +286,6 @@ function vServInicio(aid){
     ${medir&&sinH.length?`<div class="sv-warn">${ic('bolt')}<span>Falta el horario de ${esc(sinH.map(p=>p.nombre).join(', '))}: sin él no se puede medir el tiempo muerto.</span></div>`:''}
     <div class="h2">Calendario <small class="mut">toca un día para ver el detalle</small></div>
     ${svCalendario(aid)}
-    ${svPeriodoBar()}
-    <div class="h2">${esParamed(aid)?'Citas agendadas':'Actividad'} <small class="mut">${esc(R.txt)}</small></div>
-    ${svActividadResumen(aid,R)}
     ${medir?`<div class="btns no-print"><button class="btn" data-act="svVerTarjetas" data-aid="${esc(aid)}">Ver detalle por ${esc(S.esp.toLowerCase())}</button></div>`:''}
     ${(getArea(aid)||{}).tipo==='fisioterapia'?svBloqueosPanel(aid):''}
   </div>`;
@@ -298,20 +301,6 @@ function svPendientesModal(aid){
   openModal(`${mHead('Citas pendientes por confirmar')}
     ${P.length?P.map(r=>{ const p=getProf(aid,r.profId); return `<div class="line"><div class="t">${ic('bolt')}</div><div class="b"><b>${esc(fmtLarga(r.f))} · ${esc(svRangoTxt(svMin(r.hi),svMin(r.hf)))}</b><small>${esc(r.paciente)} con ${esc(p?p.nombre:'—')}${r.motivo?' · '+esc(r.motivo):''}</small></div></div>`; }).join(''):empty('No hay citas pendientes.')}
     <div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`);
-}
-function svActividadResumen(aid,R){
-  const B=bitacora(aid);
-  const ids=new Set(profesores(aid).filter(p=>p.activo!==false).map(p=>p.id)); B.forEach(x=>{ if(x.f>=R.desde&&x.f<=R.hasta) ids.add(x.profId); });
-  const L=[...ids].map(id=>({id,p:getProf(aid,id)})).sort((a,b)=>String((a.p||{}).nombre).localeCompare(String((b.p||{}).nombre),'es'));
-  if(!L.length) return empty(`Todavía no hay ${esc(servDe(aid).espP.toLowerCase())} dados de alta.`);
-  const par=esParamed(aid);
-  return `<div class="sv-act">${L.map(({id,p})=>{
-    const s=servStats(aid,R.desde,R.hasta,id,B), nom=esc(p?p.nombre:'Dado de baja');
-    const txt=par
-      ? (s.n||s.agendadas?`${plu(s.n,'cita agendada','citas agendadas')}${s.agendadas?` · ${plu(s.agendadas,'pendiente por confirmar','pendientes por confirmar')}`:''}`:'Sin citas agendadas en el período.')
-      : (s.n?svFrase(aid,s):'Sin servicios atendidos en el período.');
-    return `<div class="sv-act-l"><b>${nom}</b><span>${txt}</span></div>`;
-  }).join('')}</div>`;
 }
 /* ---------- detalle (dashboard + tarjetas por especialista): solo se abre si hace falta ---------- */
 function svPeriodoBarModal(aid){
