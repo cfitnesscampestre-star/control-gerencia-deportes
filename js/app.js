@@ -51,6 +51,7 @@ function viewGerencia(){
   let body, title='Control Gerencia', sub='Gerencia de deportes · todas las áreas', back=null;
   if(ui.gTab==='resumen') body=gResumen();
   else if(ui.gTab==='comite'){ body=gComite(); title='Comité directivo'; sub='Informe para gerencia general'; }
+  else if(ui.gTab==='reportes'){ body=gReportes(); title='Reportes'; sub='Cualquier fecha, cualquier área, para imprimir o guardar'; }
   else if(ui.gTab==='ajustes') body=gAjustes();
   else if(ui.gArea&&getArea(ui.gArea)){
     const a=getArea(ui.gArea); title=`${areaIco(a,{size:22})} ${esc(a.nombre)}`; sub='Vista de gerencia · solo lectura'; back=ui.lista?'listaBack':'gBack';

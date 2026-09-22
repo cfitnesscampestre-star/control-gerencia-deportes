@@ -157,7 +157,8 @@ Object.assign(actions,{
   docPrint(){ if(docActual) imprimirDirecto(docActual); },
   anPrint(){
     const d=anData(), q=AN_Q.find(x=>x[0]===ui.an.q), area=ui.an.area==='all'?'Todas las áreas':getArea(ui.an.area).nombre;
-    imprimirDoc({titulo:'Informe para comité directivo'+(ui.an.q==='todo'||ui.an.q==='resumen'?'':' · '+q[1].replace(/[¿?]/g,'')),
+    const base=ui.gTab==='reportes'?'Reporte':'Informe para comité directivo';
+    imprimirDoc({titulo:base+(ui.an.q==='todo'||ui.an.q==='resumen'?'':' · '+q[1].replace(/[¿?]/g,'')),
       sub:`${area} · ${anPeriodoTxt(d.r)}${anCompTxt(d.r)}`,html:anCuerpo(d)});
   },
   repPrint(){

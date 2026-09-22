@@ -3,6 +3,7 @@
    dashboard.js — Resumen de gerencia, tarjetas por área e Inicio de un área
    ===================================================================== */
 function areaNum(a,pa,s){                            // "709 de 1,369 lugares" (o el promedio de personas del gimnasio)
+  if(esParamed(a.id)){ const v=(pa&&pa.sv)||servStats(a.id,addDays(todayStr(),-29),todayStr()); return v.n||v.agendadas?`${plu(v.n,'cita agendada','citas agendadas')}${v.agendadas?` · ${plu(v.agendadas,'pendiente','pendientes')}`:''}`:'sin citas agendadas en el período'; }
   if(esServ(a.id)){ const v=(pa&&pa.sv)||servStats(a.id,addDays(todayStr(),-29),todayStr()); return v.n?`${plu(v.n,'servicio atendido','servicios atendidos')} · ${svHm(v.min)}${v.util!=null?` · ocupación ${v.util}%`:''}`:'sin servicios registrados en el período'; }
   if(esGim(a.id)){ const g=pa&&pa.g; return g&&g.recs?`promedio ${Math.round(g.personasHora/g.recs)} de ${g.cap} personas`:'sin conteos en el período'; }
   const n=pa&&pa.lugares!=null?{asis:pa.asisL,lugares:pa.lugares}:{asis:s.aforoN.asis,lugares:s.aforoN.lugares};

@@ -24,9 +24,10 @@ const DEFAULT_AREAS = [
   {id:'basquetbol',nombre:'Básquetbol',icono:'basquet'},
   {id:'frontenis',nombre:'Frontenis',icono:'frontenis'},
   {id:'nutricion',nombre:'Nutrición',icono:'nutricion',tipo:'nutricion'},
-  {id:'fisioterapia',nombre:'Fisioterapia',icono:'fisio',tipo:'fisioterapia'}
+  {id:'fisioterapia',nombre:'Fisioterapia',icono:'fisio',tipo:'fisioterapia'},
+  {id:'paramedicos',nombre:'Paramédicos',icono:'cruz',tipo:'paramedico'}
 ];
-const SERV_TIPOS = ['nutricion','fisioterapia'];        // áreas de servicio con cita (ver js/servicios.js)
+const SERV_TIPOS = ['nutricion','fisioterapia','paramedico']; // áreas de servicio con cita (ver js/servicios.js)
 const DIAS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const DIAS_L = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -190,6 +191,13 @@ function ensureSeed(){
       const orden=Math.max(0,...Object.values(state.cfg.areas).map(a=>a.orden||0))+1;
       state.cfg.areas[x.id]={...x,orden,color:COLORS[Object.keys(state.cfg.areas).length%COLORS.length]};
     });
+  }
+  if(!state.cfg.paramedAdd){                              // configuraciones anteriores: se agrega Paramédicos una sola vez
+    state.cfg.paramedAdd=true; ch=true;
+    if(!Object.values(state.cfg.areas).some(a=>a.tipo==='paramedico')){
+      const x=DEFAULT_AREAS.find(a=>a.tipo==='paramedico'), orden=Math.max(0,...Object.values(state.cfg.areas).map(a=>a.orden||0))+1;
+      state.cfg.areas[x.id]={...x,orden,color:COLORS[Object.keys(state.cfg.areas).length%COLORS.length]};
+    }
   }
   if(state.cfg.ver!==THEME_VER){                       // paleta nueva del tema claro
     areasList().forEach((a,i)=>{ state.cfg.areas[a.id].color=COLORS[i%COLORS.length]; });

@@ -15,7 +15,7 @@ const AN_Q = [
   ['personas','¿A cuánta gente atendemos?','Alumnos, asistentes y sesiones'],
   ['profes','¿Cómo rinden los profesores?','Ranking y cumplimiento por profesor'],
   ['gimnasio','¿Cómo va el gimnasio?','Aforo por hora, mujeres y hombres, personalizados'],
-  ['servicios','¿Cómo van Nutrición y Fisioterapia?','Servicios y horas por especialista, y canalizaciones'],
+  ['servicios','¿Cómo van Nutrición, Fisioterapia y Paramédicos?','Servicios y horas por especialista, canalizaciones y citas'],
   ['cumple','¿Estamos cumpliendo?','Captura de aforos y reportes semanales'],
   ['incid','¿Qué incidencias hay?','Abiertas, gravedad y tipo'],
   ['eventos','¿Qué eventos hay?','Realizados y próximos'],
@@ -406,7 +406,7 @@ function anFiltros(){
     ${anPeriodoHTML()}
     <div class="an-row"><label class="f"><span>Área</span><select id="an_area"><option value="all"${a.area==='all'?' selected':''}>Todas las áreas</option>${areasList().map(x=>`<option value="${esc(x.id)}"${a.area===x.id?' selected':''}>${esc(x.nombre)}</option>`).join('')}</select></label>
       <div class="an-acts"><button class="btn sm" data-act="anPrint">Imprimir / PDF</button><button class="btn sm" data-act="anCopy">Copiar resumen</button><button class="btn sm" data-act="anCsv">Descargar CSV</button></div></div>
-    <div class="an-qh">Pregunta del comité</div>
+    <div class="an-qh">${ui.gTab==='reportes'?'¿Qué quieres ver?':'Pregunta del comité'}</div>
     <div class="chips an-q">${AN_Q.map(([id,l])=>`<button class="chip${a.q===id?' on':''}" data-act="anQ" data-q="${id}">${l}</button>`).join('')}</div>
   </div>`;
 }
@@ -422,11 +422,18 @@ function gComite(){
     <div class="an-head"><div><b>Informe para comité directivo</b><small>${esc(area)} · ${esc(anPeriodoTxt(d.r))}${esc(anCompTxt(d.r))}</small></div><small class="an-gen">Generado el ${esc(fmtLarga(todayStr()))}</small></div>
     ${anCuerpo(d)}`;
 }
+function gReportes(){
+  const d=anData(), area=ui.an.area==='all'?'Todas las áreas':getArea(ui.an.area).nombre;
+  return `<div class="sub">Elige el período, el área o disciplina y lo que quieras ver; al final puedes imprimirlo o guardarlo en PDF.</div>
+    ${anFiltros()}
+    <div class="an-head"><div><b>Reporte</b><small>${esc(area)} · ${esc(anPeriodoTxt(d.r))}${esc(anCompTxt(d.r))}</small></div><small class="an-gen">Generado el ${esc(fmtLarga(todayStr()))}</small></div>
+    ${anCuerpo(d)}`;
+}
 
 /* ---------- copiar, CSV, imprimir ---------- */
 function anTexto(d){
-  const area=ui.an.area==='all'?'Todas las áreas':getArea(ui.an.area).nombre;
-  return [`INFORME PARA COMITÉ DIRECTIVO — Club Campestre Aguascalientes`,`${area} · ${anPeriodoTxt(d.r)}`,'',
+  const area=ui.an.area==='all'?'Todas las áreas':getArea(ui.an.area).nombre, base=ui.gTab==='reportes'?'REPORTE':'INFORME PARA COMITÉ DIRECTIVO';
+  return [`${base} — Club Campestre Aguascalientes`,`${area} · ${anPeriodoTxt(d.r)}`,'',
     ...anInsights(d).map(x=>`• ${x.h}: ${x.x}`),'',`Generado el ${fmtLarga(todayStr())}`].join('\n');
 }
 function anDescargar(nombre,texto,tipo){

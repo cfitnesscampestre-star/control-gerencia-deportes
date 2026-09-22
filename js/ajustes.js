@@ -55,7 +55,7 @@ function openAreaForm(id){
       <label class="f"><span>Color de identificación</span><input id="a_color" type="color" value="${esc(a.color)}"></label>
     </div>
     <div class="f"><span class="lb">Ícono</span><input id="a_icono" type="hidden" value="${esc(iconKey(a))}"><div class="ico-pick" id="ico_pick">${AREA_ICON_LIST.map(k=>`<button type="button" class="ico-op${iconKey(a)===k?' on':''}" data-act="pickIco" data-k="${k}" title="${esc(AREA_ICONS[k].n)}" aria-label="${esc(AREA_ICONS[k].n)}">${areaSvg(k,24)}</button>`).join('')}</div></div>
-    ${id?'':`<label class="f"><span>Tipo de área</span><select id="a_tipo"><option value="">Deportiva: grupos, clases y aforos por clase</option><option value="gimnasio">Gimnasio: aforo por hora (mujeres y hombres) y personalizados</option><option value="nutricion">Nutrición: bitácora de servicios y horarios</option><option value="fisioterapia">Fisioterapia: bitácora de servicios y horarios</option></select></label>`}
+    ${id?'':`<label class="f"><span>Tipo de área</span><select id="a_tipo"><option value="">Deportiva: grupos, clases y aforos por clase</option><option value="gimnasio">Gimnasio: aforo por hora (mujeres y hombres) y personalizados</option><option value="nutricion">Nutrición: bitácora de servicios y horarios</option><option value="fisioterapia">Fisioterapia: bitácora de servicios y horarios</option><option value="paramedico">Paramédicos: agenda citas de empleados a Fisioterapia</option></select></label>`}
     <div id="a_gim"${(a.tipo==='gimnasio')?'':' hidden'}>
       <div class="two">
         <label class="f"><span>Capacidad general de la sala (personas)</span><input id="a_cap" type="number" inputmode="numeric" min="1" value="${esc(a.cap||60)}"></label>

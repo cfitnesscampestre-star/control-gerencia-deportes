@@ -41,6 +41,7 @@ const NAV_PROF = [
 const NAV_GER = [
   {id:'resumen',label:'Resumen',ic:'dash'},
   {id:'comite',label:'Comité',ic:'chart'},
+  {id:'reportes',label:'Reportes',ic:'doc'},
   {id:'areas',label:'Áreas',ic:'areas'},
   {id:'ajustes',label:'Ajustes',ic:'gear'}
 ];

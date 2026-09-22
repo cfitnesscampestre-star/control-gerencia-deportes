@@ -26,11 +26,12 @@ const AREA_ICONS = {
   boxeo:     {n:'Boxeo',      d:'<path d="M6.5 11V7.6A3.6 3.6 0 0 1 10.1 4h4.3a4.2 4.2 0 0 1 4.2 4.2v3.1c0 1.6-.8 3-2.1 3.9V19H8.7v-4.2A4.5 4.5 0 0 1 6.5 11z"/><path d="M6.5 11c0-1.5 1-2.2 2.6-2.2h2.4M8.7 16.6h7.8"/>'},
   nutricion: {n:'Nutrición',  d:'<path d="M12 8.2C10.6 7.2 8.2 7 6.9 8.8 5.3 11 5.9 14.6 7.6 16.9c1 1.4 2.3 2.3 3.4 1.7.6-.3 1-.4 1-.4s.4.1 1 .4c1.1.6 2.4-.3 3.4-1.7 1.7-2.3 2.3-5.9.7-8.1C15.8 7 13.4 7.2 12 8.2z"/><path d="M12 8.2c0-1.7.8-3.2 2.4-4"/>'},
   fisio:     {n:'Fisioterapia', d:'<rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="M11.65 7.41l4.94 4.94M7.41 11.65l4.94 4.94"/><path d="M12 10.6v.01M13.4 12h.01M10.6 12h.01M12 13.4v.01" stroke-width="1.7"/>'},
+  cruz:      {n:'Paramédicos', d:'<circle cx="12" cy="12" r="9"/><path d="M12 7.8v8.4M7.8 12h8.4"/>'},
   trofeo:    {n:'Trofeo',     d:'<path d="M7.5 4h9v5.2a4.5 4.5 0 0 1-9 0V4z"/><path d="M7.5 6H4.4v1.4a3.2 3.2 0 0 0 3.3 3.1M16.5 6h3.1v1.4a3.2 3.2 0 0 1-3.3 3.1M12 13.8V17.4M8.4 20h7.2M9.6 20l.6-2.6h3.6l.6 2.6"/>'}
 };
 const AREA_ICON_LIST = Object.keys(AREA_ICONS);
 const EMOJI_A_ICONO = {'🤸':'gimnasia','🏋':'pesas','💪':'fitness','🎾':'tenis','⚽':'futbol','🏊':'natacion','🏓':'padel','🥋':'taekwondo','🏸':'squash','🏀':'basquet','🥎':'frontenis','🏐':'voleibol','🧘':'yoga','🚴':'ciclismo','🏃':'correr','🥊':'boxeo','🏆':'trofeo','🏅':'trofeo'};
-const ICONO_POR_AREA = {gimnasia:'gimnasia',gimnasio:'pesas',fitness:'fitness',tenis:'tenis',futbol:'futbol',natacion:'natacion',padel:'padel',taekwondo:'taekwondo',squash:'squash',basquetbol:'basquet',frontenis:'frontenis',nutricion:'nutricion',fisioterapia:'fisio'};
+const ICONO_POR_AREA = {gimnasia:'gimnasia',gimnasio:'pesas',fitness:'fitness',tenis:'tenis',futbol:'futbol',natacion:'natacion',padel:'padel',taekwondo:'taekwondo',squash:'squash',basquetbol:'basquet',frontenis:'frontenis',nutricion:'nutricion',fisioterapia:'fisio',paramedicos:'cruz'};
 
 function iconKey(a){                                   // clave del ícono de un área (acepta emojis de versiones anteriores)
   const v=String((a&&a.icono)||'').replace(/[\uFE0F\u200D\u2640\u2642]/g,'').trim();
