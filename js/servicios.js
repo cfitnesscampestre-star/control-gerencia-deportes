@@ -331,10 +331,19 @@ function svDetalleModal(aid){
 /* ---------- Gerencia: horarios reservados para atención a personal (bloqueo con motivo, solo Gerencia edita) ---------- */
 const svBloqueos = aid => coll(aid,'bloqueos');
 const svBloqueoTxt = b => `${(b.dias||[]).map(i=>DIAS[i]).join(', ')||'—'} ${svRangoTxt(svMin(b.hi),svMin(b.hf))}`;
-function svBloqueoActivo(aid,profId,fecha,hi,hf){         // ¿ese horario está reservado para empleados? (para avisar, no para impedir)
+function svBloqueoActivo(aid,profId,fecha,hi,hf){         // ¿ese horario se cruza con lo reservado para empleados? (para avisar en el registro normal)
   if(hi==null||hf==null||!fecha) return null;
   const w=wdIdx(fecha);
   return svBloqueos(aid).find(b=>(b.dias||[]).includes(w)&&(!b.profId||b.profId===profId)&&svMin(b.hi)!=null&&svMin(b.hf)!=null&&svMin(b.hi)<hf&&hi<svMin(b.hf))||null;
+}
+function svBloqueosDia(aid,profId,fecha){                 // bloqueos vigentes ese día para ese fisioterapeuta (o "todos")
+  if(!fecha) return [];
+  const w=wdIdx(fecha);
+  return svBloqueos(aid).filter(b=>(b.dias||[]).includes(w)&&(!b.profId||b.profId===profId)&&svMin(b.hi)!=null&&svMin(b.hf)!=null);
+}
+function svDentroDeBloqueo(aid,profId,fecha,hi,hf){        // ¿la cita completa cae dentro de un horario reservado? (esto sí es obligatorio para Paramédicos)
+  if(hi==null||hf==null) return false;
+  return svBloqueosDia(aid,profId,fecha).some(b=>hi>=svMin(b.hi)&&hf<=svMin(b.hf));
 }
 function svBloqueosPanel(aid){
   if(session.rol!=='ger') return '';
@@ -484,12 +493,21 @@ function ctFisOptsHTML(fisioAid,fecha,hi,hf,sel){
   const opts=list.map(p=>`<option value="${esc(p.id)}"${p.id===sel?' selected':''}>${esc(p.nombre)}</option>`).join('');
   return {html:opts,filtrado,ids:new Set(list.map(p=>p.id))};
 }
-function ctFisRefresh(){
+function ctDefaultHorario(fisioAid,fisioId,fecha){         // sugiere el primer horario reservado para empleados ese día (si hay)
+  const bs=svBloqueosDia(fisioAid,fisioId,fecha);
+  return bs.length?{hi:bs[0].hi,hf:bs[0].hf}:{hi:'16:00',hf:'16:45'};
+}
+function ctBloqNoteTxt(fisioAid,profId,fecha){
+  const bs=svBloqueosDia(fisioAid,profId,fecha);
+  return bs.length?`Solo puedes agendar dentro de lo reservado para empleados: ${bs.map(svBloqueoTxt).join(' · ')}.`:'Gerencia todavía no reserva horario para empleados con este fisioterapeuta ese día: no vas a poder agendar hasta que lo hagan.';
+}
+function ctRefresh(){
   const fisioAid=fisioAreaId(), sel=$('#ct_fis'); if(!sel) return;
   const fecha=$('#ct_f').value, hi=svMin($('#ct_hi').value), hf=svMin($('#ct_hf').value);
   const cur=sel.value, {html,filtrado,ids}=ctFisOptsHTML(fisioAid,fecha,hi,hf,cur);
   sel.innerHTML=html; if(ids.has(cur)) sel.value=cur;
   const note=$('#ct_fis_note'); if(note) note.textContent=filtrado?'Solo se muestran los que tienen turno en ese horario.':'Ninguno tiene turno justo en ese horario; se muestran todos.';
+  const bnote=$('#ct_bloq_note'); if(bnote) bnote.textContent=ctBloqNoteTxt(fisioAid,sel.value,fecha);
 }
 function openCita(id){
   const paramAid=session.area, pid=session.profId, fisioAid=fisioAreaId();
@@ -506,7 +524,8 @@ function openCita(id){
   }
   const todosFisios=profesores(fisioAid).filter(p=>p.activo!==false);
   if(!todosFisios.length){ toast('Todavía no hay fisioterapeutas dados de alta en Fisioterapia'); return; }
-  const f=own.f||ui.pFecha, fisioId=own.fisioId||todosFisios[0].id, hi=own.hi||'16:00', hf=own.hf||'16:45';
+  const f=own.f||ui.pFecha, fisioId=own.fisioId||todosFisios[0].id;
+  const defH=own.hi?{hi:own.hi,hf:own.hf}:ctDefaultHorario(fisioAid,fisioId,f), hi=defH.hi, hf=defH.hf;
   const mis=bitacora(paramAid).filter(x=>x.profId===pid), nombres=[...new Set(mis.map(x=>x.paciente))].sort((a,b)=>a.localeCompare(b,'es')).slice(0,400);
   const {html:fisOpts,filtrado}=ctFisOptsHTML(fisioAid,f,svMin(hi),svMin(hf),fisioId);
   openModal(`${mHead(id?'Editar cita':'Agendar cita a Fisioterapia')}
@@ -516,13 +535,14 @@ function openCita(id){
       <label class="f"><span>Hora de inicio</span><input id="ct_hi" type="time" step="300" value="${esc(hi)}"></label>
       <label class="f"><span>Hora de fin</span><input id="ct_hf" type="time" step="300" value="${esc(hf)}"></label></div>
     <label class="f"><span>Fisioterapeuta</span><select id="ct_fis">${fisOpts}</select><small id="ct_fis_note" class="mut">${filtrado?'Solo se muestran los que tienen turno en ese horario.':'Ninguno tiene turno justo en ese horario; se muestran todos.'}</small></label>
+    <small id="ct_bloq_note" class="mut">${ctBloqNoteTxt(fisioAid,fisioId,f)}</small>
     <label class="f"><span>Motivo</span><input id="ct_mot" value="${esc(own.motivo||'')}" placeholder="Ej. lesión en el trabajo, canalización médica"></label>
     <div class="sub">En cuanto agendes, ese horario queda bloqueado en la agenda del fisioterapeuta y le aparece como pendiente por confirmar.</div>
     <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="guardarCita" data-id="${esc(id||'')}" data-citaid="${esc(citaId||'')}">${id?'Guardar cambios':'Agendar cita'}</button></div>
     ${id?`<div class="btns"><button class="btn danger" data-act="cancelarCita" data-id="${esc(id)}" data-citaid="${esc(citaId||'')}">Cancelar cita</button></div>`:''}`);
   setTimeout(()=>{ const i=$('#ct_emp'); if(i&&!id) i.focus(); },60);
 }
-document.addEventListener('change',e=>{ if(['ct_f','ct_hi','ct_hf'].includes(e.target.id)) ctFisRefresh(); });
+document.addEventListener('change',e=>{ if(['ct_f','ct_hi','ct_hf','ct_fis'].includes(e.target.id)) ctRefresh(); });
 
 /* ---------- impresión: reporte del período ---------- */
 function svReporteDoc(aid,R){
@@ -582,6 +602,9 @@ Object.assign(actions,{
     if(hi==null||hf==null){ toast('Anota la hora de inicio y la de fin'); return; }
     if(hf<=hi){ toast('La hora de fin debe ser después de la de inicio'); return; }
     if(hf-hi>240){ toast('Una cita no puede durar más de 4 horas'); return; }
+    const bloqueosDia=svBloqueosDia(fisioAid,fisioId,fecha);
+    if(!bloqueosDia.length){ toast('Gerencia todavía no reserva horario para empleados con ese fisioterapeuta ese día. Pide que lo agreguen en Fisioterapia → Gerencia.'); return; }
+    if(!svDentroDeBloqueo(fisioAid,fisioId,fecha,hi,hf)){ toast(`Ese horario no está dentro de lo reservado para empleados (${bloqueosDia.map(svBloqueoTxt).join(' · ')}). Elige una hora dentro de ese rango.`); return; }
     const citaId=d.citaid||('b'+uid());
     const choque=bitacora(fisioAid).find(x=>x.profId===fisioId&&x.f===fecha&&x.id!==citaId&&x.estado!=='no_asistio'&&x.estado!=='cancelo'&&svIv(x)&&hi<svIv(x)[1]&&svIv(x)[0]<hf);
     if(choque){ toast(`Ese horario ya está ocupado (${choque.paciente} ${svRangoTxt(svIv(choque)[0],svIv(choque)[1])}). Elige otra hora.`); return; }
