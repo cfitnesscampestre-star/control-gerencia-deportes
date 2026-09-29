@@ -96,7 +96,10 @@ function fcAdapt(raw,areaId,areas){
   // 4) cierre de grupos: se calculan sus días y se reparten en el área que le tocó a cada clase
   const gruposPorArea={};
   Object.values(grupos).forEach(g=>{
-    g.dias=[...g._d].sort().join(',');
+    // Solo las clases que siguen en el horario vigente de Fitness Control se programan cada semana.
+    // Las que solo aparecen en registros viejos ya no se “programan” (no salen de más ni quedan en cero);
+    // su aforo histórico sigue contando en la fecha en que se capturó.
+    g.dias=g._prog?[...g._d].sort().join(','):'';
     if(!g._prog&&g._last) g.fin=addDays(g._last,7);          // clase que ya no se imparte: no cuenta como “sin captura” después
     const aid=g._aid;
     delete g._d; delete g._prog; delete g._last; delete g._capF; delete g._aid;

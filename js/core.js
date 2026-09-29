@@ -300,13 +300,19 @@ function aforoAreaN(aid,desde){                       // aforo = asistentes ÷ l
 }
 function aforoArea(aid,desde){ return aforoAreaN(aid,desde).pct; }
 const numLugares = (asis,lug) => `${(+asis||0).toLocaleString('es-MX')} de ${(+lug||0).toLocaleString('es-MX')} lugares`;
+/* Clases de un día: las programadas ese día de la semana + las que tienen aforo capturado en esa fecha
+   (igual que la lista del día en Fitness Control). */
+function gruposDelDia(aid,fecha){
+  const wd=wdIdx(fecha), conReg=new Set(coll(aid,'asistencia').filter(r=>r.fecha===fecha).map(r=>r.grupoId));
+  return grupos(aid).filter(g=>diasArr(g).includes(wd)||conReg.has(g.id));
+}
 function areaStats(aid){
   const t=todayStr(), gs=grupos(aid), wk=mondayOf(t), wd=wdIdx(t);
   const evs=coll(aid,'eventos').filter(e=>e.fecha>=t&&e.estado!=='cancelado').sort((a,b)=>(a.fecha+(a.hora||'')).localeCompare(b.fecha+(b.hora||'')));
   const reps=areaData(aid).reportes||{};
   const rep=reps[wk];
   const ult=Object.values(reps).filter(r=>r.entregado).sort((a,b)=>b.semana.localeCompare(a.semana))[0];
-  const prog=gs.filter(g=>diasArr(g).includes(wd));
+  const prog=gruposDelDia(aid,t);
   const hoyRecs=new Set(coll(aid,'asistencia').filter(r=>r.fecha===t).map(r=>r.grupoId));
   const R={
     grupos:gs.length, alumnos:gs.reduce((s,g)=>s+inscritos(g),0), aforo:aforoArea(aid,addDays(t,-30)), aforoN:aforoAreaN(aid,addDays(t,-30)),

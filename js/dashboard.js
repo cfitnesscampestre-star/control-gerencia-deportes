@@ -182,7 +182,7 @@ function gResumen(){
 /* ---------- Inicio de un área ---------- */
 function vInicio(aid){
   const s=areaStats(aid), t=todayStr(), wd=wdIdx(t), ro=isRO();
-  const hoy=grupos(aid).filter(g=>diasArr(g).includes(wd)).sort(byHora);
+  const hoy=gruposDelDia(aid,t).sort(byHora);
   const recs=Object.fromEntries(coll(aid,'asistencia').filter(r=>r.fecha===t).map(r=>[r.grupoId,r]));
   const inc=coll(aid,'incidencias').filter(i=>i.estado!=='resuelta').sort(incSort).slice(0,3);
   const pct=s.hoyProg?Math.round(s.hoyCap/s.hoyProg*100):0;

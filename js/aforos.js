@@ -15,8 +15,8 @@ function afList(aid,fecha){
   const all=grupos(aid), wd=wdIdx(fecha);
   return {
     total:all.length,
-    prog:all.filter(g=>diasArr(g).includes(wd)).sort(byHora),
-    otros:ui.afTodos?all.filter(g=>!diasArr(g).includes(wd)).sort(byHora):[]
+    prog:gruposDelDia(aid,fecha).sort(byHora),
+    otros:ui.afTodos?all.filter(g=>!gruposDelDia(aid,fecha).includes(g)).sort(byHora):[]
   };
 }
 function afSummary(aid,fecha){
