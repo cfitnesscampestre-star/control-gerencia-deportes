@@ -81,7 +81,7 @@ function anCompute(aids,desde,hasta){
       const first=all.length?all.reduce((m,r)=>r.fecha<m?r.fecha:m,all[0].fecha):null;
       const ini=g.creado||first||t, dias=diasArr(g);
       const finG=g.fin||'9999-12-31';
-      let prog=0; days.forEach(x=>{ if(x.d>=ini&&x.d<=finG&&dias.includes(x.wd)) prog++; });
+      let prog=0; days.forEach(x=>{ if(x.d>=ini&&x.d<=finG&&progEn(g,x.d)) prog++; });
       out.push({aid,g,cupo,lugares:cupo>0?cupo*imp.length:0,recs,imp,ratios,ses:imp.length,omit:recs.length-imp.length,asisTot,asisProm:imp.length?asisTot/imp.length:null,
         aforo:anR(anMean(ratios)),prog,cap:recs.length,lista:imp.filter(r=>r.lista).length,faltas:recs.filter(r=>r.falta).length,subs:imp.filter(r=>r.sup).length});
     });

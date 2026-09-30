@@ -24,7 +24,7 @@ function viewProfesor(){
 
 function vProfHoy(){
   const aid=session.area, pid=session.profId, fecha=ui.pFecha, hoy=fecha===todayStr();
-  const gs=clasesDe(aid,pid).filter(g=>diasArr(g).includes(wdIdx(fecha))).sort(byHora);
+  const gs=clasesDe(aid,pid).filter(g=>progEn(g,fecha)).sort(byHora);
   const recs=Object.fromEntries(coll(aid,'asistencia').filter(r=>r.fecha===fecha).map(r=>[r.grupoId,r]));
   const hechas=gs.filter(g=>recs[g.id]).length;
   const act=claseActual(gs,fecha);

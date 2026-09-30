@@ -28,7 +28,7 @@ function vCalendario(aid){
     const evDays=new Set(coll(aid,'eventos').map(e=>e.fecha));
     const gs=grupos(aid);
     body=`<div class="calbox"><div class="cal">${DIAS.map(d=>`<div class="dh">${d}</div>`).join('')}${monthGrid(ui.calRef).map(c=>{
-      const n=gs.filter(g=>diasArr(g).includes(wdIdx(c.s))).length;
+      const n=gs.filter(g=>progEn(g,c.s)).length;
       return `<button class="cd${c.out?' out':''}${c.s===today?' today':''}${c.s===ui.calSel?' sel':''}" data-act="calSel" data-d="${c.s}"><span class="n">${c.n}</span><span class="k">${n?n+' gpo':''}</span>${evDays.has(c.s)?'<i class="evd"></i>':''}</button>`;
     }).join('')}</div></div>
     <div class="h2 sm">${esc(fmtLarga(ui.calSel))}${isRO()?'':` <button class="btn sm" data-act="openEvento" data-fecha="${ui.calSel}">+ Evento</button>`}</div>

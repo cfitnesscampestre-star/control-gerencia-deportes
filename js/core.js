@@ -270,6 +270,9 @@ const profesores = aid => coll(aid,'profesores').sort((a,b)=>String(a.nombre).lo
 const getProf = (aid,id) => mezcla(aid,'profesores')[id]||null;
 const clasesDe = (aid,pid) => grupos(aid).filter(g=>g.profId===pid);
 const iniciales = n => String(n||'').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
+/* ¿Esta clase se imparte en esa fecha? Día de la semana + vigencia (desde qué fecha rige el horario en Fitness Control) */
+const progEn = (g,fecha) => { const wd=wdIdx(fecha); if(!diasArr(g).includes(wd)) return false;
+  const v=g.vig&&g.vig[wd]; return !v||((!v.d||fecha>=v.d)&&(!v.f||fecha<=v.f)); };
 const diasArr = g => String(g.dias||'').split(',').filter(x=>x!=='').map(Number);
 const rosterOf = g => String(g.alumnos||'').split('\n').map(s=>s.trim()).filter(Boolean);
 const inscritos = g => rosterOf(g).length || (+g.inscritos||0);
@@ -303,8 +306,8 @@ const numLugares = (asis,lug) => `${(+asis||0).toLocaleString('es-MX')} de ${(+l
 /* Clases de un día: las programadas ese día de la semana + las que tienen aforo capturado en esa fecha
    (igual que la lista del día en Fitness Control). */
 function gruposDelDia(aid,fecha){
-  const wd=wdIdx(fecha), conReg=new Set(coll(aid,'asistencia').filter(r=>r.fecha===fecha).map(r=>r.grupoId));
-  return grupos(aid).filter(g=>diasArr(g).includes(wd)||conReg.has(g.id));
+  const conReg=new Set(coll(aid,'asistencia').filter(r=>r.fecha===fecha).map(r=>r.grupoId));
+  return grupos(aid).filter(g=>progEn(g,fecha)||conReg.has(g.id));
 }
 function areaStats(aid){
   const t=todayStr(), gs=grupos(aid), wk=mondayOf(t), wd=wdIdx(t);
@@ -326,7 +329,7 @@ function areaStats(aid){
 }
 function dayItems(aid,d){
   const wd=wdIdx(d);
-  const cls=grupos(aid).filter(g=>diasArr(g).includes(wd)).map(g=>({t:'g',hora:g.hi||'',g}));
+  const cls=grupos(aid).filter(g=>progEn(g,d)).map(g=>({t:'g',hora:g.hi||'',g}));
   const evs=coll(aid,'eventos').filter(e=>e.fecha===d).map(e=>({t:'e',hora:e.hora||'',e}));
   return [...evs,...cls].sort((a,b)=>(a.hora||'99:99').localeCompare(b.hora||'99:99'));
 }

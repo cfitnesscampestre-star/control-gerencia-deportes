@@ -26,6 +26,24 @@ function fcAreaPorDeporte(dep,fallback){
   return a?a.id:fallback;
 }
 
+/* Vigencia de cada horario: Fitness Control guarda “a partir de qué fecha” rige el horario de un profesor.
+   Se toma la primera fecha que traiga la entrada del horario (desde / inicio / vigente… = inicio;
+   hasta / fin / baja… = término). Sin fecha, el horario rige siempre, como antes. */
+function fcFechaV(v){
+  if(v==null||v==='') return '';
+  if(typeof v==='number'&&v>1e11){ const d=new Date(v); return isNaN(d)?'':ymd(d); }
+  const t=String(v).trim(); let m=t.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m=t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m?`${m[3]}-${pad(+m[2])}-${pad(+m[1])}`:'';
+}
+function fcVigencia(h){
+  let d='',f='';
+  Object.keys(h||{}).forEach(k=>{
+    if(/^(dia|hora|clase|id)$/i.test(k)) return;
+    const v=fcFechaV(h[k]); if(!v) return;
+    if(/hasta|fin|baja|term|end|venc/i.test(fcNorm(k))) f=f&&f<v?f:v; else d=d&&d<v?d:v;
+  });
+  return {d,f};
+}
 /* ---------- conversión (función pura, se puede probar sin Firebase) ---------- */
 /* Cada clase se manda al área cuyo nombre coincida con el nombre de la clase (igual que los eventos,
    ver fcAreaPorDeporte); si ninguna coincide, cae en el área vinculada (areaId). Así una instructora
@@ -57,6 +75,7 @@ function fcAdapt(raw,areaId,areas){
   insts.forEach(i=>fcArr(i.horario).forEach(h=>{
     const hora=fcHora(h.hora); if(!h.clase||!hora) return;
     const g=mk(i.id,h.clase,hora), d=fcDia(h.dia); if(d!=null) g._d.add(d); g._prog=true;
+    if(d!=null){ const v=fcVigencia(h); g._dd=g._dd||{}; const p=g._dd[d]; g._dd[d]=p?{d:(p.d&&v.d?(p.d<v.d?p.d:v.d):''),f:(p.f&&v.f?(p.f>v.f?p.f:v.f):'')}:v; }
   }));
   // 2) clases que tienen registros aunque ya no estén en el horario
   const esManual = r => r.tipo==='falta' || !fcHora(r.hora) || fcHora(r.hora)==='00:00';
@@ -102,6 +121,7 @@ function fcAdapt(raw,areaId,areas){
     g.dias=g._prog?[...g._d].sort().join(','):'';
     if(!g._prog&&g._last) g.fin=addDays(g._last,7);          // clase que ya no se imparte: no cuenta como “sin captura” después
     const aid=g._aid;
+    g.vig=g._dd&&Object.values(g._dd).some(x=>x.d||x.f)?g._dd:null; delete g._dd;
     delete g._d; delete g._prog; delete g._last; delete g._capF; delete g._aid;
     (gruposPorArea[aid]=gruposPorArea[aid]||{})[g.id]=g;
   });
