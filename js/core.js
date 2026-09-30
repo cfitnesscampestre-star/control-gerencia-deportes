@@ -272,7 +272,7 @@ const clasesDe = (aid,pid) => grupos(aid).filter(g=>g.profId===pid);
 const iniciales = n => String(n||'').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
 /* ¿Esta clase se imparte en esa fecha? Día de la semana + vigencia (desde qué fecha rige el horario en Fitness Control) */
 const progEn = (g,fecha) => { const wd=wdIdx(fecha); if(!diasArr(g).includes(wd)) return false;
-  const v=g.vig&&g.vig[wd]; return !v||((!v.d||fecha>=v.d)&&(!v.f||fecha<=v.f)); };
+  const v=g.vig&&g.vig[wd]; return !v||v.some(x=>(!x.d||fecha>=x.d)&&(!x.f||fecha<=x.f)); };
 const diasArr = g => String(g.dias||'').split(',').filter(x=>x!=='').map(Number);
 const rosterOf = g => String(g.alumnos||'').split('\n').map(s=>s.trim()).filter(Boolean);
 const inscritos = g => rosterOf(g).length || (+g.inscritos||0);
