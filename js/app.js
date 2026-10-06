@@ -9,11 +9,12 @@ function viewTopbar(title,sub,back){
     <div class="tb-logo only-m"><span>C</span><img src="img/logo.png" alt="Club Campestre" data-fallback></div>
     <div class="tb-t"><b>${title}</b><small>${sub}</small>
       ${(c=>`<button class="cloud ${c.cls}" data-act="syncInfo" aria-label="Estado de la sincronización"><i></i>${c.txt}</button>`)(cloudChip())}</div>
+    ${typeof dirPuedeEntrenar==='function'&&dirPuedeEntrenar()?`<button class="tb-ent only-m" data-act="dirComoProf" aria-label="Entrar como entrenador">${ic('clip')}<span>Entrenador</span></button>`:''}
     <button class="ibtn only-m" data-act="logout" aria-label="Salir">${ic('logout')}</button>
   </header>`;
 }
 function shell({title,sub,body,back,fs}){
-  return `<div class="app${fs?' fs':''}">${viewSidebar()}<div class="content">${viewTopbar(title,sub,back)}<main class="main">${body}</main></div>${viewBottomNav()}</div>`;
+  return `<div class="app${fs?' fs':''}">${viewSidebar()}<div class="content">${viewTopbar(title,sub,back)}<main class="main">${typeof bannerEntrena==='function'?bannerEntrena():''}${body}</main></div>${viewBottomNav()}</div>`;
 }
 function render(){
   const app=$('#app');

@@ -47,6 +47,14 @@ function loginPuedeAtras(paso){
   return !!loginUI.cfg&&loginUI.cfg.rol==='dir'&&paso==='clave';       // equipo ya configurado: solo Dirección cambia de disciplina
 }
 
+/* ---------- Dirección entrena a sus entrenadores: entra a la pantalla de uno de ellos sin cerrar su sesión ---------- */
+const dirEntrenadores = aid => (esVinculada(aid)?[]:profesores(aid).filter(p=>p.activo!==false&&!p.sim));
+const dirPuedeEntrenar = () => !!session&&session.rol==='dir'&&!!getArea(session.area)&&dirEntrenadores(session.area).length>0;
+function bannerEntrena(){
+  if(!session||session.rol!=='prof'||!session.dirOrigen) return '';
+  const p=getProf(session.area,session.profId)||{};
+  return `<div class="ent-ban"><span>${ic('user')} Estás viendo la app como <b>${esc(p.nombre||'entrenador')}</b>. Lo que captures queda a su nombre.</span><button class="btn sm primary" data-act="volverDir">Volver a Dirección</button></div>`;
+}
 function pasoRol(){
   return `<p class="lg-q">¿Cómo vas a entrar?</p>
     <div class="lg-roles">${ROLES_LOGIN.map(([id,ico,n,s])=>`<button class="lg-role" data-act="loginRol" data-rol="${id}">${ic(ico)}<b>${n}</b><small>${s}</small></button>`).join('')}</div>`;
@@ -157,16 +165,38 @@ Object.assign(actions,{
     render();
   },
   loginReset(){
+    const c=loginUI.cfg||equipoCfg(), a=c&&['dir','prof','rec'].includes(c.rol)?getArea(c.area):null;
     openModal(`${mHead('Cambiar la configuración de este equipo')}
-      <div class="sub">Este equipo recuerda cómo entras. Para empezar de nuevo, escribe la contraseña de Gerencia.</div>
-      <label class="f"><span>Contraseña de Gerencia</span><input id="lgr_pw" type="password" autocomplete="off"></label>
+      <div class="sub">Este equipo recuerda cómo entras. Para empezar de nuevo, escribe la contraseña de Gerencia${a?` o la de la Dirección de <b>${esc(a.nombre)}</b>`:''}.</div>
+      <label class="f"><span>Contraseña</span><input id="lgr_pw" type="password" autocomplete="off"></label>
       <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="loginResetOk">Cambiar</button></div>`);
   },
   loginResetOk(){
-    if(hashPass(($('#lgr_pw')||{}).value||'')!==state.cfg.pass.ger){ toast('Contraseña de Gerencia incorrecta'); return; }
+    const pw=hashPass(($('#lgr_pw')||{}).value||''), c=loginUI.cfg||equipoCfg();
+    const dirOk=!!c&&['dir','prof','rec'].includes(c.rol)&&!!c.area&&!!getArea(c.area)&&!!(state.cfg.pass.dir||{})[c.area]&&pw===state.cfg.pass.dir[c.area];   // la Dirección de la disciplina del equipo también puede desbloquearlo
+    if(pw!==state.cfg.pass.ger&&!dirOk){ toast('Contraseña incorrecta'); return; }
     try{ localStorage.removeItem(EQ_KEY); localStorage.removeItem(LAST_KEY); }catch(e){}
     Object.assign(loginUI,{rol:'',area:'',prof:'',paso:'rol',err:'',fijo:false,cfg:null}); loginIniciado=true;
     closeModal(); render(); toast('Equipo restablecido: elige cómo vas a entrar');
+  },
+  dirComoProf(){
+    if(!dirPuedeEntrenar()) return;
+    const ps=dirEntrenadores(session.area);
+    openModal(`${mHead('Entrar como entrenador')}
+      <div class="sub">Elige a quién vas a acompañar. Verás la app como la ve esa persona (sin cerrar tu sesión de Dirección). Lo que captures queda a su nombre.</div>
+      <div class="lg-list">${ps.map(p=>`<button class="lg-area" data-act="dirProf" data-id="${esc(p.id)}">${ic('user')}<b>${esc(p.nombre)}</b>${ic('next')}</button>`).join('')}</div>
+      <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button></div>`);
+  },
+  dirProf(d){
+    if(!dirPuedeEntrenar()) return;
+    const p=getProf(session.area,d.id); if(!p||p.activo===false) return;
+    session={rol:'prof',area:session.area,profId:p.id,dirOrigen:{area:session.area}}; ui.pTab='hoy'; ui.pFecha=todayStr(); ui.lista=null;
+    closeModal(); saveSession(); render(); top0();
+  },
+  volverDir(){
+    if(!session||!session.dirOrigen) return;
+    const area=session.dirOrigen.area; if(typeof rfLimpiar==='function') rfLimpiar();
+    session={rol:'dir',area}; ui.aTab='inicio'; ui.lista=null; saveSession(); render(); top0();
   },
   eqReset(){                                             // desde Ajustes de Gerencia: ya hay sesión, no se pide la contraseña otra vez
     if(!session||session.rol!=='ger') return;

@@ -89,6 +89,7 @@ function viewSidebar(){
     <div class="sb-foot">
       <div class="sb-user"><b>${ger?'Gerencia':rec?'Recepción':prof?(esServ(session.area)?pfNom(session.area,0):esGim(session.area)?'Instructor':'Profesor'):'Dirección'}</b>${ger?'Todas las áreas':(prof||rec)?esc(pr.nombre):areaIco(a,{size:15})+' '+esc(a.nombre)}</div>
       ${(c=>`<button class="cloud ${c.cls}" data-act="syncInfo" aria-label="Estado de la sincronización"><i></i>${c.txt}</button>`)(cloudChip())}
+      ${typeof dirPuedeEntrenar==='function'&&dirPuedeEntrenar()?`<button class="btn sm block" data-act="dirComoProf">${ic('clip')} Entrar como entrenador</button>`:''}
       <button class="btn sm block" data-act="logout">${ic('logout')} Salir</button>
     </div>
   </aside>`;
