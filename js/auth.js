@@ -78,7 +78,7 @@ function pasoClave(){
     <input id="pw" type="password" placeholder="${pin?'Ingresa tu PIN…':'Ingresa tu contraseña…'}" autocomplete="current-password"${pin?' inputmode="numeric"':''}>
     <div class="err" id="loginErr">${esc(loginUI.err)}</div>
     <button class="btn cta block" data-act="login">Entrar <span aria-hidden="true">→</span></button>
-    ${loginUI.fijo?'<p class="lg-help">Este equipo recuerda tu acceso. Para cambiarlo, mantén presionado el logo.</p>':''}`;
+    ${loginUI.fijo?'<p class="lg-help">Este equipo recuerda tu acceso. <button class="linkbtn" data-act="loginReset">Cambiar el acceso de este equipo</button><br><small>(también: mantén presionado el logo)</small></p>':''}`;
 }
 function viewLogin(){
   if(!loginIniciado) loginArranque();
@@ -168,6 +168,13 @@ Object.assign(actions,{
     Object.assign(loginUI,{rol:'',area:'',prof:'',paso:'rol',err:'',fijo:false,cfg:null}); loginIniciado=true;
     closeModal(); render(); toast('Equipo restablecido: elige cómo vas a entrar');
   },
+  eqReset(){                                             // desde Ajustes de Gerencia: ya hay sesión, no se pide la contraseña otra vez
+    if(!session||session.rol!=='ger') return;
+    if(!confirm('¿Restablecer el acceso de este equipo? Se cerrará la sesión y volverá a preguntar cómo se entra.')) return;
+    try{ localStorage.removeItem(EQ_KEY); localStorage.removeItem(LAST_KEY); }catch(e){}
+    Object.assign(loginUI,{rol:'',area:'',prof:'',paso:'rol',err:'',fijo:false,cfg:null});
+    if(typeof rfLimpiar==='function') rfLimpiar(); session=null; ui.lista=null; loginIniciado=true; saveSession(); closeModal(); render(); top0(); toast('Equipo restablecido: elige cómo vas a entrar');
+  },
   login(){ doLogin(); },
   logout(){ if(typeof rfLimpiar==='function') rfLimpiar(); session=null; ui.lista=null; loginIniciado=false; saveSession(); closeModal(); render(); top0(); }
 });
@@ -179,3 +186,4 @@ document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.id==='pw')
 /* mantener presionado el logo (≈1.3 s): reconfigurar el equipo */
 document.addEventListener('pointerdown',e=>{ if(!session&&e.target.closest&&e.target.closest('.lg-logo')){ clearTimeout(lgPress); lgPress=setTimeout(()=>{ if(!session) actions.loginReset(); },1300); } });
 ['pointerup','pointercancel','pointerleave'].forEach(ev=>document.addEventListener(ev,()=>clearTimeout(lgPress)));
+document.addEventListener('contextmenu',e=>{ if(e.target.closest&&e.target.closest('.lg-logo')) e.preventDefault(); });      // el toque largo no abre el menú de imagen del navegador

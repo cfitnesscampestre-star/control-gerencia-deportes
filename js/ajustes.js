@@ -13,6 +13,8 @@ function gAjustes(){
       ${gSimulacionCard()}
       <div class="h2">Fitness Control</div>
       ${gVinculoCard()}
+      <div class="h2">Este equipo</div>
+      <div class="card"><div class="row"><div><b>Acceso recordado</b><small>${esc((()=>{ const c=(typeof equipoCfg==='function')?equipoCfg():null; if(!c) return 'Todavía no se ha guardado'; const a=getArea(c.area); return (ROL_NOMBRE[c.rol]||c.rol)+(a?' · '+a.nombre:''); })())}. Al restablecer, este equipo vuelve a preguntar cómo se entra.</small></div><button class="btn sm" data-act="eqReset">Restablecer</button></div></div>
       <div class="h2">Apariencia</div>
       <div class="card"><div class="row"><div><b>Colores del sistema</b><small>Solo en este dispositivo</small></div>
         <div class="seg"><button class="${temaActual()==='campestre'?'on':''}" data-act="tema" data-t="campestre">Campestre</button><button class="${temaActual()==='magenta'?'on':''}" data-act="tema" data-t="magenta">Magenta</button></div></div></div>
