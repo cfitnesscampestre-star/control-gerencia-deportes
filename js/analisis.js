@@ -394,11 +394,9 @@ function anDiaHTML(){                            // navegación día por día
     ${esHoy?'':'<button class="btn sm" data-act="anDiaHoy">Hoy</button>'}
     <input class="only-d" type="date" id="an_dia" value="${esc(d)}" max="${esc(t)}" aria-label="Elegir día"></div>`;
 }
-function anPeriodoHTML(){                      // chips de período (y fechas si es “Otro”); se comparte con Resumen
-  const a=ui.an;
-  return `<div class="chips">${AN_PER.map(([id,l])=>`<button class="chip${a.per===id?' on':''}" data-act="anPer" data-p="${id}">${l}</button>`).join('')}</div>
-    ${a.per==='dia'?anDiaHTML():''}
-    ${a.per==='custom'?`<div class="two an-dates"><label class="f"><span>Desde</span><input type="date" id="an_desde" value="${esc(a.desde||addDays(todayStr(),-29))}"></label><label class="f"><span>Hasta</span><input type="date" id="an_hasta" value="${esc(a.hasta||todayStr())}"></label></div>`:''}`;
+function anPeriodoHTML(){                      // barra compacta: período actual + calendario (se comparte con Resumen, Reportes y las gráficas)
+  const pt=chPerTxt(anRange());
+  return `<div class="ch2-per"><div class="ch2-pt"><b>${esc(pt[0])}</b><small>${esc(pt[1])}</small></div><button class="ch2-cal" data-act="chCal" aria-label="Elegir las fechas">${ic('cal')}<span>Fechas</span></button></div>`;
 }
 function anFiltros(){
   const a=ui.an;

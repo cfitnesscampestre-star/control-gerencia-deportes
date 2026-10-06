@@ -25,6 +25,8 @@ function vProfesores(aid){
   return `
     <div class="h2">${pfNom(aid,1)} ${ro?'':`<button class="btn sm primary" data-act="openProfesor">+ ${pfNom(aid,0)}</button>`}</div>
     ${vinculoBanner(aid)}
+    ${typeof fzLinea==='function'?fzLinea(aid):''}
+    ${typeof peLinea==='function'?peLinea(aid):''}
     ${gruposSwitch()}
     <div class="sub">${esServ(aid)?(ro?'Especialistas del área y su clave de acceso.':'Da de alta a cada especialista con su horario y su clave: con ella entra a registrar los servicios que da cada día.'):ro?'Profesores del área y sus clases.':(esGim(aid)?'Da de alta a los instructores del gimnasio con su PIN: con él entran a registrar sus sesiones de personalizado. Recepción les asigna los personalizados.':'Da de alta a tus profesores y asígnales clases en Grupos. Con su PIN entran a pasar lista.')}</div>
     ${ps.length?`<div class="plist">${ps.map(p=>pCard(aid,p)).join('')}</div>`
@@ -52,6 +54,8 @@ function openProfesor(pid){
       <small class="mut">${esGim(aid)?'El instructor usa este PIN, junto con su nombre, para entrar a registrar sus sesiones de personalizado.':esServ(aid)?'El especialista usa este PIN, junto con su nombre, para entrar a registrar sus servicios.':'El profesor usa este PIN, junto con su nombre, para entrar y pasar lista.'}</small></div>`}
     ${(pid&&!esServ(aid))?`<div class="h2 sm">Clases asignadas (${clases.length})</div>
       ${clases.length?clases.map(g=>`<div class="line" style="--ac:${areaColor(aid)}"><div class="t">${esc(g.hi||'—')}</div><div class="b"><b>${esc(g.nombre)}</b><small>${esc(diasArr(g).map(i=>DIAS[i]).join(' · ')||'Sin días')}${g.lugar?' · '+esc(g.lugar):''}</small></div><div class="r">${rosterOf(g).length} alumnos</div></div>`).join(''):empty('Todavía no tiene clases asignadas.')}`:''}
+    ${(typeof fzBtn==='function'&&pid)?fzBtn(aid,pid):''}
+    ${(typeof peBtn==='function'&&pid)?peBtn(aid,pid):''}
     ${ro?`<div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`:`
     ${(pid&&!esGim(aid)&&!esServ(aid))?`<div class="btns"><button class="btn" data-act="asignarClase" data-id="${esc(pid)}">+ Asignar una clase</button></div>`:''}
     <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="saveProfesor" data-id="${esc(pid||'')}">Guardar ${esc(pfNom(aid,0).toLowerCase())}</button></div>

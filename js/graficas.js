@@ -10,6 +10,7 @@
    ===================================================================== */
 const CH_DIMS = [['dia','Día'],['semana','Semana'],['mes','Mes'],['clase','Clase'],['tipo','Tipo'],['nivel','Nivel'],['prof','Profesor']];
 const CH_DIMS_GIM = [['dia','Día'],['semana','Semana'],['mes','Mes'],['hora','Hora'],['dsem','Día de la semana']];
+const CH_DIMS_SIMPLE = [['clase','Clase'],['tipo','Tipo'],['nivel','Nivel'],['prof','Profesor']];
 const CH_TIEMPO = ['dia','semana','mes','dsem','hora'];
 ui.ch = ui.ch || { dim:'dia', met:'asis', sel:null };
 
@@ -119,9 +120,11 @@ function chDetalle(D,met,sel){
 }
 
 /* ---------- tarjeta completa ---------- */
-function chCard(aid){
-  const gym=esGim(aid), dims=chDimsDe(aid), R=anRange();
-  let dim=dims.some(d=>d[0]===ui.ch.dim)?ui.ch.dim:'dia', met=ui.ch.met==='pct'?'pct':'asis', nota='';
+function chCard(aid,simple){
+  const gym=esGim(aid), sencilla=!!simple&&!gym, dims=sencilla?CH_DIMS_SIMPLE:chDimsDe(aid), R=anRange();
+  const cerrada=sencilla&&!ui.chRev;                      // sin “Revisar”: solo la fecha y la gráfica, siempre por clase y por asistentes
+  let dim=dims.some(d=>d[0]===ui.ch.dim)?ui.ch.dim:(sencilla?'clase':'dia'), met=ui.ch.met==='pct'?'pct':'asis', nota='';
+  if(cerrada){ dim='clase'; met='asis'; }
   if(dim==='dia'&&R.n>92){ dim='semana'; nota='Para más de 3 meses se agrupa por semana.'; }
   if(R.n===1&&['dia','semana','mes','dsem'].includes(dim)){ dim=gym?'hora':'clase'; nota=gym?'Con un solo día se muestra hora por hora.':'Con un solo día se muestra por clase.'; }
   const D=gym?chGim(aid,dim,R):chClases(aid,dim,R);
@@ -133,21 +136,20 @@ function chCard(aid){
   const nom=b=>{ const x=dim==='semana'?'sem '+b.s:(dim==='hora'?b.s+':00':(b.l||b.s)); return x.length>13?x.slice(0,12)+'…':x; };
   const sel=D.items.some(b=>b.k===ui.ch.sel)?ui.ch.sel:null;
   const unidad=gym?(D.promedia?'personas por hora':'personas-hora'):'asistentes';
+  const fVer=`<div class="ch2-fl">Ver por</div><div class="chips">${dims.map(([id,l])=>`<button class="chip${dim===id?' on':''}" data-act="ch2Dim" data-d="${id}">${l}</button>`).join('')}</div>`;
+  const fMedir=`<div class="ch2-fl">Medir</div><div class="seg"><button class="${met==='asis'?'on':''}" data-act="ch2Met" data-m="asis">${gym?'Personas':'Asistentes'}</button><button class="${met==='pct'?'on':''}" data-act="ch2Met" data-m="pct">Aforo %</button></div>`;
+  const pt=chPerTxt(R);
+  const fPer=sencilla?`<div class="ch2-per"><div class="ch2-pt"><b>${esc(pt[0])}</b><small>${esc(pt[1])}</small></div><button class="ch2-cal" data-act="chCal" aria-label="Elegir las fechas">${ic('cal')}<span>Fechas</span></button></div>`
+    :`<div class="ch2-fl">Período</div><div>${anPeriodoHTML()}</div>`;
   return `<div class="card ch2">
-    <div class="ch2-f no-print">
-      <div class="ch2-fl">Ver por</div>
-      <div class="chips">${dims.map(([id,l])=>`<button class="chip${dim===id?' on':''}" data-act="ch2Dim" data-d="${id}">${l}</button>`).join('')}</div>
-      <div class="ch2-fl">Medir</div>
-      <div class="seg"><button class="${met==='asis'?'on':''}" data-act="ch2Met" data-m="asis">${gym?'Personas':'Asistentes'}</button><button class="${met==='pct'?'on':''}" data-act="ch2Met" data-m="pct">Aforo %</button></div>
-      <div class="ch2-fl">Período</div>
-      <div>${anPeriodoHTML()}</div>
+    <div class="ch2-f no-print">${sencilla?(cerrada?fPer:`${fPer}${fMedir}${fVer}`):`${fVer}${fMedir}${fPer}`}
     </div>
-    <div class="ch2-kp">
+    ${cerrada?'':`    <div class="ch2-kp">
       <div><b>${D.total.toLocaleString('es-MX')}</b><span>${gym?'personas-hora':unidad} en el período</span></div>
       <div><b class="${aforoCls(D.aforo)}">${anPct(D.aforo)}</b><span>aforo promedio${D.numTxt?` · ${esc(D.numTxt)}`:''}</span></div>
       <div><b class="ok">${mejor?esc(nom(mejor)):'—'}</b><span>${mejor?'mejor · '+fmt(val(mejor)):'mejor'}</span></div>
       <div><b class="bad">${menor?esc(nom(menor)):'—'}</b><span>${menor?'menor · '+fmt(val(menor)):'menor'}</span></div>
-    </div>
+    </div>`}
     ${D.sinAtributo?`<div class="ch2-aviso">Ningún grupo tiene ${dim==='tipo'?'tipo':'nivel'} asignado. Puedes ponerlo al editar cada grupo, en Grupos.</div>`:''}
     ${nota?`<div class="ch2-aviso">${nota}</div>`:''}
     ${chBarras(D,met,dim,sel)}
@@ -156,11 +158,33 @@ function chCard(aid){
     ${gym&&!D.promedia&&met!=='pct'?'<div class="an-cs" style="margin:6px 0 0">En día, semana y mes se suman los conteos de cada hora (personas-hora); no son visitas distintas.</div>':''}
   </div>`;
 }
+/* texto del período en la barra compacta: [título, detalle] */
+function chPerTxt(R){
+  const t=todayStr();
+  if(R.n===1) return [fmtLarga(R.desde), R.desde===t?'Hoy':'Un solo día'];
+  return [`${fmtCorta(R.desde)} – ${fmtCorta(R.hasta)} ${R.hasta.slice(0,4)}`, plu(R.n,'día','días')];
+}
+function chSetRango(d,h){
+  const t=todayStr(); if(h>t) h=t; if(d>t) d=t; if(d>h){ const x=d; d=h; h=x; }
+  if(d===h){ ui.an.per='dia'; ui.an.dia=d; } else { ui.an.per='custom'; ui.an.desde=d; ui.an.hasta=h; }
+  ui.ch.sel=null;
+}
+function openChCal(){
+  const R=anRange(), t=todayStr();
+  openModal(`${mHead('Elegir fechas')}
+    <div class="chips" style="margin-bottom:10px">${[['Hoy',0],['7 días',6],['30 días',29],['3 meses',89],['12 meses',364]].map(([l,n])=>`<button class="chip" data-act="chRapido" data-n="${n}">${l}</button>`).join('')}<button class="chip" data-act="chRapido" data-n="mes">Este mes</button><button class="chip" data-act="chRapido" data-n="todo">Todo</button></div>
+    <div class="two"><label class="f"><span>Desde</span><input id="chc_desde" type="date" max="${t}" value="${esc(R.desde)}"></label><label class="f"><span>Hasta</span><input id="chc_hasta" type="date" max="${t}" value="${esc(R.hasta)}"></label></div>
+    <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="chAplicar">Aplicar</button></div>`);
+}
 function chSeccion(aid){ return `<div class="d-chart"><div class="h2">Aforo por período</div>${chCard(aid)}</div>`; }
 
 Object.assign(actions,{
   ch2Dim(d){ ui.ch.dim=d.d; ui.ch.sel=null; render(); },
   ch2Met(d){ ui.ch.met=d.m; render(); },
+  chRev(){ ui.chRev=!ui.chRev; if(!ui.chRev){ ui.ch.dim='clase'; ui.ch.met='asis'; ui.ch.sel=null; } render(); },
+  chCal(){ openChCal(); },
+  chRapido(d){ const t=todayStr(); if(d.n==='todo'){ ui.an.per='all'; ui.ch.sel=null; } else chSetRango(d.n==='mes'?t.slice(0,8)+'01':addDays(t,-(+d.n)),t); closeModal(); render(); },
+  chAplicar(){ const a=($('#chc_desde')||{}).value, b=($('#chc_hasta')||{}).value; if(!a||!b){ toast('Elige las dos fechas'); return; } chSetRango(a,b); closeModal(); render(); },
   ch2Sel(d){ const sc=$('.ch2-scroll'), sl=sc?sc.scrollLeft:0; ui.ch.sel=ui.ch.sel===d.k?null:d.k; render(); const n=$('.ch2-scroll'); if(n) n.scrollLeft=sl; }
 });
 

@@ -28,6 +28,12 @@ const NAV_M_PROF = [
   {id:'hoy',label:'Hoy',ic:'clip',tabs:['hoy']},
   {id:'horario',label:'Horario',ic:'cal',tabs:['horario']}
 ];
+const NAV_M_MET = [
+  {id:'aforos',label:'Aforos',ic:'gauge',tabs:['aforos']},
+  {id:'eventos',label:'Eventos',ic:'flag',tabs:['eventos']},
+  {id:'pruebas',label:'Pruebas',ic:'clip',tabs:['pruebas']},
+  {id:'reportes',label:'Reportes',ic:'doc',tabs:['reportes']}
+];
 const NAV_M_GER = [
   {id:'resumen',label:'Resumen',ic:'dash',tabs:['resumen']},
   {id:'comite',label:'Comité',ic:'chart',tabs:['comite']},
@@ -37,6 +43,7 @@ const NAV_M_GER = [
 ];
 
 function viewBottomNav(){
+  if(session.rol==='met') return `<nav class="bottomnav" aria-label="Navegación">${NAV_M_MET.map(n=>`<button class="${ui.mt.tab===n.id?'on':''}" data-act="mTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')}</nav>`;
   const ger=session.rol==='ger', prof=session.rol==='prof', rec=session.rol==='rec';
   if(prof&&(esServ(session.area)||esGim(session.area))) return '';            // el especialista solo tiene su bitácora: no hace falta barra inferior
   const items=ger?NAV_M_GER:prof?NAV_M_PROF:rec?NAV_M_REC:(esServ(session.area)?NAV_M_SERV:esGim(session.area)?NAV_M_GIM:NAV_M_DIR), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';

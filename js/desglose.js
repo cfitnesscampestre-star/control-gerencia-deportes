@@ -132,7 +132,7 @@ function dgReportes(ctx){
 
 const DG_HOJAS = {alumnos:dgAlumnos,asistentes:c=>dgAsistencia(c,'asis'),aforo:c=>dgAsistencia(c,'aforo'),captura:dgCaptura,sesiones:dgSesiones,rojo:dgRojo,incid:dgIncid,reportes:dgReportes};
 Object.assign(actions,{
-  openKpi(d){ const f=DG_HOJAS[d.k]; if(f) f(dgCtx()); },
+  openKpi(d){ if(session&&session.rol!=='ger') return; const f=DG_HOJAS[d.k]; if(f) f(dgCtx()); },   // el desglose de todas las disciplinas es solo de Gerencia
   dgVerArea(d){ closeModal(); actions.openArea({id:d.id}); },
   dgReporte(d){ closeModal(); actions.openArea({id:d.id,tab:'reporte'}); },
   dgIncid(d){ openInc(d.id,d.aid); }

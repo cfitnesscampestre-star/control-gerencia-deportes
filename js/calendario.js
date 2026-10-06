@@ -15,7 +15,7 @@ function agenda(aid,d){
   if(!items.length) return empty('Sin grupos ni eventos este día.');
   const recs=Object.fromEntries(coll(aid,'asistencia').filter(r=>r.fecha===d).map(r=>[r.grupoId,r]));
   return items.map(it=>{
-    if(it.t==='e'){ const e=it.e; return `<button class="line ev" data-act="openEvento" data-id="${e.id}"><div class="t">${esc(e.hora||'Evento')}</div><div class="b"><b>${esc(e.nombre)}</b><small>${esc([e.tipo,e.lugar].filter(Boolean).join(' · '))}</small></div><div class="r">${pill(e.estado||'planificado',EST_EV_CLS[e.estado]||'info')}</div></button>`; }
+    if(it.t==='e'){ const e=it.e, rojo=(typeof infRojo==='function')?infRojo(aid,e):''; const tarjeta=`<button class="line ev${rojo?' ev-pend':''}" data-act="openEvento" data-id="${e.id}"><div class="t">${esc(e.hora||'Evento')}</div><div class="b"><b>${esc(e.nombre)}</b><small>${esc([e.tipo,e.lugar].filter(Boolean).join(' · '))}</small></div><div class="r">${pill(e.estado||'planificado',EST_EV_CLS[e.estado]||'info')}</div></button>`; return rojo?`<div class="ev-wrap">${tarjeta}${rojo}</div>`:tarjeta; }
     const g=it.g, info=regInfo(recs[g.id],g);
     return `<button class="line" style="--ac:${areaColor(aid)}" data-act="grupoDetail" data-id="${g.id}"><div class="t">${esc(horaTxt(g)||'—')}</div><div class="b"><b>${esc(g.nombre)}</b><small>${esc([g.prof,g.lugar].filter(Boolean).join(' · '))}</small></div><div class="r">${recs[g.id]?`<span class="${info.cls}">${esc(info.txt)}</span>`:''}</div></button>`;
   }).join('');
@@ -25,11 +25,11 @@ function vCalendario(aid){
   let head, body;
   if(ui.calMode==='mes'){
     head=`${MESES[ref.getMonth()]} ${ref.getFullYear()}`;
-    const evDays=new Set(coll(aid,'eventos').map(e=>e.fecha));
+    const evDays=new Set(coll(aid,'eventos').map(e=>e.fecha)), pendDays=new Set((typeof infPendientes==='function'?infPendientes(aid):[]).map(e=>e.fecha));
     const gs=grupos(aid);
     body=`<div class="calbox"><div class="cal">${DIAS.map(d=>`<div class="dh">${d}</div>`).join('')}${monthGrid(ui.calRef).map(c=>{
       const n=gs.filter(g=>progEn(g,c.s)).length;
-      return `<button class="cd${c.out?' out':''}${c.s===today?' today':''}${c.s===ui.calSel?' sel':''}" data-act="calSel" data-d="${c.s}"><span class="n">${c.n}</span><span class="k">${n?n+' gpo':''}</span>${evDays.has(c.s)?'<i class="evd"></i>':''}</button>`;
+      return `<button class="cd${c.out?' out':''}${c.s===today?' today':''}${c.s===ui.calSel?' sel':''}" data-act="calSel" data-d="${c.s}"><span class="n">${c.n}</span><span class="k">${n?n+' gpo':''}</span>${pendDays.has(c.s)?'<i class="evd pend"></i>':evDays.has(c.s)?'<i class="evd"></i>':''}</button>`;
     }).join('')}</div></div>
     <div class="h2 sm">${esc(fmtLarga(ui.calSel))}${isRO()?'':` <button class="btn sm" data-act="openEvento" data-fecha="${ui.calSel}">+ Evento</button>`}</div>
     ${agenda(aid,ui.calSel)}`;

@@ -26,6 +26,32 @@ function fcAreaPorDeporte(dep,fallback){
   return a?a.id:fallback;
 }
 
+/* Hombres y mujeres de un registro de Fitness Control. Se aceptan conteos (hombres/mujeres, h/m…) o porcentajes
+   (pct_h, % hombres, 30/70…), sueltos en el registro o dentro de un objeto "genero"/"sexo". Si solo viene uno de los
+   dos, el otro es lo que falta para llegar al total. Devuelve {hom,muj} o null si el registro no trae ese dato. */
+const FC_RE_H = /(hombre|varon|masculin|\bhom\b|^h$|^h[_ -]|[_ -]h$|\bh\b)/, FC_RE_M = /(mujer|femenin|\bmuj\b|\bfem\b|^m$|^m[_ -]|[_ -]m$|\bm\b)/, FC_RE_P = /(pct|porc|percent|%|proporcion)/;
+function fcSexoClaves(r){                       // [{k, sexo:'h'|'m', pct:boolean, v:number}]
+  const out=[]; if(!r||typeof r!=='object') return out;
+  const mira=(k0,v,pre)=>{
+    const kn=fcNorm(pre+k0);
+    if(v&&typeof v==='object'&&!Array.isArray(v)){ if(/(genero|sexo|gender|sex)/.test(kn)) Object.entries(v).forEach(([a,b])=>mira(a,b,k0+'_')); return; }
+    const num=parseFloat(String(v).replace('%','')); if(isNaN(num)||num<0) return;
+    const h=FC_RE_H.test(kn), m=FC_RE_M.test(kn); if(h===m) return;
+    out.push({k:pre+k0,sexo:h?'h':'m',pct:FC_RE_P.test(kn)||/%/.test(String(v)),v:num});
+  };
+  Object.entries(r).forEach(([k,v])=>mira(k,v,''));
+  return out;
+}
+function fcSexo(r,n){
+  const ks=fcSexoClaves(r); if(!ks.length) return null;
+  const val=x=>x.pct?(n*(x.v<=1&&x.v>0&&!Number.isInteger(x.v)?x.v*100:x.v)/100):x.v;
+  const H=ks.find(x=>x.sexo==='h'), M=ks.find(x=>x.sexo==='m');
+  let h=H?val(H):null, m=M?val(M):null;
+  if(h==null) h=Math.max(0,n-m); else if(m==null) m=Math.max(0,n-h);
+  const t=h+m; if(!(t>0)||!(n>0)) return {hom:0,muj:0};
+  h=Math.round(n*h/t); return {hom:h,muj:n-h};     // la proporción manda: siempre suma el total de asistentes
+}
+
 /* Vigencia de los horarios: Fitness Control guarda por instructor el historial "hv" = [{desde, slots}],
    donde cada versión rige desde su fecha hasta el día antes de la siguiente. Sin historial rige siempre. */
 function fcFechaV(v){
@@ -115,7 +141,7 @@ function fcAdapt(raw,areaId,areas){
     }
     if(esManual(r)) return;
     const g=grupos[gid(r.inst_id,r.clase,fcHora(r.hora))]; if(!g) return;
-    guardar(g,r,{asistentes:Math.max(0,parseInt(r.asistentes)||0),...(r.estado==='sub'?{sup:true,supId:r.suplente_id?'fc_p'+r.suplente_id:'',motivo:r.motivo_suplencia||''}:{})});
+    guardar(g,r,{asistentes:Math.max(0,parseInt(r.asistentes)||0),...(fcSexo(r,Math.max(0,parseInt(r.asistentes)||0))||{}),...(r.estado==='sub'?{sup:true,supId:r.suplente_id?'fc_p'+r.suplente_id:'',motivo:r.motivo_suplencia||''}:{})});
   });
   // 4) cierre de grupos: se calculan sus días y se reparten en el área que le tocó a cada clase
   const gruposPorArea={};
@@ -154,7 +180,7 @@ function fcAdapt(raw,areaId,areas){
       deporte:e.deporte||'',categoria:e.categoria||'',notas:[e.observaciones,e.mejoras].filter(Boolean).join('\n'),fc:true};
   });
   return {profesoresPorArea,gruposPorArea,asisPorArea,eventos,
-    meta:{instructores:insts.length,registros:regs.length,grupos:Object.values(gruposPorArea).reduce((n,g)=>n+Object.keys(g).length,0),eventos:evs.length,ultimo}};
+    meta:{sexoRegs:regs.filter(r=>fcSexo(r,parseInt(r.asistentes)||0)).length,sexoClaves:[...new Set([...regs,...insts,...sals].flatMap(x=>fcSexoClaves(x).map(c=>c.k)))].slice(0,12),campos:[...new Set(regs.slice(-300).flatMap(r=>Object.keys(r||{})))].slice(0,40),instructores:insts.length,registros:regs.length,grupos:Object.values(gruposPorArea).reduce((n,g)=>n+Object.keys(g).length,0),eventos:evs.length,ultimo}};
 }
 
 /* ---------- aplicar y conectar ---------- */
@@ -224,6 +250,9 @@ function gVinculoCard(){
   return `<div class="card">
     <div class="row"><div><b>Fitness Control</b><small>${a?`Área vinculada: ${areaIco(a,{size:14})} ${esc(a.nombre)}`:'Marca el área en Ajustes → Áreas → Editar'}</small></div>${pill(est[1],est[0])}</div>
     ${m.estado==='ok'?`<div class="row"><div><b>Datos recibidos</b><small>${m.n.instructores} instructores · ${m.n.grupos} clases · ${(m.n.registros||0).toLocaleString('es-MX')} registros de asistencia · ${m.n.eventos} eventos${m.n.ultimo?' · último '+esc(fmtFecha(m.n.ultimo)):''}</small></div></div>`:''}
+    ${m.estado==='ok'?`<div class="row"><div><b>Hombres y mujeres</b><small>${m.n.sexoRegs?`Los registros de Fitness Control traen el dato en ${(m.n.sexoRegs).toLocaleString('es-MX')} casos${m.n.sexoClaves&&m.n.sexoClaves.length?' (campos: '+esc(m.n.sexoClaves.join(', '))+')':''}; en los demás se aplica la proporción de abajo.`:'Fitness Control no manda hombres y mujeres por clase: se aplica la proporción de abajo.'}</small></div></div>`:''}
+    <div class="row fit-prop"><div><b>Clases fitness: hombres y mujeres</b><small>Proporción que usa Metodología: <b>${fitHo()}%</b> hombres y <b>${100-fitHo()}%</b> mujeres.</small></div>
+      <div class="fit-ctl"><input id="fit_ho" type="number" inputmode="numeric" min="0" max="100" value="${fitHo()}" aria-label="Porcentaje de hombres"><span>% H</span><button class="btn sm" data-act="fitHoGuardar">Guardar</button></div></div>
     ${m.estado==='error'?`<div class="row"><div><b>No se pudo leer</b><small>${esc(m.msg)}. Revisa las reglas de Firebase (LEEME-vinculo.txt).</small></div></div>`:''}
     ${!cfg?`<div class="row"><div><small>Pon <b>CONECTAR_FIREBASE = true</b> en <b>js/config.js</b> para conectar la base de datos y activar el vínculo.</small></div></div>`:''}
     <div class="row"><div><small>Gerencia solo lee. Nunca escribe en Fitness Control y no copia los PIN de los instructores.</small></div></div>
@@ -231,6 +260,10 @@ function gVinculoCard(){
   </div>`;
 }
 Object.assign(actions,{
+  fitHoGuardar(){
+    const v=Math.round(+(($('#fit_ho')||{}).value)); if(isNaN(v)||v<0||v>100){ toast('Escribe un porcentaje de hombres entre 0 y 100'); return; }
+    setPath('cfg/fitHo',v); render(); toast(`Proporción guardada: ${v}% hombres · ${100-v}% mujeres`);
+  },
   fcLimpiar(){
     const aid=fcAreaVinculada(); if(!aid) return;
     if(!confirm('¿Quitar los profesores, grupos y asistencia capturados a mano en esta área? Los que vienen de Fitness Control no se tocan.')) return;

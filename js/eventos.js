@@ -17,13 +17,21 @@ function vEventos(aid){
       ${kpi('Realizados',all.filter(e=>e.estado==='realizado').length,'',{color:'var(--b1)'})}
     </div>
     <div class="chips">${[['proximos','Próximos'],['pasados','Pasados'],['todos','Todos']].map(([id,l])=>`<button class="chip${ui.evFil===id?' on':''}" data-act="evFil" data-f="${id}">${l}</button>`).join('')}</div>
-    ${list.length?`<div class="evlist">${list.map(e=>{ const d=parseYmd(e.fecha); return `<button class="ev-c" data-act="openEvento" data-id="${e.id}">
+    ${list.length?`<div class="evlist">${list.map(e=>{ const d=parseYmd(e.fecha), rojo=(typeof infRojo==='function')?infRojo(aid,e):''; return `${rojo?'<div class="ev-wrap">':''}<button class="ev-c${rojo?' ev-pend':''}" data-act="openEvento" data-id="${e.id}">
       <div class="ev-d"><b>${d.getDate()}</b><span>${MESES[d.getMonth()].slice(0,3)}</span></div>
-      <div class="ev-i"><b>${esc(e.nombre)}</b><small>${esc([e.tipo,e.hora,e.lugar].filter(Boolean).join(' · '))}${e.participantes?' · '+(+e.participantes)+' participantes':''}${e.fc?' · Fitness Control':''}</small></div>
-      ${pill(e.estado||'planificado',EST_EV_CLS[e.estado]||'info')}</button>`; }).join('')}</div>`
+      <div class="ev-i"><b>${esc(e.nombre)}</b><small>${esc([e.tipo,e.hora,e.lugar].filter(Boolean).join(' · '))}${e.participantes?' · '+(+e.participantes)+' participantes':''}${e.fc?' · Fitness Control':''}${(typeof infTag==='function'&&session&&session.rol==='dir')?infTag(aid,e):''}</small></div>
+      ${pill(e.estado||'planificado',EST_EV_CLS[e.estado]||'info')}</button>${rojo?rojo+'</div>':''}`; }).join('')}</div>`
       :empty(ui.evFil==='proximos'?(isRO()?'No hay eventos próximos.':'No hay eventos próximos. Registra el siguiente con “+ Evento”.'):'No hay eventos en esta lista.')}`;
 }
 
+/* Informe del evento realizado: lo captura la dirección y solo lo ven Dirección y Metodología (Gerencia no) */
+function evInformeBtn(aid,id,e){
+  if(!session||!evTerminado(e)) return '';
+  const I=getInforme(aid,id);
+  if(session.rol==='dir') return `<div class="inf-cta"><div><b>Informe para Metodología</b><small>${I?'Entregado. Puedes corregirlo.':'El evento ya terminó: captura participantes, resultados y observaciones.'}</small></div><button class="btn ${I?'':'primary'}" data-act="infAbrir" data-aid="${esc(aid)}" data-id="${esc(id)}">${I?'Editar informe':'Capturar informe'}</button></div>`;
+  if(session.rol==='met') return `<div class="inf-cta"><div><b>Informe de la dirección</b><small>${I?'Entregado por la dirección del área.':'Todavía no lo entregan.'}</small></div>${I?`<button class="btn primary" data-act="infVer" data-aid="${esc(aid)}" data-id="${esc(id)}">Ver informe</button>`:''}</div>`;
+  return '';
+}
 function openEvento(id,fecha,aidIn){
   const aid=aidIn||curArea(), e=id?(getPath(`data/${aid}/eventos/${id}`)||{}):{}, ro=isRO()||fcId(id), dis=ro?' disabled':'';
   openModal(`${mHead(id?(ro?'Evento':'Editar evento'):'Nuevo evento')}
@@ -39,7 +47,8 @@ function openEvento(id,fecha,aidIn){
     </div>
     <label class="f"><span>Participantes</span><input id="e_part" type="number" inputmode="numeric" min="0" value="${esc(e.participantes)}"${dis}></label>
     <label class="f"><span>Notas y resultados</span><textarea id="e_notas"${dis}>${esc(e.notas)}</textarea></label>
-    ${ro?`<div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`:
+    ${id?evInformeBtn(aid,id,e):''}
+    ${ro?`<div class="btns"><button class="btn" data-act="closeModal">Cerrar</button>${(typeof isMet==='function'&&isMet())?`<button class="btn primary" data-act="mtEvPrint" data-aid="${esc(aid)}" data-id="${esc(id)}">Imprimir ficha</button>`:''}</div>`:
     `<div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="saveEvento" data-id="${esc(id||'')}">Guardar evento</button></div>
      ${id?`<div class="btns"><button class="btn danger" data-act="delEvento" data-id="${esc(id)}">Eliminar evento</button></div>`:''}`}`);
 }

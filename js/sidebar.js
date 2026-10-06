@@ -38,6 +38,12 @@ const NAV_PROF = [
   {id:'hoy',label:'Hoy',ic:'clip'},
   {id:'horario',label:'Mi horario',ic:'cal'}
 ];
+const NAV_MET = [
+  {id:'aforos',label:'Aforos',ic:'gauge'},
+  {id:'eventos',label:'Eventos',ic:'flag'},
+  {id:'pruebas',label:'Pruebas',ic:'clip'},
+  {id:'reportes',label:'Reportes',ic:'doc'}
+];
 const NAV_GER = [
   {id:'resumen',label:'Resumen',ic:'dash'},
   {id:'comite',label:'Comité',ic:'chart'},
@@ -46,7 +52,22 @@ const NAV_GER = [
   {id:'ajustes',label:'Ajustes',ic:'gear'}
 ];
 
+function viewSidebarMet(){
+  return `<aside class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo"><span>C</span><img src="img/logo.png" alt="Club Campestre Aguascalientes" data-fallback></div>
+      <div><b>Metodología deportiva</b><small>Todas las disciplinas</small></div>
+    </div>
+    <nav class="sb-nav">${NAV_MET.map(n=>`<button class="${ui.mt.tab===n.id?'on':''}" data-act="mTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')}</nav>
+    <div class="sb-foot">
+      <div class="sb-user"><b>Metodología</b>Todas las disciplinas</div>
+      ${(c=>`<button class="cloud ${c.cls}" data-act="syncInfo" aria-label="Estado de la sincronización"><i></i>${c.txt}</button>`)(cloudChip())}
+      <button class="btn sm block" data-act="logout">${ic('logout')} Salir</button>
+    </div>
+  </aside>`;
+}
 function viewSidebar(){
+  if(session.rol==='met') return viewSidebarMet();
   const ger=session.rol==='ger', prof=session.rol==='prof', rec=session.rol==='rec';
   const a=ger?null:getArea(session.area);
   const pr=prof?getProf(session.area,session.profId):(rec?getRec(session.area,session.recId):null);
@@ -67,7 +88,7 @@ function viewSidebar(){
     ${areas}
     <div class="sb-foot">
       <div class="sb-user"><b>${ger?'Gerencia':rec?'Recepción':prof?(esServ(session.area)?pfNom(session.area,0):esGim(session.area)?'Instructor':'Profesor'):'Dirección'}</b>${ger?'Todas las áreas':(prof||rec)?esc(pr.nombre):areaIco(a,{size:15})+' '+esc(a.nombre)}</div>
-      ${(c=>`<div class="cloud ${c.cls}"><i></i>${c.txt}</div>`)(cloudChip())}
+      ${(c=>`<button class="cloud ${c.cls}" data-act="syncInfo" aria-label="Estado de la sincronización"><i></i>${c.txt}</button>`)(cloudChip())}
       <button class="btn sm block" data-act="logout">${ic('logout')} Salir</button>
     </div>
   </aside>`;

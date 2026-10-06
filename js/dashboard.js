@@ -135,7 +135,7 @@ function gResumen(){
       <div class="sub">${esc(fmtLarga(t))}${hoyProg?` · Hoy: ${hoyCap} de ${hoyProg} clases con aforo capturado`:''}</div>
       <div class="an-f no-print">${anPeriodoHTML()}
         <div class="an-per">${esc(anPeriodoTxt(r))}${esc(anCompTxt(r))}</div></div>
-      <div class="kpis an-kpis" style="margin-top:12px">
+      ${carHTML('resumen',`
         ${kpi('Alumnos inscritos',alum,'En todas las áreas',{k:'alumnos',color:'var(--b2)'})}
         ${kpi('Asistentes a clases',T.asisTot.toLocaleString('es-MX'),anDeltaChip(dAs,'%')||`${T.ses} sesiones`,{k:'asistentes',color:'var(--b3)'})}
         ${kpi('Aforo de clases',anPct(T.aforo),`${anDeltaChip(dAf)||`Período: ${anPerLabel()}`}<span class="k-n">${T.lugares?numLugares(T.asisL,T.lugares):''}</span>`,{k:'aforo',cls:aforoCls(T.aforo),color:'var(--b1)'})}
@@ -143,7 +143,7 @@ function gResumen(){
         ${kpi('Incidencias abiertas',inc,inc?'Requieren seguimiento':'Todo en orden',{k:'incid',cls:inc?'bad':'',color:'var(--bad)'})}
         ${kpi('Reportes semanales',rp.esperados?`${rp.entregados}/${rp.esperados}`:`${entregSem}/${stG.length}`,rp.esperados?'entregados a tiempo':'entregados esta semana',{k:'reportes',cls:rp.esperados?(rp.entregados===rp.esperados?'ok':''):(entregSem===stG.length&&stG.length?'ok':''),color:'var(--warn)'})}
         ${svKpisResumen()}
-      </div>
+      `)}
     </div>
 
     ${gChart(P,as)}
@@ -180,55 +180,45 @@ function gResumen(){
 }
 
 /* ---------- Inicio de un área ---------- */
+/* ---------- Inicio de un área: análisis de aforo arriba, tres cifras y avisos ---------- */
+function pendRow(tono,titulo,sub,btn){
+  return `<div class="pend-row ${tono}"><i></i><div><b>${titulo}</b>${sub?`<small>${sub}</small>`:''}</div>${btn||''}</div>`;
+}
 function vInicio(aid){
-  const s=areaStats(aid), t=todayStr(), wd=wdIdx(t), ro=isRO();
-  const hoy=gruposDelDia(aid,t).sort(byHora);
-  const recs=Object.fromEntries(coll(aid,'asistencia').filter(r=>r.fecha===t).map(r=>[r.grupoId,r]));
-  const inc=coll(aid,'incidencias').filter(i=>i.estado!=='resuelta').sort(incSort).slice(0,3);
-  const pct=s.hoyProg?Math.round(s.hoyCap/s.hoyProg*100):0;
-  return `<div class="dash has-chart">
+  const s=areaStats(aid), t=todayStr(), ro=isRO();
+  const recs=coll(aid,'asistencia').filter(r=>r.fecha===t&&!r.omitida);
+  const asisHoy=recs.reduce((n,r)=>n+(+r.asistentes||0),0);
+  const puedeCapturar=!ro&&!esVinculada(aid), sinCap=Math.max(0,s.hoyProg-s.hoyCap);
+  const capVal=s.hoyProg?`${s.hoyCap}/${s.hoyProg}`:'—';
+  const capCap=!s.hoyProg?'Sin clases hoy':(sinCap?`faltan ${sinCap}`:'todas capturadas');
+  const capCls=s.hoyProg?(sinCap?'warn':'ok'):'';
+  const tileCap=puedeCapturar
+    ? `<button class="kpi kpi-btn" data-act="aTab" data-tab="aforos" style="--kc:var(--b2)" aria-label="Clases capturadas hoy: ir a capturar aforos"><span class="k-l">Clases capturadas</span><b class="${capCls}">${capVal}</b><em class="k-c">${capCap}</em><span class="k-go" aria-hidden="true">${ic('next')}</span></button>`
+    : kpi('Clases capturadas',capVal,capCap,{cls:capCls,color:'var(--b2)'});
+  const pend=[];
+  if(s.reporte!=='entregado') pend.push(pendRow(s.reporte==='borrador'?'info':'warn',`Reporte semanal ${s.reporte==='borrador'?'en borrador':'sin capturar'}`,`Semana del ${esc(fmtCorta(mondayOf(t)))}`,ro?'':`<button class="btn sm" data-act="aTab" data-tab="reporte">Abrir</button>`));
+  return `<div class="dash limpio">
+    <div class="d-chart"><div class="h2">Análisis de aforo <button class="btn sm${ui.chRev?'':' primary'}" data-act="chRev" aria-expanded="${!!ui.chRev}">${ui.chRev?'Ocultar':'Revisar'}</button></div>${chCard(aid,true)}</div>
+
     <div class="d-kpis">
-      ${vinculoBanner(aid)}
-      <div class="sub">${esc(fmtLarga(t))}</div>
-      <div class="kpis">
-        ${kpi('Grupos activos',s.grupos,'Con horario registrado')}
-        ${kpi('Alumnos inscritos',s.alumnos,'En todos los grupos',{k:'alumnos',color:'var(--b3)'})}
-        ${kpi('Aforo promedio',s.aforo==null?'—':s.aforo+'%','Últimos 30 días',{cls:aforoCls(s.aforo),color:'var(--b1)'})}
-        ${kpi('Incidencias abiertas',s.incAbiertas,s.incAbiertas?'Requieren seguimiento':'Todo en orden',{k:'incid',cls:s.incAbiertas?'bad':'',color:'var(--bad)'})}
+      <div class="kpis k3">
+        ${kpi('Aforo',s.aforo==null?'—':s.aforo+'%','Promedio 30 días',{cls:aforoCls(s.aforo),color:'var(--b1)'})}
+        ${kpi('Asistentes hoy',asisHoy,s.hoyProg?(s.hoyCap===1?'en 1 clase capturada':`en ${s.hoyCap} clases capturadas`):'Sin clases hoy',{color:'var(--b3)'})}
+        ${tileCap}
       </div>
     </div>
 
-    ${chSeccion(aid)}
+    <div class="d-avisos">${vinculoBanner(aid)}${typeof infBannerPend==='function'?infBannerPend(aid):''}</div>
 
-    <div class="d-hoy">
-      <div class="h2">Hoy</div>
-      <div class="hero">
-        <div class="hero-t"><b>${s.hoyProg?`${s.hoyCap} de ${s.hoyProg}`:'Sin clases'}</b><span>${s.hoyProg?'clases con aforo capturado':'programadas para hoy'}</span>
-          ${s.hoyProg?`<div class="bar hero-bar"><i class="ok" style="width:${pct}%"></i></div>`:''}</div>
-        ${(ro||esVinculada(aid))?'':`<button class="hero-b" data-act="aTab" data-tab="aforos">Capturar aforos</button>`}
-      </div>
-      ${hoy.length?hoy.map(g=>{
-        const r=recs[g.id], info=regInfo(r,g);
-        return `<div class="line" style="--ac:${areaColor(aid)}">
-          <div class="t">${esc(g.hi||'—')}</div>
-          <div class="b"><b>${esc(g.nombre)}</b><small>${esc(g.prof||'Sin profesor')}${g.lugar?' · '+esc(g.lugar):''}</small></div>
-          <div class="r">${r?`<span class="${info.cls}">${esc(info.txt)}${info.p!=null?'<br>'+info.p+'%':''}</span>`:'<span class="mut">sin captura</span>'}</div></div>`;
-      }).join(''):empty('Hoy no hay grupos programados.')}
-    </div>
+    ${(pend.length||s.proxEvento)?`<div class="d-side">
+      ${pend.length?`<div class="d-blk"><div class="h2">Para atender</div><div class="card pend">${pend.join('')}</div></div>`:''}
+      ${s.proxEvento?`<div class="d-blk"><div class="h2">Próximo evento</div>
+        <button class="ev-c" data-act="openEvento" data-id="${s.proxEvento.id}">
+          <div class="ev-d"><b>${parseYmd(s.proxEvento.fecha).getDate()}</b><span>${MESES[parseYmd(s.proxEvento.fecha).getMonth()].slice(0,3)}</span></div>
+          <div class="ev-i"><b>${esc(s.proxEvento.nombre)}</b><small>${esc([s.proxEvento.hora,s.proxEvento.lugar].filter(Boolean).join(' · ')||'Sin hora ni lugar')}</small></div>
+          ${pill(s.proxEvento.estado||'planificado',EST_EV_CLS[s.proxEvento.estado]||'info')}</button></div>`:''}
+    </div>`:''}
 
-    <div class="d-side">
-      <div class="h2">Reporte de la semana</div>
-      <div class="card"><div class="row"><div><b>Semana del ${esc(fmtCorta(mondayOf(t)))}</b><small>${s.reporte==='entregado'?'Ya está entregado a gerencia':s.reporte==='borrador'?'Guardado como borrador':'Todavía no se captura'}${s.ultimoReporte&&s.reporte!=='entregado'?' · último entregado: semana del '+esc(fmtCorta(s.ultimoReporte)):''}</small></div>
-        ${repPill(s.reporte)}</div>
-        ${ro?'':`<div class="btns"><button class="btn" data-act="aTab" data-tab="reporte">Abrir reporte semanal</button></div>`}</div>
-      <div class="h2">Próximo evento</div>
-      ${s.proxEvento?`<button class="ev-c" data-act="openEvento" data-id="${s.proxEvento.id}">
-        <div class="ev-d"><b>${parseYmd(s.proxEvento.fecha).getDate()}</b><span>${MESES[parseYmd(s.proxEvento.fecha).getMonth()].slice(0,3)}</span></div>
-        <div class="ev-i"><b>${esc(s.proxEvento.nombre)}</b><small>${esc([s.proxEvento.hora,s.proxEvento.lugar].filter(Boolean).join(' · ')||'Sin hora ni lugar')}</small></div>
-        ${pill(s.proxEvento.estado||'planificado',EST_EV_CLS[s.proxEvento.estado]||'info')}</button>`:empty('No hay eventos próximos.')}
-      <div class="h2">Incidencias abiertas</div>
-      ${inc.length?inc.map(incRow).join(''):empty('Sin incidencias abiertas.')}
-      ${ro?'':`<div class="btns"><button class="btn sm" data-act="pwSelf">Cambiar contraseña de dirección</button></div>`}
-    </div>
+    ${ro?'':`<div class="d-cuenta"><button class="linkbtn" data-act="pwSelf">Cambiar contraseña de dirección</button></div>`}
   </div>`;
 }

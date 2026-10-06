@@ -8,7 +8,7 @@ function viewTopbar(title,sub,back){
     ${back?`<button class="ibtn" data-act="${back}" aria-label="Volver">${ic('back')}</button>`:''}
     <div class="tb-logo only-m"><span>C</span><img src="img/logo.png" alt="Club Campestre" data-fallback></div>
     <div class="tb-t"><b>${title}</b><small>${sub}</small>
-      ${(c=>`<span class="cloud ${c.cls}"><i></i>${c.txt}</span>`)(cloudChip())}</div>
+      ${(c=>`<button class="cloud ${c.cls}" data-act="syncInfo" aria-label="Estado de la sincronización"><i></i>${c.txt}</button>`)(cloudChip())}</div>
     <button class="ibtn only-m" data-act="logout" aria-label="Salir">${ic('logout')}</button>
   </header>`;
 }
@@ -18,8 +18,9 @@ function shell({title,sub,body,back,fs}){
 function render(){
   const app=$('#app');
   if(!session){ app.innerHTML=viewLogin(); return; }
-  app.innerHTML = session.rol==='ger' ? viewGerencia() : session.rol==='dir' ? viewDireccion() : session.rol==='rec' ? viewRecepcion() : viewProfesor();
+  app.innerHTML = session.rol==='ger' ? viewGerencia() : session.rol==='met' ? viewMetodologia() : session.rol==='dir' ? viewDireccion() : session.rol==='rec' ? viewRecepcion() : viewProfesor();
   if(typeof chAlFinal==='function') chAlFinal();
+  if(typeof carInit==='function') carInit();
 }
 
 /* ----- contenido de un área (dirección edita, gerencia solo lee) ----- */
@@ -61,7 +62,7 @@ function viewGerencia(){
 }
 function viewDireccion(){
   const a=getArea(session.area);
-  return shell({title:`${areaIco(a,{size:22})} ${esc(a.nombre)}`,sub:'Dirección de área',body:ui.lista?vLista():areaBody(session.area),back:ui.lista?'listaBack':null,fs:!!ui.lista});
+  return shell({title:`${areaIco(a,{size:22})} ${esc(a.nombre)}`,sub:'Dirección de área',body:ui.rufier?vRufier():metBanner()+(ui.lista?vLista():areaBody(session.area)),back:ui.lista?'listaBack':null,fs:!!ui.lista||!!ui.rufier});
 }
 
 Object.assign(actions,{
@@ -75,14 +76,14 @@ Object.assign(actions,{
 /* ----- eventos globales ----- */
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-act]'); if(!t) return;
-  const fn=actions[t.dataset.act]; if(fn){ e.preventDefault(); fn(t.dataset,e); }
+  const fn=actions[t.dataset.act]; if(fn){ e.preventDefault(); accionActual={fn,d:t.dataset,e}; try{ fn(t.dataset,e); } finally{ accionActual=null; } }
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('#modal').hidden) closeModal(); });
 document.addEventListener('focusout',()=>{
   if(!pendingRender) return;
   setTimeout(()=>{
     const ae=document.activeElement, pw=$('#pw');
-    if(!$('#modal').hidden||(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))||(!session&&pw&&pw.value)||afBusy()) return;
+    if(!$('#modal').hidden||(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))||(!session&&pw&&pw.value)||afBusy()||(typeof rfBusy==='function'&&rfBusy())) return;
     pendingRender=false; render();
   },250);
 });

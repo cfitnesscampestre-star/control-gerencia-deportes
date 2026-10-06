@@ -18,8 +18,8 @@ function claseActual(gs,fecha){                       // clase en curso o la pr�
 function viewProfesor(){
   const a=getArea(session.area), p=getProf(session.area,session.profId);
   const srv=esServ(session.area), gim=esGim(session.area);
-  const body = srv ? vServProf() : gim ? vGimProf() : ui.lista ? vLista() : (ui.pTab==='horario' ? vProfHorario() : vProfHoy());
-  return shell({title:esc(p.nombre),sub:`${srv?pfNom(session.area,0):gim?'Instructor':'Profesor'} · ${areaIco(a,{size:14})} ${esc(a.nombre)}`,body,back:(!srv&&!gim&&ui.lista)?'listaBack':null,fs:!srv&&!gim&&!!ui.lista});
+  const body = ui.rufier ? vRufier() : (typeof fzBanner==='function'?fzBanner():'') + metBanner() + (srv ? vServProf() : gim ? vGimProf() : ui.lista ? vLista() : (ui.pTab==='horario' ? vProfHorario() : vProfHoy()));
+  return shell({title:esc(p.nombre),sub:`${srv?pfNom(session.area,0):gim?'Instructor':'Profesor'} · ${areaIco(a,{size:14})} ${esc(a.nombre)}`,body,back:(!srv&&!gim&&ui.lista)?'listaBack':null,fs:(!srv&&!gim&&!!ui.lista)||!!ui.rufier});
 }
 
 function vProfHoy(){
@@ -38,8 +38,8 @@ function vProfHoy(){
     const g=act.g, n=rosterOf(g).length;
     hero=`<div class="hero">
       <div class="hero-t"><span>${act.estado==='curso'?'Clase en curso':'Próxima clase'}</span><b>${esc(g.nombre)}</b>
-        <span>${esc(horaTxt(g))}${g.lugar?' · '+esc(g.lugar):''} · ${plu(n,'alumno','alumnos')}</span></div>
-      <div class="hero-bs"><button class="hero-b" data-act="openLista" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">Pasar lista</button>
+        <span>${esc(horaTxt(g))}${g.lugar?' · '+esc(g.lugar):''} · ${tipoGrupoDe(g)==='servicio'?'Servicio':plu(n,'alumno','alumnos')}</span></div>
+      <div class="hero-bs"><button class="hero-b" data-act="openLista" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">${tipoGrupoDe(g)==='servicio'?'Registrar asistentes':'Pasar lista'}</button>
         ${n&&!esVinculada(aid)&&!fcId(g.id)?`<button class="hero-b2" data-act="openListaRapida" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">${ic('bolt')} Lista rápida</button>`:''}</div></div>`;
   }
   return `

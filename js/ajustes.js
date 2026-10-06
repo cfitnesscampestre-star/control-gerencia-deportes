@@ -19,6 +19,7 @@ function gAjustes(){
       <div class="h2">Contraseñas</div>
       <div class="card">
         <div class="row"><div><b>Gerencia</b><small>Acceso a todas las áreas</small></div><button class="btn sm" data-act="pwGer">Cambiar</button></div>
+        <div class="row"><div><b>Metodología deportiva</b><small>Aforos, eventos y pruebas de todas las áreas</small></div><button class="btn sm" data-act="pwMet">Cambiar</button></div>
         ${as.map(a=>`<div class="row"><div><b>${areaIco(a,{size:18})} ${esc(a.nombre)}</b><small>Dirección del área</small></div><button class="btn sm" data-act="pwDir" data-id="${esc(a.id)}">Cambiar</button></div>`).join('')}
       </div>
     </div>
@@ -38,7 +39,7 @@ function gAjustes(){
 
 function openPw(kind,aid){
   const self=kind==='self';
-  const label=kind==='ger'?'Gerencia':`Dirección · ${esc((getArea(aid)||{}).nombre||'')}`;
+  const label=kind==='ger'?'Gerencia':kind==='met'?'Metodología deportiva':`Dirección · ${esc((getArea(aid)||{}).nombre||'')}`;
   openModal(`${mHead('Cambiar contraseña')}
     <div class="sub">${label}</div>
     ${self?`<label class="f"><span>Contraseña actual</span><input id="pw_cur" type="password" autocomplete="current-password"></label>`:''}
@@ -91,6 +92,7 @@ Object.assign(actions,{
   pickIco(d){ $('#a_icono').value=d.k; document.querySelectorAll('.ico-op').forEach(b=>b.classList.toggle('on',b.dataset.k===d.k)); },
   tema(d){ try{ localStorage.setItem('gd_tema',d.t); }catch(e){} aplicarTema(); render(); },
   pwGer(){ openPw('ger'); },
+  pwMet(){ openPw('met'); },
   pwDir(d){ openPw('dir',d.id); },
   pwSelf(){ openPw('self',session.area); },
   savePw(d){
@@ -99,7 +101,7 @@ Object.assign(actions,{
     if(d.kind==='self' && hashPass($('#pw_cur').value)!==state.cfg.pass.dir[d.id]) return err('La contraseña actual no coincide.');
     if(n1.length<4) return err('Usa al menos 4 caracteres.');
     if(n1!==n2) return err('Las dos contraseñas no coinciden.');
-    setPath(d.kind==='ger'?'cfg/pass/ger':`cfg/pass/dir/${d.id}`,hashPass(n1));
+    setPath(d.kind==='ger'?'cfg/pass/ger':d.kind==='met'?'cfg/pass/met':`cfg/pass/dir/${d.id}`,hashPass(n1));
     closeModal(); toast('Contraseña actualizada');
   },
   ghCopiar(){                                            // copia el horario del primer día abierto a los demás días abiertos

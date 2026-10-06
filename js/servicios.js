@@ -36,7 +36,20 @@ const SERV = {
   },
   fisioterapia:{
     nom:'Fisioterapia', esp:'Fisioterapeuta', espP:'Fisioterapeutas', unidad:'sesión', unidadP:'sesiones',
+    /* Al registrar, el fisioterapeuta elige primero ACTIVO o PASIVO y luego el servicio de esa lista.
+       Los servicios viejos (Valoración, Masaje…) se conservan para que el historial se lea igual. */
+    modalidades:{
+      activo:{nom:'Activo',srv:['Punción seca','Manual','Ventosa','Ultrasonido','Tecar','Otro']},
+      pasivo:{nom:'Pasivo',srv:['Botas','Electroterapia','Ultrasonido','Tecar','Otro']}
+    },
     servicios:[
+      {s:'Punción seca',p:'punciones secas',min:30},
+      {s:'Manual',p:'terapias manuales',min:30},
+      {s:'Ventosa',p:'sesiones de ventosas',min:20},
+      {s:'Ultrasonido',p:'sesiones de ultrasonido',min:20},
+      {s:'Tecar',p:'sesiones de tecar',min:30},
+      {s:'Botas',p:'sesiones de botas',min:30},
+      {s:'Electroterapia',p:'sesiones de electroterapia',min:30},
       {s:'Valoración',p:'valoraciones',min:40},
       {s:'Sesión de terapia',p:'sesiones de terapia',min:45},
       {s:'Electroterapia o ultrasonido',p:'sesiones de electroterapia o ultrasonido',min:30},
@@ -70,6 +83,10 @@ const pfNom = (aid,pl) => esGim(aid) ? (pl?'Instructores':'Instructor') : esServ
 const bitacora = aid => coll(aid,'bitacora');
 const dd = (a,b) => Math.round((parseYmd(b)-parseYmd(a))/86400000);
 const svCap = s => s.charAt(0).toUpperCase()+s.slice(1);
+const esFisio = aid => (getArea(aid)||{}).tipo==='fisioterapia';
+const svModNom = m => m==='activo'?'Activo':m==='pasivo'?'Pasivo':'';
+/* nombre del servicio tal como se lee: "Punción seca · activo", "Otro: laser" */
+const svSrvTxt = x => { const s=(x.servicio==='Otro'&&x.otro)?'Otro: '+x.otro:(x.servicio||''); return x.modalidad?`${s} · ${svModNom(x.modalidad).toLowerCase()}`:s; };
 const svSrv = (aid,label) => servDe(aid).servicios.find(x=>x.s===label) || {s:label,p:String(label).toLowerCase(),min:30};
 const svOrigenTxt = v => (!v||v==='propia') ? 'Sin canalizar' : v==='medico' ? 'Médico externo' : (getArea(v)?'Desde '+getArea(v).nombre:'Otra área');
 const svEsCanal = v => !!v && v!=='propia' && v!=='medico';
@@ -149,6 +166,7 @@ function svAgrupa(aid,regs){
   const orden=servDe(aid).servicios.map(x=>x.s);
   return Object.values(m).sort((a,b)=>{ const i=orden.indexOf(a.k), j=orden.indexOf(b.k); return (i<0?99:i)-(j<0?99:j)||b.n-a.n; });
 }
+function svPorModalidad(regs){ const a=regs.filter(x=>x.modalidad==='activo').length, p=regs.filter(x=>x.modalidad==='pasivo').length; return {activo:a,pasivo:p,n:a+p}; }
 function svAgrupa2(regs,f){ const m={}; regs.forEach(x=>{ const k=f(x); m[k]=(m[k]||0)+1; }); return Object.keys(m).map(k=>({k,n:m[k]})).sort((a,b)=>b.n-a.n); }
 function svPrimera(pid,B){ let m=''; B.forEach(x=>{ if(x.profId===pid&&(!m||x.f<m)) m=x.f; }); return m; }
 function servStats(aid,desde,hasta,pid,B){
@@ -370,7 +388,8 @@ function svLineaReg(aid,r,i,edit){
   const ok=svAtendido(r), pend=svPendiente(r), iv=svIv(r), rt=svRetraso(r), tag=edit?'button':'div';
   const hora=iv?svRangoTxt(iv[0],iv[1]):svHm(r.min), tarde=(rt!=null&&rt>60)?`<span class="sv-late">capturado ${esc(svHm(rt))} después</span>`:'';
   return `<${tag} class="line sv-l${ok?'':pend?' sv-pend':' sv-no'}"${edit?` data-act="svReg" data-id="${esc(r.id)}" style="--ac:${areaColor(aid)}"`:''}><div class="t">${i+1}</div><div class="b"><b>${esc(r.paciente)}</b>
-    <small>${ok?'':`<span class="sv-tag${pend?' sv-tag-pend':''}">${esc(SV_ESTADO[r.estado]||'No llegó')}</span> `}${esc(hora)} · ${esc(r.servicio||'')}${(ok||pend)?' · '+esc(svOrigenTxt(r.origen)):''}${pend&&r.motivo?' · '+esc(r.motivo):''}</small>
+    <small>${ok?'':`<span class="sv-tag${pend?' sv-tag-pend':''}">${esc(SV_ESTADO[r.estado]||'No llegó')}</span> `}${esc(hora)} · ${esc(svSrvTxt(r))}${(ok||pend)?' · '+esc(svOrigenTxt(r.origen)):''}${pend&&r.motivo?' · '+esc(r.motivo):''}</small>
+    ${edit&&r.hallazgo?`<small class="sv-hall">Hallazgo: ${esc(r.hallazgo)}</small>`:''}
     ${r.ts?`<small class="mut">Registrado a las ${esc(svHoraTs(r.ts))} ${tarde}</small>`:''}</div></${tag}>`;
 }
 
@@ -422,11 +441,18 @@ function svOrigenOpts(aid,sel){
   const o=[['propia','No, sin canalización'],['medico','Médico externo'],...areasList().filter(a=>a.id!==aid&&!SERV[a.tipo]).map(a=>[a.id,'Canalizado desde '+a.nombre])];
   return o.map(([v,l])=>`<option value="${esc(v)}"${v===sel?' selected':''}>${esc(l)}</option>`).join('');
 }
+function svOpcionesSrv(aid,mod,sel,nuevo){
+  const S=servDe(aid), lista=(mod&&S.modalidades&&S.modalidades[mod])?S.modalidades[mod].srv:[];
+  if(!mod) return sel&&!nuevo?`<option value="${esc(sel)}" selected>${esc(sel)}</option>`:`<option value="">Elige primero activo o pasivo…</option>`;
+  const ops=lista.includes(sel)||!sel?lista:[...lista,sel];
+  return ops.map(x=>`<option value="${esc(x)}"${x===sel?' selected':''}>${esc(x)}</option>`).join('');
+}
 function openReg(id){
   const aid=session.area, pid=session.profId, S=servDe(aid), f=ui.pFecha, p=getProf(aid,pid)||{}, mis=bitacora(aid).filter(x=>x.profId===pid);
   const r=id?(getPath(`data/${aid}/bitacora/${id}`)||{}):{}, fecha=r.f||f, dia=mis.filter(x=>x.f===fecha&&x.id!==id);
   const locked=r.creadoPor==='paramedico', dis=locked?' disabled':'';
-  const srv=r.servicio||S.servicios[0].s, durSug=svSrv(aid,srv).min;
+  const fisio=esFisio(aid), mod=r.modalidad||'';
+  const srv=r.servicio&&!(fisio&&r.servicio==='Cita de empleado')?r.servicio:(fisio?(mod&&S.modalidades[mod]?S.modalidades[mod].srv[0]:''):S.servicios[0].s), durSug=srv?svSrv(aid,srv).min:30;
   let hi=r.hi, hf=r.hf;
   if(!hi){                                              // sugerencia: empieza donde terminó el servicio anterior (o al inicio del turno)
     const ult=dia.map(x=>svMin(x.hf)).filter(x=>x!=null).sort((a,b)=>b-a)[0], tw=svTurnoDia(p,fecha);
@@ -439,7 +465,12 @@ function openReg(id){
     <div class="sub">${esc(fmtLarga(fecha))} · <b>Servicio ${num}</b>${locked?` · <span class="sv-tag sv-tag-pend">Agendada por ${parNom}</span>`:''}</div>
     <label class="f"><span>Nombre del ${esParamed(aid)?'empleado':'socio'}</span><input id="rg_nom" list="rg_dl" value="${esc(r.paciente)}" autocomplete="off" autocapitalize="words" placeholder="Nombre y apellido"${dis}><datalist id="rg_dl">${nombres.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></label>
     <label class="f"><span>¿Qué pasó con la cita?</span><select id="rg_est">${Object.keys(SV_ESTADO).filter(k=>k!=='agendada').map(k=>`<option value="${k}"${k===est?' selected':''}>${SV_ESTADO[k]}</option>`).join('')}</select></label>
-    <label class="f"><span>Servicio</span><select id="rg_srv"${dis}>${(S.servicios.some(x=>x.s===srv)?S.servicios:[...S.servicios,{s:srv}]).map(x=>`<option value="${esc(x.s)}"${x.s===srv?' selected':''}>${esc(x.s)}</option>`).join('')}</select></label>
+    ${fisio?`<div class="f" id="rg_mod_w"><span class="lb">Tipo de servicio</span>
+      <div class="seg"><button type="button" class="${mod==='activo'?'on':''}" data-act="svMod" data-m="activo">Activo</button><button type="button" class="${mod==='pasivo'?'on':''}" data-act="svMod" data-m="pasivo">Pasivo</button></div>
+      <input type="hidden" id="rg_mod" value="${esc(mod)}"></div>
+    <label class="f" id="rg_srv_w"><span>Servicio</span><select id="rg_srv">${svOpcionesSrv(aid,mod,srv,!r.servicio||r.servicio==='Cita de empleado')}</select></label>
+    <label class="f" id="rg_otro_w" style="display:${srv==='Otro'?'':'none'}"><span>¿Cuál servicio?</span><input id="rg_otro" value="${esc(r.otro||'')}" placeholder="Ej. Láser, kinesiotape…" autocomplete="off"></label>`
+    :`<label class="f"><span>Servicio</span><select id="rg_srv"${dis}>${(S.servicios.some(x=>x.s===srv)?S.servicios:[...S.servicios,{s:srv}]).map(x=>`<option value="${esc(x.s)}"${x.s===srv?' selected':''}>${esc(x.s)}</option>`).join('')}</select></label>`}
     ${locked&&r.motivo?`<label class="f"><span>Motivo</span><input value="${esc(r.motivo)}" disabled></label>`:''}
     <div class="two">
       <label class="f"><span id="rg_hi_l">Hora de inicio</span><input id="rg_hi" type="time" step="300" value="${esc(hi)}"${dis}></label>
@@ -448,6 +479,7 @@ function openReg(id){
     <div id="rg_bloqueo_note"></div>
     <div class="sv-dur"><span id="rg_dur"></span>${fecha===todayStr()?`<button type="button" class="btn sm" data-act="svAhora">Terminé ahora</button>`:''}</div>
     <label class="f" id="rg_ori_w"><span>¿Lo canalizó alguna área?</span>${locked?`<input value="${parNom}" disabled><input type="hidden" id="rg_ori" value="${esc(r.origen)}">`:`<select id="rg_ori">${svOrigenOpts(aid,r.origen||'propia')}</select>`}</label>
+    ${fisio?`<label class="f" id="rg_hall_w"><span>Hallazgo relevante (opcional)</span><textarea id="rg_hall" rows="3" maxlength="400" placeholder="Nota breve para tu seguimiento. Evita escribir diagnósticos completos.">${esc(r.hallazgo||'')}</textarea><small class="mut">Solo tú ves esta nota; no aparece en los reportes de Dirección ni de Gerencia.</small></label>`:''}
     ${svAviso(aid)}
     <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="saveReg" data-id="${esc(id||'')}">Guardar</button></div>
     ${id?`<div class="btns"><button class="btn danger" data-act="delReg" data-id="${esc(id)}">Eliminar registro</button></div>`:`<div class="btns"><button class="btn" data-act="saveReg" data-id="" data-otra="1">Guardar y registrar otro</button></div>`}`);
@@ -458,6 +490,8 @@ function svRegRefresh(){                                 // duración calculada 
   const hi=svMin(($('#rg_hi')||{}).value), hf=svMin(($('#rg_hf')||{}).value), out=$('#rg_dur'), est=($('#rg_est')||{}).value;
   if(out) out.innerHTML=(hi!=null&&hf!=null&&hf>hi)?`Duración: <b>${svHm(hf-hi)}</b>`:'<span class="sv-late">La hora de fin debe ser después de la de inicio</span>';
   const w=$('#rg_ori_w'); if(w) w.style.display=est==='atendido'?'':'none';
+  ['rg_mod_w','rg_srv_w','rg_hall_w'].forEach(i=>{ const e=$('#'+i); if(e) e.style.display=est==='atendido'?'':'none'; });
+  const ow=$('#rg_otro_w'); if(ow) ow.style.display=(est==='atendido'&&($('#rg_srv')||{}).value==='Otro')?'':'none';
   const a=$('#rg_hi_l'), b=$('#rg_hf_l'); if(a) a.textContent=est==='atendido'?'Hora de inicio':'Hora de inicio de la cita'; if(b) b.textContent=est==='atendido'?'Hora de fin':'Hora de fin de la cita';
   const bn=$('#rg_bloqueo_note'), meta=$('#rg_meta');
   if(bn){
@@ -561,7 +595,7 @@ function svReporteDoc(aid,R){
     ${R.desde!==R.hasta&&dias.length?`<div class="h2 sm">Resumen por día</div><table class="doc-tabla"><thead><tr><th>Fecha</th><th>${esc(S.esp)}</th><th>Turno</th><th>Servicios</th><th>En servicio</th><th>Ocupación</th><th>Tiempo muerto</th><th>No llegaron</th></tr></thead><tbody>
     ${dias.map(({f,p,e})=>`<tr><td>${esc(fmtFecha(f))}</td><td>${esc(p?p.nombre:'—')}</td><td>${e.turno?esc(svHm(e.turno)):'—'}</td><td>${e.n}</td><td>${esc(svHm(e.min))}</td><td class="${svUtilCls(e.util)}">${e.util==null?'—':e.util+'%'}</td><td>${e.turno?esc(svHm(e.idle)):'—'}</td><td>${e.noLlego}</td></tr>`).join('')}</tbody></table>`:''}
     ${det.length?`<div class="h2 sm">Detalle de registros</div><table class="doc-tabla"><thead><tr><th>Fecha</th><th>${esc(S.esp)}</th><th>Horario</th><th>Socio</th><th>Servicio</th><th>Estado</th><th>Registrado</th></tr></thead><tbody>
-    ${det.map(x=>{ const iv=svIv(x), p=getProf(aid,x.profId); return `<tr><td>${esc(fmtFecha(x.f))}</td><td>${esc(p?p.nombre:'—')}</td><td>${iv?esc(svRangoTxt(iv[0],iv[1])):esc(svHm(x.min))}</td><td>${esc(x.paciente)}</td><td>${esc(x.servicio||'')}</td><td>${esc(SV_ESTADO[x.estado]||SV_ESTADO.atendido)}</td><td>${x.ts?esc(svHoraTs(x.ts)):'—'}</td></tr>`; }).join('')}</tbody></table>`:''}
+    ${det.map(x=>{ const iv=svIv(x), p=getProf(aid,x.profId); return `<tr><td>${esc(fmtFecha(x.f))}</td><td>${esc(p?p.nombre:'—')}</td><td>${iv?esc(svRangoTxt(iv[0],iv[1])):esc(svHm(x.min))}</td><td>${esc(x.paciente)}</td><td>${esc(svSrvTxt(x))}</td><td>${esc(SV_ESTADO[x.estado]||SV_ESTADO.atendido)}</td><td>${x.ts?esc(svHoraTs(x.ts)):'—'}</td></tr>`; }).join('')}</tbody></table>`:''}
     <div class="doc-firmas"><div>${esc(S.esp)}</div><div>Dirección del área</div></div>`;
 }
 
@@ -643,10 +677,27 @@ Object.assign(actions,{
     const a=svMin(hi.value); if(a!=null&&fin>a) hf.dataset.dur=fin-a;
     svRegRefresh();
   },
+  svMod(d){                                              // Fisioterapia: activo / pasivo → cambia la lista de servicios
+    const aid=session.area, inp=$('#rg_mod'), sel=$('#rg_srv'); if(!inp||!sel) return;
+    inp.value=d.m;
+    document.querySelectorAll('#rg_mod_w .seg button').forEach(b=>b.classList.toggle('on',b.dataset.m===d.m));
+    sel.innerHTML=svOpcionesSrv(aid,d.m,'',true);
+    const hf=$('#rg_hf'), hi=svMin(($('#rg_hi')||{}).value);
+    if(hf&&!hf.dataset.manual&&hi!=null){ const m=svSrv(aid,sel.value).min; hf.value=svHHMM(hi+m); hf.dataset.dur=m; }
+    svRegRefresh();
+  },
   saveReg(d){
     const aid=session.area, pid=session.profId, fecha=d.id?((getPath(`data/${aid}/bitacora/${d.id}`)||{}).f||ui.pFecha):ui.pFecha;
     const nom=($('#rg_nom').value||'').trim().replace(/\s+/g,' '), hi=svMin($('#rg_hi').value), hf=svMin($('#rg_hf').value), est=$('#rg_est').value;
     if(!nom){ toast('Escribe el nombre del socio'); return; }
+    const fisio=esFisio(aid), mod=fisio&&est==='atendido'?($('#rg_mod')||{}).value:'', srvSel=($('#rg_srv')||{}).value||'';
+    const prev0=d.id?(getPath(`data/${aid}/bitacora/${d.id}`)||{}):{};
+    const legado=!!(prev0.id&&prev0.servicio&&!prev0.modalidad&&prev0.servicio!=='Cita de empleado');   // registros viejos se pueden editar sin elegir tipo
+    if(fisio&&est==='atendido'&&!legado){
+      if(!mod){ toast('Elige si el servicio fue activo o pasivo'); return; }
+      if(!srvSel){ toast('Elige el servicio'); return; }
+      if(srvSel==='Otro'&&!(($('#rg_otro')||{}).value||'').trim()){ toast('Escribe cuál fue el servicio'); return; }
+    }
     if(hi==null||hf==null){ toast('Anota la hora de inicio y la de fin'); return; }
     if(hf<=hi){ toast('La hora de fin debe ser después de la de inicio'); return; }
     if(hf-hi>480){ toast('Un servicio no puede durar más de 8 horas'); return; }
@@ -657,7 +708,9 @@ Object.assign(actions,{
     if(choque&&!confirm(`Este horario se empalma con el de ${choque.paciente} (${svRangoTxt(svIv(choque)[0],svIv(choque)[1])}). ¿Guardar de todos modos?`)) return;
     const id=d.id||('b'+uid());
     const origen=locked?$('#rg_ori').value:(est==='atendido'?$('#rg_ori').value:'propia');  // una cita de Paramédicos conserva su origen aunque no se haya presentado
-    setPath(`data/${aid}/bitacora/${id}`,{...prev,id,f:fecha,profId:pid,paciente:nom,servicio:$('#rg_srv').value,estado:est,hi:svHHMM(hi),hf:svHHMM(hf),min:hf-hi,origen,ts:prev.estado==='agendada'?Date.now():(prev.ts||Date.now())});
+    const extra=fisio?{modalidad:mod||(est==='atendido'&&legado?(prev.modalidad||''):''),otro:srvSel==='Otro'?(($('#rg_otro')||{}).value||'').trim().slice(0,60):'',hallazgo:est==='atendido'?(($('#rg_hall')||{}).value||'').trim().slice(0,400):''}:{};
+    const servicio=(fisio&&!srvSel&&est!=='atendido')?(prev.servicio||'Otro'):($('#rg_srv').value||prev.servicio||'');
+    setPath(`data/${aid}/bitacora/${id}`,{...prev,...extra,id,f:fecha,profId:pid,paciente:nom,servicio,estado:est,hi:svHHMM(hi),hf:svHHMM(hf),min:hf-hi,origen,ts:prev.estado==='agendada'?Date.now():(prev.ts||Date.now())});
     closeModal(); render(); toast('Registro guardado');
     if(d.otra) openReg('');
   },

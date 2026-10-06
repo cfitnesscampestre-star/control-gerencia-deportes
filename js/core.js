@@ -9,7 +9,7 @@
 const DB_ROOT = 'gerencia_deportes';
 const LS_KEY = 'gd_state_v1', SS_KEY = 'gd_session_v1', LAST_KEY = 'gd_last_login_v1';
 const THEME_VER = 4;                                   // sube si cambia la paleta de colores por área
-const DEF_PASS_GER = 'gerencia2026', DEF_PASS_DIR = 'direccion2026';
+const DEF_PASS_GER = 'gerencia2026', DEF_PASS_DIR = 'direccion2026', DEF_PASS_MET = 'metodologia2026';
 const COLORS = ['#0f7a5a','#0a6fbd','#5fb336','#2aaed6','#0e8f8f','#d98a00','#e0562f','#5b5bd6','#c2187a','#7a2b8f','#3b82c4','#8a5cf5'];
 const DEFAULT_AREAS = [
   {id:'gimnasia',nombre:'Gimnasia',icono:'gimnasia'},
@@ -107,7 +107,7 @@ let session = null;
 try{ session = JSON.parse(sessionStorage.getItem(SS_KEY)); }catch(e){ session = null; }
 const saveSession = () => { try{ session ? sessionStorage.setItem(SS_KEY,JSON.stringify(session)) : sessionStorage.removeItem(SS_KEY); }catch(e){} };
 const lsLoad = () => { try{ return JSON.parse(localStorage.getItem(LS_KEY))||{}; }catch(e){ return {}; } };
-const lsSave = () => { try{ localStorage.setItem(LS_KEY,JSON.stringify(state)); }catch(e){} };
+const lsSave = () => { try{ localStorage.setItem(LS_KEY,JSON.stringify(state)); }catch(e){ if(typeof memFalla==='function') memFalla(); } };
 const getPath = p => {
   const ks=p.split('/'), v=ks.reduce((o,k)=>o==null?undefined:o[k],state);
   if(v!==undefined) return v;
@@ -115,29 +115,61 @@ const getPath = p => {
   return v;
 };
 
-function setPath(p,val){                       // val === undefined → borrar
+function setPath(p,val,baseForzada){           // val === undefined → borrar · baseForzada: solo para “usar el mío” (ver sincronizacion.js)
   if(/^data\/[^/]+\/(profesores|grupos|asistencia|eventos|incidencias)\/(fc_|sim_)/.test(p)){ toast(/\/sim_/.test(p)?'Es un dato de simulación: solo lectura':'Ese dato viene de Fitness Control y es de solo lectura'); return; }
+  const baseAntes = FIREBASE_CONFIG.databaseURL ? (baseForzada!==undefined ? baseForzada : baseDe(p)) : null;      // cómo estaba en la nube ANTES de este cambio
   const keys=p.split('/'); let o=state;
   for(let i=0;i<keys.length-1;i++){ if(typeof o[keys[i]]!=='object'||o[keys[i]]===null) o[keys[i]]={}; o=o[keys[i]]; }
   const last=keys[keys.length-1];
   if(val===undefined) delete o[last]; else o[last]=val;
   lsSave();
-  if(FIREBASE_CONFIG.databaseURL){ obPush(p,val); obFlush(); }
+  if(FIREBASE_CONFIG.databaseURL){ obPush(p,val,baseAntes); obFlush(); }
 }
 
-/* ---------- COLA DE CAMBIOS PENDIENTES (trabajo sin internet) ----------
+/* ---------- TRABAJO SIN INTERNET: COLA DE CAMBIOS PENDIENTES ----------
    Cada cambio se guarda primero en el equipo y en esta cola. La cola vive en localStorage,
    así que sobrevive aunque se cierre la app o se apague el celular sin señal.
-   Cuando vuelve la conexión, se suben en orden y se van quitando de la cola. */
-const OB_KEY = 'gd_outbox_v1';
+   Cuando vuelve la conexión, los cambios se suben en orden y se van quitando de la cola.
+
+   CUIDADO CON LOS DATOS (nada se pisa en silencio): cada cambio pendiente recuerda cómo estaba ese dato
+   en la nube cuando se hizo (base). Al subirlo se compara con lo que hay en la nube AHORA:
+     · nadie lo tocó           → se sube lo nuestro;
+     · otra persona cambió OTRO campo del mismo registro → se juntan los dos cambios;
+     · otra persona cambió EL MISMO campo con otro valor → se conserva lo que ya estaba en la nube,
+       y lo nuestro queda guardado en "avisos de sincronización" para decidir (usar el mío / dejar el guardado).
+   Subir dos veces el mismo cambio no duplica nada: se guarda en la misma ruta, con el mismo id. */
+const OB_KEY = 'gd_outbox_v1', CF_KEY = 'gd_conflictos_v1', SYNC_KEY = 'gd_lastsync_v1';
 let outbox = (()=>{ try{ return JSON.parse(localStorage.getItem(OB_KEY))||[]; }catch(e){ return []; } })();
-let obEnviando = false;
-const obSave = () => { try{ localStorage.setItem(OB_KEY,JSON.stringify(outbox)); }catch(e){} };
+let conflictos = (()=>{ try{ return JSON.parse(localStorage.getItem(CF_KEY))||[]; }catch(e){ return []; } })();
+let obEnviando = false, srvState = null, memLlena = false, memAviso = 0;
+function memFalla(){ memLlena=true; if(Date.now()-memAviso>60000){ memAviso=Date.now(); try{ toast('La memoria de este equipo está llena: conéctate a internet para subir los cambios'); }catch(e){} } }
+const obSave = () => { try{ localStorage.setItem(OB_KEY,JSON.stringify(outbox)); memLlena=false; }catch(e){ memFalla(); } };
+const cfSave = () => { try{ localStorage.setItem(CF_KEY,JSON.stringify(conflictos)); }catch(e){ memFalla(); } };
 const pendientes = () => outbox.length;
-function obPush(p,val){
-  // un cambio nuevo sustituye a los pendientes de la misma ruta o de rutas dentro de ella
-  outbox = outbox.filter(o=>o.p!==p && !o.p.startsWith(p+'/'));
-  outbox.push({id:uid(),p,v:val===undefined?null:clean(val),t:Date.now()});
+const getIn = (o,p) => String(p).split('/').reduce((x,k)=>x==null?undefined:x[k],o);
+function setIn(o,rel,val){                                 // pone (o quita, si val es null) un valor dentro de o, en la ruta relativa rel
+  const ks=rel.split('/'); if(o===null||typeof o!=='object'||Array.isArray(o)) o={};
+  let x=o;
+  for(let i=0;i<ks.length-1;i++){ if(x[ks[i]]===null||typeof x[ks[i]]!=='object') x[ks[i]]={}; x=x[ks[i]]; }
+  if(val===null||val===undefined) delete x[ks[ks.length-1]]; else x[ks[ks.length-1]]=val;
+  return o;
+}
+/* cómo estaba ese dato en la nube la última vez que se vio */
+function baseDe(p){
+  if(srvState){ const b=getIn(srvState,p); return b===undefined?null:clean(b); }
+  // la app se abrió sin internet: se usa la copia del equipo, quitando los cambios pendientes que están dentro de esta ruta
+  let b=getIn(state,p); b=b===undefined?null:clean(b);
+  outbox.filter(o=>o.p.startsWith(p+'/')).forEach(o=>{ b=setIn(b,o.p.slice(p.length+1),o.base===undefined?null:clean(o.base)); });
+  return b;
+}
+function obPush(p,val,baseAntes){
+  const v=val===undefined?null:clean(val), t=Date.now();
+  const anc=outbox.find(o=>p.startsWith(o.p+'/'));         // ya hay un cambio pendiente que contiene a este: se junta con él
+  if(anc){ anc.v=setIn(anc.v,p.slice(anc.p.length+1),v); anc.t=t; obSave(); return; }
+  const igual=outbox.find(o=>o.p===p);
+  const base=igual?igual.base:baseAntes;                   // si ya había uno pendiente en esta ruta, se conserva la base original
+  outbox=outbox.filter(o=>o.p!==p && !o.p.startsWith(p+'/'));
+  outbox.push({id:uid(),p,v,base:base===undefined?null:base,t});
   obSave();
 }
 function obAplicarLocal(){                          // vuelve a poner encima los cambios que aún no llegan a la nube
@@ -148,25 +180,55 @@ function obAplicarLocal(){                          // vuelve a poner encima los
     if(o.v===null) delete x[last]; else x[last]=clean(o.v);
   });
 }
+const jeq = (a,b) => JSON.stringify(a===undefined?null:a)===JSON.stringify(b===undefined?null:b);
+const esObj = x => x!==null && typeof x==='object' && !Array.isArray(x);
+/* mezcla de tres: base (cómo estaba), ours (lo que hicimos), cur (lo que hay ahora en la nube) */
+function merge3(base,ours,cur,ruta,confl){
+  if(jeq(ours,cur)) return cur === undefined ? null : cur;
+  if(jeq(cur,base)) return ours;                          // nadie lo tocó
+  if(jeq(ours,base)) return cur === undefined ? null : cur;                          // nosotros no lo cambiamos
+  if(esObj(ours)&&esObj(cur)&&(esObj(base)||base==null)){
+    const b=esObj(base)?base:{}, out={...cur};
+    new Set([...Object.keys(ours),...Object.keys(cur),...Object.keys(b)]).forEach(k=>{
+      const m=merge3(b[k],ours[k],cur[k],ruta+'/'+k,confl);
+      if(m===null||m===undefined) delete out[k]; else out[k]=m;
+    });
+    return Object.keys(out).length?out:null;
+  }
+  confl.push({ruta,mio:ours===undefined?null:ours,nube:cur===undefined?null:cur});   // los dos cambiaron lo mismo: gana lo que ya estaba en la nube
+  return cur === undefined ? null : cur;
+}
+function cfRegistra(confl){
+  confl.forEach(c=>conflictos.push({id:uid(),ruta:c.ruta,mio:c.mio,nube:c.nube,t:Date.now()}));
+  cfSave();
+  try{ toast(`Otra persona ya había guardado ${confl.length===1?'ese dato':'esos datos'}: se conservó lo guardado. Toca la nube para revisar.`); }catch(e){}
+}
 function obFlush(){
   if(!fbRef||!online||obEnviando||!outbox.length) return;
   obEnviando=true;
   const lote=outbox.slice();
   Promise.all(lote.map(o=>{
-    const r=fbRef.child(o.p);
-    return (o.v===null?r.remove():r.set(o.v)).then(()=>{
+    let confl=[];
+    return fbRef.child(o.p).transaction(cur=>{
+      confl=[];
+      const c=cur===undefined?null:cur, m=merge3(o.base,o.v,c,o.p,confl);
+      return jeq(m,c)?undefined:m;                         // si ya está igual, no escribe
+    },undefined,false).then(()=>{
       outbox=outbox.filter(x=>x.id!==o.id); obSave();
+      if(confl.length) cfRegistra(confl);
     });
-  })).catch(e=>{ console.warn('No se pudo subir un cambio',e); toast('Un cambio no se pudo subir: se reintentará'); })
+  })).then(()=>{ if(!outbox.length){ try{ localStorage.setItem(SYNC_KEY,String(Date.now())); }catch(e){} } })
+    .catch(e=>{ console.warn('No se pudo subir un cambio',e); toast('Un cambio no se pudo subir: se reintentará'); })
     .finally(()=>{ obEnviando=false; safeRender(); if(outbox.length&&online) setTimeout(obFlush,4000); });
 }
 /* texto del indicador de nube (barra superior y menú lateral) */
 function cloudChip(){
   if(simActiva()) return {cls:'sim',txt:'Datos de simulación'};
-  const n=pendientes();
+  const n=pendientes(), c=conflictos.length, rev=c?` · ${c} por revisar`:'';
+  if(memLlena) return {cls:'bad',txt:'Memoria llena: sube los cambios'};
   if(!FIREBASE_CONFIG.databaseURL) return {cls:'',txt:'Solo en este equipo'};
-  if(online) return n?{cls:'on',txt:`Subiendo ${n} cambio${n>1?'s':''}…`}:{cls:'on',txt:'Guardado en la nube ✔'};
-  return {cls:'',txt:n?`Sin internet · ${n} por subir`:'Sin internet · guardando en el equipo'};
+  if(online) return n?{cls:'on',txt:`Subiendo ${n} cambio${n>1?'s':''}…${rev}`}:{cls:c?'warn':'on',txt:`Guardado en la nube ✔${rev}`};
+  return {cls:c?'warn':'',txt:(n?`Sin internet · ${n} por subir`:'Sin internet · guardando en el equipo')+rev};
 }
 
 function ensureSeed(){
@@ -210,6 +272,7 @@ function ensureSeed(){
   }
   if(!state.cfg.pass){ state.cfg.pass={}; ch=true; }
   if(!state.cfg.pass.ger){ state.cfg.pass.ger=hashPass(DEF_PASS_GER); ch=true; }
+  if(!state.cfg.pass.met){ state.cfg.pass.met=hashPass(DEF_PASS_MET); ch=true; }
   if(!state.cfg.pass.dir){ state.cfg.pass.dir={}; ch=true; }
   Object.keys(state.cfg.areas).forEach(id=>{ if(!state.cfg.pass.dir[id]){ state.cfg.pass.dir[id]=hashPass(DEF_PASS_DIR); ch=true; } });
   return ch;
@@ -242,6 +305,7 @@ async function initFirebase(){
           ensureSeed(); ref.set(clean(state)); outbox=[]; obSave(); lsSave(); safeRender(); return;
         }
       }
+      srvState=v?clean(v):{};                               // cómo está la nube (para saber si alguien más cambió algo mientras trabajábamos sin internet)
       state=v||{};
       obAplicarLocal();                                      // lo capturado sin internet no se pierde al llegar la nube
       if(ensureSeed()) ref.child('cfg').set(clean(state.cfg));
@@ -252,7 +316,11 @@ async function initFirebase(){
     console.warn('Firebase no disponible todavía',e);
   }
 }
-if(typeof window!=='undefined') window.addEventListener('online',()=>{ if(FIREBASE_CONFIG.databaseURL&&!fbIniciado) initFirebase(); else obFlush(); });
+if(typeof window!=='undefined'){
+  window.addEventListener('online',()=>{ if(FIREBASE_CONFIG.databaseURL&&!fbIniciado) initFirebase(); else obFlush(); });
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&FIREBASE_CONFIG.databaseURL){ if(!fbIniciado) initFirebase(); else obFlush(); } });
+  setInterval(()=>{ if(!FIREBASE_CONFIG.databaseURL) return; if(!fbIniciado) initFirebase(); else if(outbox.length&&online) obFlush(); },20000);   // reintento automático
+}
 
 /* ---------- acceso a datos ---------- */
 const areasList = () => Object.values((state.cfg&&state.cfg.areas)||{}).sort((a,b)=>(a.orden||0)-(b.orden||0));
@@ -274,7 +342,17 @@ const iniciales = n => String(n||'').split(/\s+/).filter(Boolean).slice(0,2).map
 const progEn = (g,fecha) => { const wd=wdIdx(fecha); if(!diasArr(g).includes(wd)) return false;
   const v=g.vig&&g.vig[wd]; return !v||v.some(x=>(!x.d||fecha>=x.d)&&(!x.f||fecha<=x.f)); };
 const diasArr = g => String(g.dias||'').split(',').filter(x=>x!=='').map(Number);
-const rosterOf = g => String(g.alumnos||'').split('\n').map(s=>s.trim()).filter(Boolean);
+/* Lista de alumnos: una línea por alumno, "Nombre" o "Nombre|edad". rosterOf devuelve solo los nombres
+   (con ellos se pasa lista), así que las listas viejas sin edad siguen funcionando igual. */
+const alumParse = l => { const i=l.lastIndexOf('|'); if(i<0) return {n:l,e:null}; const n=l.slice(0,i).trim(), e=parseInt(l.slice(i+1),10); return {n:n||l,e:(e>0&&e<110)?e:null}; };
+const rosterAlum = g => String(g.alumnos||'').split('\n').map(s=>s.trim()).filter(Boolean).map(alumParse);
+const rosterOf = g => rosterAlum(g).map(x=>x.n);
+/* Tipo de grupo: ACADEMIA (con costo, inscripción y lista de alumnos) o SERVICIO (gratuito, sin inscripción: entra quien se acerca
+   y el profesor cuenta cuántos asistieron). Los grupos viejos son academia; las clases que llegan de Fitness Control, servicio. */
+const tipoGrupoDe = g => (g&&g.tipoGrupo) || (g&&g.fc ? 'servicio' : 'academia');
+const esFitArea = aid => !!(getArea(aid)||{}).vinculo;                           // el área de clases fitness (vinculada a Fitness Control)
+const fitHo = () => { const v=(state.cfg||{}).fitHo, n=(v==null||v==='')?30:+v; return Math.max(0,Math.min(100,isNaN(n)?30:n)); };   // % de hombres en clases fitness (el resto, mujeres)
+const edadesOf = g => Object.fromEntries(rosterAlum(g).filter(x=>x.e!=null).map(x=>[x.n,x.e]));
 const inscritos = g => rosterOf(g).length || (+g.inscritos||0);
 const horaTxt = g => (g.hi||'')+(g.hf?'–'+g.hf:'');
 const aforoCls = p => p==null?'mut':p>=75?'ok':p>=30?'warn':'bad';
@@ -294,6 +372,18 @@ function aforoGrupo(aid,g,desde){
   const recs=coll(aid,'asistencia').filter(r=>r.grupoId===g.id&&r.fecha>=desde&&!r.omitida);
   if(!recs.length||!(+g.cupo>0)) return null;
   return Math.round(recs.reduce((s,r)=>s+(+r.asistentes||0),0)/recs.length/(+g.cupo)*100);
+}
+/* Mujeres y hombres que reportan las clases de un área (hoy solo Fitness, desde Fitness Control) */
+function areaSexo(aid,desde,hasta){
+  let mu=0, ho=0, n=0, sin=0, prop=false;
+  const fit=esFitArea(aid);
+  coll(aid,'asistencia').forEach(r=>{
+    if(r.omitida||r.fecha<desde||r.fecha>hasta) return;
+    if(r.hom!=null||r.muj!=null){ mu+=+r.muj||0; ho+=+r.hom||0; n++; }                 // el registro ya trae hombres y mujeres
+    else if(fit&&+r.asistentes>0){ sin+=+r.asistentes; n++; }                              // clases fitness sin ese dato: se aplica la proporción definida
+  });
+  if(sin){ const h=Math.round(sin*fitHo()/100); ho+=h; mu+=sin-h; prop=true; }
+  return {mu,ho,n,prop,tot:mu+ho,pctMu:mu+ho?Math.round(mu/(mu+ho)*100):null,pctHo:mu+ho?Math.round(ho/(mu+ho)*100):null};
 }
 function aforoAreaN(aid,desde){                       // aforo = asistentes ÷ lugares disponibles, con los números que lo forman
   const gs=Object.fromEntries(grupos(aid).map(g=>[g.id,g]));
@@ -343,11 +433,38 @@ const ui = {
   pTab:'hoy', pFecha:todayStr(), lista:null,
   chartSel:null, gaFecha:todayStr()
 };
-const isRO = () => !!session && session.rol==='ger';
+const isRO = () => !!session && (session.rol==='ger'||session.rol==='met');
 const isProf = () => !!session && session.rol==='prof';
 const curArea = () => session ? (session.rol==='ger' ? ui.gArea : session.area) : null;
 
 let toastT=null;
+/* ---------- CONFIRMACIONES PROPIAS ----------
+   El confirm() del navegador no funciona dentro de apps incrustadas o en ventanas sin permiso para diálogos
+   (devuelve “no” sin mostrar nada: el botón parece muerto). Por eso confirm() se reemplaza por una ventana de la app.
+   Funciona así: la acción que pide confirmar se interrumpe, se muestra la ventana y, si se acepta, la MISMA acción se
+   vuelve a ejecutar ya confirmada. (Todas las confirmaciones de la app están al inicio de su acción, antes de cambiar nada.) */
+let accionActual = null, confirmOk = false;
+const confirmNativo = (typeof window!=='undefined'&&window.confirm) ? window.confirm.bind(window) : (()=>true);
+function confirmar(msg){
+  if(confirmOk){ confirmOk=false; return true; }
+  const a=accionActual; if(!a) return confirmNativo(msg);          // fuera de un toque (pruebas, código interno): confirm normal
+  mostrarConfirmar(msg,()=>{ confirmOk=true; accionActual=a; try{ a.fn(a.d,a.e); }finally{ confirmOk=false; accionActual=null; } });
+  return false;
+}
+function cerrarConfirmar(){ const d=document.getElementById('confirmDlg'); if(d) d.remove(); }
+function mostrarConfirmar(msg,ok){
+  cerrarConfirmar();
+  const peligro=/elimin|quitar|borrar|cancelar esta cita/i.test(msg), d=document.createElement('div');
+  d.id='confirmDlg'; d.className='cf-ov'; d.setAttribute('role','alertdialog'); d.setAttribute('aria-modal','true');
+  d.innerHTML=`<div class="cf-box"><p>${esc(msg)}</p><div class="btns"><button class="btn" data-cf="no">Cancelar</button><button class="btn ${peligro?'danger':'primary'}" data-cf="si">Aceptar</button></div></div>`;
+  d.addEventListener('click',ev=>{
+    ev.stopPropagation(); const b=ev.target.closest('[data-cf]');
+    if(ev.target===d||(b&&b.dataset.cf==='no')) cerrarConfirmar();
+    else if(b&&b.dataset.cf==='si'){ cerrarConfirmar(); ok(); }
+  });
+  document.body.appendChild(d); const b=d.querySelector('[data-cf="no"]'); if(b) b.focus();
+}
+if(typeof window!=='undefined'){ window.confirm=confirmar; document.addEventListener('keydown',e=>{ if(e.key==='Escape') cerrarConfirmar(); }); }
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2300); }
 function openModal(html){ const m=$('#modal'); m.innerHTML=`<div class="sheet" role="dialog" aria-modal="true">${html}</div>`; m.hidden=false; document.body.style.overflow='hidden'; }
 function closeModal(){ const m=$('#modal'); m.hidden=true; m.innerHTML=''; document.body.style.overflow=''; if(pendingRender){ pendingRender=false; render(); } }
@@ -357,11 +474,11 @@ function safeRender(){                          // no redibuja mientras se escri
   const ae=document.activeElement;
   const typing=ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName);
   const pw=$('#pw');
-  if(!$('#modal').hidden || typing || (!session&&pw&&pw.value) || (typeof afBusy==='function'&&afBusy())){ pendingRender=true; return; }
+  if(!$('#modal').hidden || typing || (!session&&pw&&pw.value) || (typeof afBusy==='function'&&afBusy()) || (typeof rfBusy==='function'&&rfBusy())){ pendingRender=true; return; }
   render();
 }
 function validateSession(){
-  if(session&&session.rol!=='ger'&&!getArea(session.area)){ session=null; saveSession(); }
+  if(session&&session.rol!=='ger'&&session.rol!=='met'&&!getArea(session.area)){ session=null; saveSession(); }
   if(session&&session.rol==='prof'&&!getProf(session.area,session.profId)){ session=null; saveSession(); }
   if(session&&session.rol==='rec'&&!getRec(session.area,session.recId)){ session=null; saveSession(); }
   if(ui.gArea&&!getArea(ui.gArea)) ui.gArea=null;

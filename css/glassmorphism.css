@@ -46,3 +46,18 @@
   .login-card{padding:20px 16px 18px}
   .lg-role small{display:none}
 }
+
+/* ---------- acceso por pasos ---------- */
+.lg-back{display:inline-flex;align-items:center;gap:6px;margin:-4px 0 10px -4px;padding:8px 12px 8px 8px;border-radius:12px;color:var(--g-d);font-weight:600;font-size:14.5px;background:rgba(255,255,255,.7);border:1px solid var(--line)}
+.lg-back .ic{width:20px;height:20px}
+.lg-roles .lg-role:last-child:nth-child(odd){grid-column:1/-1}
+.lg-ruta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:20px 0 4px;padding:12px 14px;border-radius:14px;background:var(--g-l);color:var(--g-d);font-size:17px}
+.lg-ruta b{font-weight:700}.lg-sep{opacity:.5}
+.lg-disc{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.lg-list{display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow:auto;padding:2px}
+.lg-area{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:14px;background:#fff;border:1.5px solid var(--line);text-align:left;font-size:16px}
+.lg-area b{flex:1;font-weight:600}
+.lg-area>.ic{width:20px;height:20px;color:var(--mut)}
+.lg-area:active{border-color:var(--g);background:var(--g-l)}
+.lg-nombre{display:flex;align-items:center;gap:10px;margin:14px 0 2px;padding:12px 14px;border-radius:14px;background:#fff;border:1.5px solid var(--line);font-size:17px}
+.lg-nombre .ic{width:22px;height:22px;color:var(--g)}
