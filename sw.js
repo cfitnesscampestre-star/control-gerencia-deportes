@@ -6,7 +6,7 @@
    Si agregas un archivo nuevo a css/, js/ o img/, agrégalo también a ARCHIVOS
    y sube el número de VERSION.
    ===================================================================== */
-const VERSION = 'gd-v63';
+const VERSION = 'gd-v65';
 const ARCHIVOS = [
   './',
   'index.html',
@@ -67,9 +67,15 @@ const EXTERNOS = [
 
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
-    const c = await caches.open(VERSION);
-    await Promise.all([...ARCHIVOS, ...EXTERNOS].map(u =>
-      fetch(u, {cache:'reload'}).then(r => r.ok || r.type==='opaque' ? c.put(u, r) : null).catch(()=>null)));
+    const c = await caches.open(VERSION), fallos = [];
+    /* Se instala completa o no se instala: si por mala señal falla la descarga de algún archivo, la instalación se cancela y
+       se conserva la versión anterior (que ya está completa en el equipo) hasta que haya mejor conexión.
+       Un archivo que no existe en el sitio (error 404) no cuenta como falla. */
+    await Promise.all(ARCHIVOS.map(u =>
+      fetch(u, {cache:'reload'}).then(r => { if (r.ok) return c.put(u, r); if (r.status !== 404) fallos.push(u); }).catch(() => { fallos.push(u); })));
+    await Promise.all(EXTERNOS.map(u =>
+      fetch(u, {cache:'reload'}).then(r => r.ok || r.type==='opaque' ? c.put(u, r) : null).catch(() => null)));
+    if (fallos.length) { await caches.delete(VERSION); throw new Error('Instalación incompleta por mala conexión (' + fallos.length + ' archivos)'); }
     self.skipWaiting();
   })());
 });

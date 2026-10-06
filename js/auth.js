@@ -15,17 +15,20 @@
 const EQ_KEY = 'gd_equipo_v1';
 const ROLES_LOGIN = [['ger','shield','Gerencia','Todas las áreas'],['dir','user','Dirección','Mi disciplina'],['prof','clip','Profesor','Pasar lista'],['rec','users','Recepción','Gimnasio'],['met','chart','Metodología','Aforos, eventos y pruebas']];
 const ROL_NOMBRE = {ger:'Gerencia',dir:'Dirección',prof:'Profesor',rec:'Recepción',met:'Metodología'};
-const loginUI = { rol:'', area:'', prof:'', err:'', paso:'rol', fijo:false, cfg:null };
+const loginUI = { rol:'', area:'', prof:'', err:'', paso:'rol', fijo:false, cfg:null, otra:false };
 let loginIniciado = false, lgPress = null;
 
 const equipoCfg = () => {                                 // configuración guardada en este equipo (o el último acceso de versiones anteriores)
   for(const k of [EQ_KEY,LAST_KEY]){ try{ const c=JSON.parse(localStorage.getItem(k)); if(c&&['ger','dir','prof','rec','met'].includes(c.rol)) return c; }catch(e){} }
   return null;
 };
+/* Personas (profesores o recepción) que ya entraron en este equipo: así dos turnos pueden compartir la misma computadora */
+const personasGuardadas = c => (c&&(c.personas&&c.personas.length?c.personas:(c.prof?[c.prof]:[])))||[];
 function loginArranque(){
   loginIniciado=true; const c=equipoCfg(); loginUI.cfg=c; loginUI.fijo=!!c; loginUI.err='';
   if(!c){ Object.assign(loginUI,{rol:'',area:'',prof:'',paso:'rol'}); return; }
-  loginUI.rol=c.rol; loginUI.area=c.area||''; loginUI.prof=c.prof||'';
+  loginUI.rol=c.rol; loginUI.area=c.area||''; loginUI.prof=c.prof||''; loginUI.otra=false;
+  if(['prof','rec'].includes(c.rol)){ const ps=personasGuardadas(c); loginUI.prof=ps.length===1?ps[0]:(ps.length>1?'':(c.prof||'')); }   // varias personas en el equipo: se elige quién es
   if(!['dir','prof','rec'].includes(c.rol)){ loginUI.area='all'; loginUI.paso='clave'; }
   else loginUI.paso=c.area?'clave':'area';
 }
@@ -68,19 +71,29 @@ function pasoArea(){
 }
 function pasoClave(){
   const rol=loginUI.rol, a=getArea(loginUI.area), pin=['prof','rec'].includes(rol);
-  let quien='';
+  let quien='', elige=false;
   if(pin){
-    const gente=loginGente(), actual=gente.find(x=>x.id===loginUI.prof);
+    const gente=loginGente(), actual=gente.find(x=>x.id===loginUI.prof), cfg=loginUI.cfg;
+    const mismoEquipo=!!cfg&&cfg.rol===rol&&cfg.area===loginUI.area;
+    const conocidas=(mismoEquipo?personasGuardadas(cfg):[]).map(id=>gente.find(x=>x.id===id)).filter(Boolean);
     if(!actual&&loginUI.prof) loginUI.prof='';
     if(a&&esVinculada(a.id)) quien=`<div class="lg-note">Los profesores de ${esc(a.nombre)} pasan lista en Fitness Control.</div>`;
     else if(!gente.length) quien=`<div class="lg-note">${a?esc(a.nombre)+' todavía no tiene '+(rol==='rec'?'personal de recepción':'profesores')+'. La dirección debe darlos de alta.':'Elige primero tu disciplina.'}</div>`;
-    else if(actual&&(loginUI.fijo||gente.length===1)) quien=`<div class="lg-nombre">${ic('user')}<b>${esc(actual.nombre)}</b></div>`;
+    else if(actual&&(loginUI.fijo||gente.length===1)){          // ya se sabe quién es: nombre fijo y a escribir su PIN
+      quien=`<div class="lg-nombre">${ic('user')}<b>${esc(actual.nombre)}</b></div>${gente.length>1?`<button class="linkbtn lg-otra" data-act="loginOtra">¿No eres ${esc(actual.nombre)}? Cambiar de persona</button>`:''}`;
+    }
+    else if(loginUI.fijo&&!loginUI.otra&&conocidas.length>=2){   // varias personas usan este equipo (por ejemplo, turno de mañana y de tarde)
+      elige=true;
+      quien=`<p class="lg-q">¿Quién eres?</p><div class="lg-list">${conocidas.map(x=>`<button class="lg-area" data-act="loginPersona" data-id="${esc(x.id)}">${ic('user')}<b>${esc(x.nombre)}</b>${ic('next')}</button>`).join('')}<button class="lg-area" data-act="loginOtra">${ic('users')}<b>Otra persona</b>${ic('next')}</button></div>`;
+    }
     else{
       if(!actual) loginUI.prof=gente.length===1?gente[0].id:'';
       quien=`<p class="lg-q">Selecciona tu nombre:</p><div class="lg-select"><select id="loginProf" aria-label="Nombre">${'<option value="">Elige tu nombre…</option>'}${gente.map(x=>`<option value="${esc(x.id)}"${loginUI.prof===x.id?' selected':''}>${esc(x.nombre)}</option>`).join('')}</select>${ic('chev')}</div>`;
     }
   }
-  return `<div class="lg-ruta"><b>${ROL_NOMBRE[rol]||''}</b>${a?`<span class="lg-sep">·</span><span class="lg-disc">${areaIco(a,{size:18})} ${esc(a.nombre)}</span>`:''}</div>
+  const ruta=`<div class="lg-ruta"><b>${ROL_NOMBRE[rol]||''}</b>${a?`<span class="lg-sep">·</span><span class="lg-disc">${areaIco(a,{size:18})} ${esc(a.nombre)}</span>`:''}</div>`;
+  if(elige) return ruta+quien+(loginUI.fijo?'<p class="lg-help">Este equipo lo usan varias personas. Elige tu nombre y escribe tu PIN.</p>':'');
+  return `${ruta}
     ${quien}
     <label class="lg-lbl" id="pwLbl" for="pw">${pin?'PIN':'Contraseña'}</label>
     <input id="pw" type="password" placeholder="${pin?'Ingresa tu PIN…':'Ingresa tu contraseña…'}" autocomplete="current-password"${pin?' inputmode="numeric"':''}>
@@ -141,9 +154,14 @@ function doLogin(){
     session={rol:'prof',area:loginUI.area,profId:p.id}; ui.pTab='hoy'; ui.pFecha=todayStr();
   }
   try{                                                    // la ruta con la que se entró queda como predeterminada en este equipo
-    const c={rol:loginUI.rol,area:loginUI.area,prof:loginUI.prof};
+    const prev=equipoCfg(); let personas=[];
+    if(['prof','rec'].includes(loginUI.rol)){               // las personas que entran en este equipo se acumulan (turnos que comparten computadora)
+      const mismo=!!prev&&prev.rol===loginUI.rol&&prev.area===loginUI.area;
+      personas=[...new Set([...(mismo?personasGuardadas(prev):[]),loginUI.prof])];
+    }
+    const c={rol:loginUI.rol,area:loginUI.area,prof:loginUI.prof,personas};
     localStorage.setItem(EQ_KEY,JSON.stringify(c)); localStorage.setItem(LAST_KEY,JSON.stringify(c));
-    loginUI.cfg=c; loginUI.fijo=true;
+    loginUI.cfg=c; loginUI.fijo=true; loginUI.otra=false;
   }catch(e){}
   loginUI.err=''; ui.repTab='semanal'; ui.afFecha=todayStr(); ui.gaFecha=todayStr(); ui.afTodos=false; ui.lista=null;
   saveSession(); render(); top0();
@@ -157,6 +175,8 @@ Object.assign(actions,{
     else { loginUI.area=''; loginUI.paso='area'; }
     render(); if(loginUI.paso==='clave') loginFoco();
   },
+  loginPersona(d){ loginUI.prof=d.id; loginUI.otra=false; loginUI.err=''; render(); loginFoco(); },
+  loginOtra(){ loginUI.prof=''; loginUI.otra=true; loginUI.err=''; render(); },
   loginArea(d){ loginUI.area=d.id; loginUI.prof=''; loginUI.err=''; loginUI.paso='clave'; render(); loginFoco(); },
   loginAtras(){
     const p=loginUI.paso; if(!loginPuedeAtras(p)) return; loginUI.err='';
