@@ -1,12 +1,12 @@
 /* =====================================================================
    sw.js — guarda la app en el equipo para que abra SIN INTERNET.
-   · Con internet: siempre descarga la versión más nueva (y la guarda).
-   · Sin internet: usa la copia guardada.
+   · Siempre abre primero la copia guardada (rápido y sin señal) y en segundo plano baja la versión nueva.
+   · Sin internet: usa la copia guardada. Con internet: la versión nueva se usa la próxima vez que se abra la app.
    · Los datos NO pasan por aquí: los sincroniza Firebase (ver core.js).
    Si agregas un archivo nuevo a css/, js/ o img/, agrégalo también a ARCHIVOS
    y sube el número de VERSION.
    ===================================================================== */
-const VERSION = 'gd-v43';
+const VERSION = 'gd-v60';
 const ARCHIVOS = [
   './',
   'index.html',
@@ -17,6 +17,7 @@ const ARCHIVOS = [
   'css/gimnasio.css',
   'css/glassmorphism.css',
   'css/main.css',
+  'css/metodologia.css',
   'css/servicios.css',
   'js/aforos.js',
   'js/ajustes.js',
@@ -35,6 +36,11 @@ const ARCHIVOS = [
   'js/impresion.js',
   'js/lista.js',
   'js/listarapida.js',
+  'js/metodologia.js',
+  'js/reportes-met.js',
+  'js/evaluacion-prof.js',
+  'js/sincronizacion.js',
+  'js/carrusel.js',
   'js/mobile.js',
   'js/portal.js',
   'js/profesores.js',
@@ -93,17 +99,20 @@ self.addEventListener('fetch', e => {
     })));
     return;
   }
-  // archivos de la app: primero internet (versión nueva), si no hay → copia guardada
+  // archivos de la app: SIEMPRE se abre primero la copia guardada (rápido y sin señal, como en una cancha con
+  // cobertura mala) y en segundo plano se baja la versión nueva, que se usa la próxima vez que se abra la app.
+  const actualizar = fetch(req).then(r => {
+    if (r && r.ok) { const cp = r.clone(); caches.open(VERSION).then(c => c.put(req, cp)); }
+    return r;
+  }).catch(() => null);
+  e.waitUntil(actualizar);
   e.respondWith((async () => {
-    try {
-      const r = await conTiempo(fetch(req), 4000);
-      if (r.ok) { const cp = r.clone(); caches.open(VERSION).then(c => c.put(req, cp)); }
-      return r;
-    } catch (err) {
-      const h = await caches.match(req) || await caches.match(req, {ignoreSearch:true});
-      if (h) return h;
-      if (req.mode === 'navigate') return caches.match('index.html');
-      throw err;
-    }
+    const hit = await caches.match(req) || await caches.match(req, {ignoreSearch:true})
+      || (req.mode === 'navigate' ? await caches.match('index.html') : null);
+    if (hit) return hit;
+    const r = await conTiempo(actualizar, 8000).catch(() => null);          // primera vez en este equipo: hay que esperar a internet
+    if (r) return r;
+    if (req.mode === 'navigate') { const h = await caches.match('index.html'); if (h) return h; }
+    return Response.error();
   })());
 });
