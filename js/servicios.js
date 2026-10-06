@@ -102,6 +102,19 @@ if(!ui.sv.per) ui.sv.per='mes'; if(!ui.sv.ref) ui.sv.ref=todayStr();
 /* ---------- horas del día ---------- */
 const svMin = t => { const [h,m]=String(t||'').split(':').map(Number); return (isNaN(h)||isNaN(m))?null:h*60+m; };
 const svHHMM = m => `${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+const svAhoraMin = () => { const n=new Date(); return n.getHours()*60+n.getMinutes(); };
+/* Un servicio ATENDIDO ya ocurrió: si es de hoy, ni su inicio ni su fin pueden ser posteriores a la hora actual.
+   (Una cita que no se presentó o se canceló conserva el horario agendado, que puede ser futuro.) Devuelve la hora límite en minutos, o null. */
+function svLimiteAhora(){
+  const m=$('#rg_meta'), est=($('#rg_est')||{}).value;
+  return (m&&est==='atendido'&&m.dataset.fecha===todayStr())?svAhoraMin():null;
+}
+function svClampAhora(el){                               // si eligen una hora posterior a la actual, se ajusta a la actual
+  const lim=svLimiteAhora(), v=svMin(el.value); if(lim==null||v==null||v<=lim) return;
+  el.value=svHHMM(lim);
+  if(el.id==='rg_hf'){ el.dataset.manual='1'; const a=svMin((($('#rg_hi')||{}).value)); if(a!=null&&lim>a) el.dataset.dur=lim-a; }
+  toast(`No puede ser posterior a la hora actual (${svHHMM(lim)}): se ajustó`);
+}
 const svH12 = m => { const h=Math.floor(m/60)%24, mm=m%60; return `${h%12||12}:${String(mm).padStart(2,'0')} ${h<12?'am':'pm'}`; };
 const svRangoTxt = (a,b) => { const x=svH12(a), y=svH12(b); return x.slice(-2)===y.slice(-2) ? `${x.slice(0,-3)}–${y}` : `${x}–${y}`; };
 const svHoraTs = ts => { const d=new Date(ts); return svH12(d.getHours()*60+d.getMinutes()); };
@@ -457,6 +470,10 @@ function openReg(id){
   if(!hi){                                              // sugerencia: empieza donde terminó el servicio anterior (o al inicio del turno)
     const ult=dia.map(x=>svMin(x.hf)).filter(x=>x!=null).sort((a,b)=>b-a)[0], tw=svTurnoDia(p,fecha);
     hi=svHHMM(ult!=null?ult:(tw?tw[0]:9*60)); hf=svHHMM(svMin(hi)+durSug);
+    if(fecha===todayStr()){                              // hoy: el fin sugerido no puede ser posterior a la hora actual
+      const nm=svAhoraMin();
+      if(svMin(hf)>nm){ hf=svHHMM(nm); if(svMin(hi)>=nm) hi=svHHMM(Math.max(0,nm-durSug)); }
+    }
   }
   const est=(!r.estado||r.estado==='agendada')?'atendido':r.estado, nombres=[...new Set(mis.map(x=>x.paciente))].sort((a,b)=>a.localeCompare(b,'es')).slice(0,400);
   const num=id?mis.filter(x=>x.f===fecha).sort((a,b)=>(svMin(a.hi)||0)-(svMin(b.hi)||0)).findIndex(x=>x.id===id)+1:dia.length+1;
@@ -473,8 +490,8 @@ function openReg(id){
     :`<label class="f"><span>Servicio</span><select id="rg_srv"${dis}>${(S.servicios.some(x=>x.s===srv)?S.servicios:[...S.servicios,{s:srv}]).map(x=>`<option value="${esc(x.s)}"${x.s===srv?' selected':''}>${esc(x.s)}</option>`).join('')}</select></label>`}
     ${locked&&r.motivo?`<label class="f"><span>Motivo</span><input value="${esc(r.motivo)}" disabled></label>`:''}
     <div class="two">
-      <label class="f"><span id="rg_hi_l">Hora de inicio</span><input id="rg_hi" type="time" step="300" value="${esc(hi)}"${dis}></label>
-      <label class="f"><span id="rg_hf_l">Hora de fin</span><input id="rg_hf" type="time" step="300" value="${esc(hf)}" data-dur="${svMin(hf)-svMin(hi)}"></label></div>
+      <label class="f"><span id="rg_hi_l">Hora de inicio</span><input id="rg_hi" type="time" step="60" value="${esc(hi)}"${dis}></label>
+      <label class="f"><span id="rg_hf_l">Hora de fin</span><input id="rg_hf" type="time" step="60" value="${esc(hf)}" data-dur="${svMin(hf)-svMin(hi)}"></label></div>
     <input type="hidden" id="rg_meta" data-fecha="${esc(fecha)}" data-aid="${esc(aid)}" data-pid="${esc(pid)}" data-locked="${locked?'1':''}">
     <div id="rg_bloqueo_note"></div>
     <div class="sv-dur"><span id="rg_dur"></span>${fecha===todayStr()?`<button type="button" class="btn sm" data-act="svAhora">Terminé ahora</button>`:''}</div>
@@ -488,7 +505,14 @@ function openReg(id){
 }
 function svRegRefresh(){                                 // duración calculada y campos según el estado de la cita
   const hi=svMin(($('#rg_hi')||{}).value), hf=svMin(($('#rg_hf')||{}).value), out=$('#rg_dur'), est=($('#rg_est')||{}).value;
-  if(out) out.innerHTML=(hi!=null&&hf!=null&&hf>hi)?`Duración: <b>${svHm(hf-hi)}</b>`:'<span class="sv-late">La hora de fin debe ser después de la de inicio</span>';
+  const lim=svLimiteAhora(), cI=$('#rg_hi'), cF=$('#rg_hf');
+  if(cI) cI.max=lim!=null?svHHMM(lim):'';                // el selector no ofrece horas posteriores a la actual
+  if(cF){ cF.max=lim!=null?svHHMM(lim):''; cF.min=cI&&cI.value?cI.value:''; }
+  if(out){
+    if(lim!=null&&hi!=null&&hi>lim) out.innerHTML=`<span class="sv-late">La hora de inicio no puede ser posterior a la actual (${svHHMM(lim)})</span>`;
+    else if(lim!=null&&hf!=null&&hf>lim) out.innerHTML=`<span class="sv-late">La hora de fin no puede ser posterior a la actual (${svHHMM(lim)})</span>`;
+    else out.innerHTML=(hi!=null&&hf!=null&&hf>hi)?`Duración: <b>${svHm(hf-hi)}</b>`:'<span class="sv-late">La hora de fin debe ser después de la de inicio</span>';
+  }
   const w=$('#rg_ori_w'); if(w) w.style.display=est==='atendido'?'':'none';
   ['rg_mod_w','rg_srv_w','rg_hall_w'].forEach(i=>{ const e=$('#'+i); if(e) e.style.display=est==='atendido'?'':'none'; });
   const ow=$('#rg_otro_w'); if(ow) ow.style.display=(est==='atendido'&&($('#rg_srv')||{}).value==='Otro')?'':'none';
@@ -505,7 +529,7 @@ function svRegRefresh(){                                 // duración calculada 
 document.addEventListener('change',e=>{
   const id=e.target.id;
   if(id==='rg_srv'){ const hf=$('#rg_hf'), hi=svMin($('#rg_hi').value); if(hf&&!hf.dataset.manual&&hi!=null){ const d=svSrv(session.area,e.target.value).min; hf.value=svHHMM(hi+d); hf.dataset.dur=d; } svRegRefresh(); }
-  else if(id==='rg_est'||id==='rg_hi'||id==='rg_hf') svRegRefresh();
+  else if(id==='rg_est'||id==='rg_hi'||id==='rg_hf'){ if(id==='rg_hi'||id==='rg_hf') svClampAhora(e.target); svRegRefresh(); }
 });
 document.addEventListener('input',e=>{
   const id=e.target.id, hf=$('#rg_hf'), hi=$('#rg_hi');
@@ -670,11 +694,12 @@ Object.assign(actions,{
     if(!confirm('¿Quitar este horario reservado?')) return;
     setPath(`data/${d.aid}/bloqueos/${d.id}`,undefined); closeModal(); render(); toast('Horario liberado');
   },
-  svAhora(){                                             // “Terminé ahora”: la hora de fin es la actual (redondeada a 5 min)
-    const n=new Date(), m=n.getHours()*60+n.getMinutes(), fin=m-(m%5), hf=$('#rg_hf'), hi=$('#rg_hi'); if(!hf||!hi) return;
+  svAhora(){                                             // “Terminé ahora”: la hora de fin es la hora exacta de este momento; el inicio que ya capturaste se respeta
+    const fin=svAhoraMin(), hf=$('#rg_hf'), hi=$('#rg_hi'); if(!hf||!hi) return;
     hf.value=svHHMM(fin); hf.dataset.manual='1';
-    if(!hi.dataset.manual){ const d=+hf.dataset.dur||30; hi.value=svHHMM(Math.max(0,fin-d)); }
-    const a=svMin(hi.value); if(a!=null&&fin>a) hf.dataset.dur=fin-a;
+    let a=svMin(hi.value);
+    if(a==null||a>=fin){ a=Math.max(0,fin-(+hf.dataset.dur||30)); hi.value=svHHMM(a); }   // solo si el inicio quedaba igual o después de ahora
+    if(fin>a) hf.dataset.dur=fin-a;
     svRegRefresh();
   },
   svMod(d){                                              // Fisioterapia: activo / pasivo → cambia la lista de servicios
@@ -700,6 +725,15 @@ Object.assign(actions,{
     }
     if(hi==null||hf==null){ toast('Anota la hora de inicio y la de fin'); return; }
     if(hf<=hi){ toast('La hora de fin debe ser después de la de inicio'); return; }
+    if(est==='atendido'){                                // un servicio atendido ya ocurrió: nada después de la hora actual
+      const hoyS=todayStr();
+      if(fecha>hoyS){ toast('No puedes registrar como atendido un servicio de una fecha que todavía no llega'); return; }
+      if(fecha===hoyS){
+        const nm=svAhoraMin();
+        if(hi>nm){ toast(`La hora de inicio no puede ser posterior a la actual (${svHHMM(nm)})`); return; }
+        if(hf>nm){ toast(`La hora de fin no puede ser posterior a la actual (${svHHMM(nm)})`); return; }
+      }
+    }
     if(hf-hi>480){ toast('Un servicio no puede durar más de 8 horas'); return; }
     const prev=d.id?(getPath(`data/${aid}/bitacora/${d.id}`)||{}):{};
     if(d.id&&prev.profId&&prev.profId!==pid) return;
