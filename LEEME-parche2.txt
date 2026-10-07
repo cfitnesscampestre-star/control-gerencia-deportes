@@ -1,0 +1,26 @@
+PARCHE 2 DE CONTROL GERENCIA: MANTENIMIENTO SOLO CON REPORTES DE FITNESS
+=======================================================================
+Se aplica DESPUÉS del primer parche (el que dejó sw.js en 'gd-v70').
+
+QUÉ CAMBIA
+----------
+1) En el área de Fitness (Gerencia -> Áreas -> Fitness -> Mantenimiento, y en la dirección de Fitness) ahora solo
+   salen los reportes de instructores de Fitness. Se reconocen porque el reporte trae origen:'fitness' o porque su
+   profId es el número de instructor de Control Fitness. Ya NO salen los reportes de ejemplo ni de prueba.
+   Las demás áreas no muestran la pestaña ni los reportes.
+2) Resumen de gerencia: bloque "Mantenimiento" con tres cifras (Sin atender en rojo, En proceso, Atendidos) y una línea
+   por área. "Atendidos" = resueltos por cerrar + cerrados por el instructor en los últimos 30 días.
+3) Se quita la línea de mantenimiento de "Notificaciones de atención requerida" (la sustituye el bloque nuevo).
+4) Arreglos visuales: las etiquetas ("Sin atender", "No se puede usar") ya no se montan sobre el texto, y el botón de la
+   barra inferior pasa de "Mantenim." a "Manten." para que no se corte.
+
+ANTES DE SUBIR
+--------------
+Abre sw.js en tu repositorio de Gerencia: debe decir 'gd-v70'. Si dice otra cosa, no sobrescribas; pásame tu zip.
+
+QUÉ SUBIR (reemplaza los del mismo nombre)
+------------------------------------------
+  index.html
+  sw.js                (pasa a 'gd-v71')
+  js/mantenimiento.js
+  js/dashboard.js
