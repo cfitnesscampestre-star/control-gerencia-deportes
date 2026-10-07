@@ -1,0 +1,47 @@
+PARCHE DE CONTROL GERENCIA: MANTENIMIENTO (solo lectura, área Fitness)
+======================================================================
+Control Gerencia lee la base de Control Mantenimiento (proyecto registro-mantenimiento-9854c) y muestra:
+  - Pestaña "Mantenimiento" dentro del área vinculada a Fitness Control (vista de gerencia y dirección de esa área):
+    reportes abiertos (en rojo si pasó el tiempo), resueltos por cerrar, preventivos vencidos, pospuestos y compras.
+  - Línea de atención en el Resumen de gerencia cuando hay reportes en rojo o preventivos vencidos.
+  - Tarjeta de estado en Ajustes ("Control Mantenimiento").
+Gerencia NUNCA escribe en esa base.
+Por ahora solo se ve en el área de Fitness. Las demás áreas no muestran la pestaña.
+
+ANTES DE SUBIR (importante)
+---------------------------
+Este parche se hizo sobre la versión de Gerencia con sw.js VERSION 'gd-v69' (index.html con core.js?v=64, app.js?v=65).
+Abre sw.js en tu repositorio: si NO dice 'gd-v69', hiciste cambios después. En ese caso no sobrescribas
+los archivos: pásame tu zip actualizado y rehago el parche sobre él.
+
+QUÉ SUBIR (reemplaza los del mismo nombre)
+------------------------------------------
+  index.html
+  sw.js
+  js/config.js     js/core.js       js/app.js        js/sidebar.js
+  js/mobile.js     js/dashboard.js  js/ajustes.js
+  js/mantenimiento.js   (archivo NUEVO)
+
+En GitHub: abre el repositorio de Gerencia, "Add file -> Upload files", arrastra estos archivos manteniendo la
+carpeta js (arrastra la carpeta js y los dos archivos sueltos). Commit changes.
+Después abre la app, espera a que se actualice (la versión pasa a gd-v70) y, si no cambia, ciérrala por completo y ábrela otra vez.
+
+QUÉ CAMBIÓ EN CADA ARCHIVO
+--------------------------
+config.js        agrega FIREBASE_MANT_REAL / FIREBASE_CONFIG_MANT (la base de mantenimiento).
+core.js          en initFirebase, conecta una tercera app de Firebase llamada 'mant' (solo lectura).
+mantenimiento.js nuevo: lee la base, calcula rojos y preventivos, dibuja la pestaña, la línea del resumen y la tarjeta de Ajustes.
+app.js           agrega la pestaña "Mantenimiento" al área vinculada y su vista.
+sidebar.js       menú lateral de la dirección de Fitness: agrega Mantenimiento.
+mobile.js        barra inferior de la dirección de Fitness: agrega Mantenim.
+dashboard.js     línea de atención de mantenimiento en el Resumen.
+ajustes.js       tarjeta de estado de Control Mantenimiento.
+index.html       carga mantenimiento.js y sube los números ?v= de los archivos modificados.
+sw.js            VERSION gd-v70 y mantenimiento.js en la lista ARCHIVOS.
+
+CÓMO PROBAR
+-----------
+1) Entra como Gerencia -> Áreas -> Fitness: debe aparecer la pestaña "Mantenimiento".
+2) Ajustes -> Control Mantenimiento: debe decir "Conectado" y cuántos reportes, equipos y revisiones recibió.
+   Si dice "Error", ese texto es el motivo (casi siempre son las reglas de Firebase de mantenimiento).
+3) Manda un reporte desde Control Fitness: aparece en la pestaña en segundos.
