@@ -1,0 +1,22 @@
+PARCHE 3 DE CONTROL GERENCIA: SEMÁFORO DE MANTENIMIENTO
+=======================================================
+Se aplica DESPUÉS del parche 2 (el que dejó sw.js en 'gd-v71').
+
+QUÉ CAMBIA
+----------
+Gerencia ahora usa la misma regla que la app de mantenimiento:
+  ROJO      reporte nuevo, nadie lo ha abierto (sin importar si es normal, urgente o no se puede usar)
+  AMARILLO  en proceso: mantenimiento ya lo abrió
+  VERDE     resuelto
+Antes un reporte solo se ponía rojo después de varias horas sin atender. Ya no hay tiempo de espera.
+"Sin atender" = reportes nuevos; "En proceso" = reportes que ya abrió mantenimiento.
+
+ANTES DE SUBIR
+--------------
+Abre sw.js en tu repositorio de Gerencia: debe decir 'gd-v71'. Si dice otra cosa, no sobrescribas; pásame tu zip.
+
+QUÉ SUBIR (reemplaza los del mismo nombre)
+------------------------------------------
+  index.html
+  sw.js                (pasa a 'gd-v72')
+  js/mantenimiento.js

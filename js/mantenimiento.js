@@ -13,7 +13,6 @@
    ===================================================================== */
 const MANT_NODOS = ['salones','equipos','reportes','preventivo'];
 const MANT_CACHE = 'gd_mant_cache_v1';
-const MANT_UMBRAL = { normal:24, urgente:4, fuera:2 };          // horas sin atender antes de ponerse en rojo (igual que la app de mantenimiento)
 const MANT_URG = { normal:'Normal', urgente:'Urgente', fuera:'No se puede usar' };
 let mantRaw = { salones:null, equipos:null, reportes:null, preventivo:null, historial:null }, mantMeta = { estado:'sin', msg:'' }, mantT = null;
 
@@ -39,7 +38,7 @@ const mantAplica = aid => !!aid && !!(typeof FIREBASE_CONFIG_MANT!=='undefined'&
 const mantArr = k => Object.keys(mantRaw[k]||{}).map(id=>Object.assign({id},mantRaw[k][id]));
 const mantEq = id => Object.assign({nombre:'Equipo (eliminado)',salonId:''},(mantRaw.equipos||{})[id]||{});
 const mantSalon = id => Object.assign({nombre:'—',area:''},(mantRaw.salones||{})[id]||{});
-const mantVence = r => r.estado==='nuevo' && (Date.now()-r.creado)/36e5 > (MANT_UMBRAL[r.urg]||24);
+const mantVence = r => r.estado==='nuevo';                         // ROJO: nadie lo ha abierto (sin importar la urgencia). Amarillo: en proceso. Verde: resuelto.
 /* ¿De qué área es un reporte? Hoy solo hay Fitness. Devuelve el id del área o null (no se muestra en Gerencia). */
 const mantEsFitness = r => r.origen==='fitness' || (r.origen==null && /^\d+$/.test(String(r.profId==null?'':r.profId)));
 function mantArea(r){ return mantEsFitness(r) && typeof fcAreaVinculada==='function' ? fcAreaVinculada() : null; }
@@ -61,7 +60,7 @@ function mantStats(aid){
   return {
     rs, cer,
     rojos:rs.filter(mantVence),
-    proceso:rs.filter(r=>r.estado!=='resuelto'&&!mantVence(r)),
+    proceso:rs.filter(r=>r.estado==='atencion'),
     res:rs.filter(r=>r.estado==='resuelto'),
     ven:pv.filter(p=>dias(p)<0).sort((a,b)=>a.proxima-b.proxima), dias,
     posp:pv.reduce((n,p)=>n+mantArrP(p.posp).length,0),
@@ -94,8 +93,8 @@ function vMantenimiento(aid){
   const S=mantStats(aid), rs=S.rs.filter(r=>r.estado!=='resuelto').sort(mantOrden);
   return `<div class="dash limpio">${mantBanner()}
     <div class="kpis k3">
-      ${kpi('En rojo',S.rojos.length,'sin atender a tiempo',{cls:S.rojos.length?'bad':'ok',color:'var(--bad)'})}
-      ${kpi('En proceso',S.proceso.length,'nuevos o en atención',{color:'var(--b2)'})}
+      ${kpi('En rojo',S.rojos.length,'nadie los ha abierto',{cls:S.rojos.length?'bad':'ok',color:'var(--bad)'})}
+      ${kpi('En proceso',S.proceso.length,'ya los vio mantenimiento',{color:'var(--b2)'})}
       ${kpi('Por cerrar',S.res.length,'resueltos, el instructor los quita',{cls:'ok',color:'var(--b1)'})}
     </div>
     <div class="kpis k3">
@@ -120,7 +119,7 @@ function mantResumenGerencia(){
   return `<div class="h2">Mantenimiento</div>
     <div class="kpis k3">
       ${kpi('Sin atender',rojos,rojos?'problemas en rojo':'sin problemas',{cls:rojos?'bad':'ok',color:'var(--bad)'})}
-      ${kpi('En proceso',proc,'nuevos o en atención',{color:'var(--b2)'})}
+      ${kpi('En proceso',proc,'ya los vio mantenimiento',{color:'var(--b2)'})}
       ${kpi('Atendidos',res+cer,`${res} por cerrar · ${cer} cerrados en 30 días`,{cls:'ok',color:'var(--b1)'})}
     </div>
     ${st.map(x=>`<button class="line" style="--ac:${x.a.color}" data-act="openArea" data-id="${esc(x.aid)}" data-tab="mantenimiento">
