@@ -188,11 +188,12 @@ Object.assign(actions,{
     closeModal(); render(); toast('Grupo guardado');
   },
   delGrupo(d){
-    if(!confirm('¿Eliminar este grupo y todo su historial de asistencia?')) return;
-    const aid=curArea();
-    coll(aid,'asistencia').filter(r=>r.grupoId===d.id).forEach(r=>setPath(`data/${aid}/asistencia/${r.id}`,undefined));
+    if(!confirm('¿Eliminar este grupo y todo su historial de asistencia?\n\nSe guarda 30 días en la papelera (Ajustes) por si necesitas recuperarlo.')) return;
+    const aid=curArea(), g=getPath(`data/${aid}/grupos/${d.id}`), regs=coll(aid,'asistencia').filter(r=>r.grupoId===d.id);
+    if(g) setPath(`papelera/${aid}_${d.id}`,{tipo:'grupo',aid,gid:d.id,nombre:g.nombre||'',borrado:new Date().toISOString(),grupo:clean(g),asistencia:Object.fromEntries(regs.map(r=>[r.id,clean(r)]))});
+    regs.forEach(r=>setPath(`data/${aid}/asistencia/${r.id}`,undefined));
     setPath(`data/${aid}/grupos/${d.id}`,undefined);
-    closeModal(); render(); toast('Grupo eliminado');
+    closeModal(); render(); toast('Grupo enviado a la papelera');
   },
   openAsist(d){ openAsist(d.id); },
   asStep(d){ const i=$('#as_n'); i.value=Math.max(0,(+i.value||0)+(+d.n)); asPv(); },

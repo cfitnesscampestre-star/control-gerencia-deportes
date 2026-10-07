@@ -51,7 +51,7 @@ function areaBody(aid){
 }
 function viewGerencia(){
   let body, title='Control Gerencia', sub='Gerencia de deportes · todas las áreas', back=null;
-  if(ui.gTab==='resumen') body=gResumen();
+  if(ui.gTab==='resumen') body=respaldoAviso()+gResumen();
   else if(ui.gTab==='comite'){ body=gComite(); title='Comité directivo'; sub='Informe para gerencia general'; }
   else if(ui.gTab==='reportes'){ body=gReportes(); title='Reportes'; sub='Cualquier fecha, cualquier área, para imprimir o guardar'; }
   else if(ui.gTab==='ajustes') body=gAjustes();

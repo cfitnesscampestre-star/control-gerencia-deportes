@@ -33,7 +33,9 @@ function gAjustes(){
       <div class="h2">Datos</div>
       <div class="card">
         <div class="row"><div><b>Sincronización</b><small>${nube}</small></div></div>
-        <div class="row"><div><b>Respaldo</b><small>Descarga todos los datos en un archivo</small></div><button class="btn sm" data-act="export">Exportar</button></div>
+        <div class="row"><div><b>Respaldo</b><small>${esc(respaldoTxt())}</small></div><button class="btn sm primary" data-act="export">Descargar</button></div>
+        <div class="row"><div><b>Restaurar un respaldo</b><small>Reemplaza todos los datos con los de un archivo descargado antes. Antes de restaurar se descarga una copia de lo actual.</small></div><button class="btn sm" data-act="importPick">Importar</button><input type="file" id="imp_file" accept=".json,application/json" hidden></div>
+        <div class="row"><div><b>Papelera</b><small>${Object.keys(state.papelera||{}).length?plu(Object.keys(state.papelera).length,'grupo borrado','grupos borrados')+' · se conservan 30 días':'Aquí se guardan 30 días los grupos que se eliminen'}</small></div><button class="btn sm" data-act="openPapelera">Abrir</button></div>
       </div>
     </div>
   </div>`;
@@ -147,9 +149,61 @@ Object.assign(actions,{
     if(ui.gArea===d.id) ui.gArea=null;
     closeModal(); render(); toast('Área eliminada');
   },
-  export(){
-    const blob=new Blob([JSON.stringify({...state,vinculado_fitness_control:Object.fromEntries(Object.entries(LINK).map(([a,v])=>[a,{...v,profesores:Object.fromEntries(Object.entries(v.profesores||{}).map(([k,p])=>[k,{...p,foto:''}]))}]))},null,2)],{type:'application/json'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`gerencia-deportes-${todayStr()}.json`;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-  }
+  export(){ descargarRespaldo(); toast('Respaldo descargado'); render(); },
+  importPick(){ const f=$('#imp_file'); if(f){ f.value=''; f.click(); } },
+  openPapelera(){ papeleraPurga(); abrirPapelera(); },
+  restPapelera(d){
+    const it=(state.papelera||{})[d.id]; if(!it) return;
+    if(getPath(`data/${it.aid}/grupos/${it.gid}`)&&!confirm('Ya existe un grupo con ese identificador. ¿Reemplazarlo con el de la papelera?')) return;
+    setPath(`data/${it.aid}/grupos/${it.gid}`,it.grupo);
+    Object.entries(it.asistencia||{}).forEach(([k,r])=>setPath(`data/${it.aid}/asistencia/${k}`,r));
+    setPath(`papelera/${d.id}`,undefined);
+    abrirPapelera(); render(); toast('Grupo restaurado con su historial');
+  },
+  delPapelera(d){ if(!confirm('¿Eliminar definitivamente? Ya no se podrá recuperar.')) return; setPath(`papelera/${d.id}`,undefined); abrirPapelera(); render(); }
+});
+
+/* ---------- respaldo: descarga, recordatorio, restauración y papelera ---------- */
+function descargarRespaldo(pref){
+  const datos={...state,vinculado_fitness_control:Object.fromEntries(Object.entries(LINK).map(([a,v])=>[a,{...v,profesores:Object.fromEntries(Object.entries(v.profesores||{}).map(([k,p])=>[k,{...p,foto:''}]))}]))};
+  const blob=new Blob([JSON.stringify(datos,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${pref||'gerencia-deportes'}-${todayStr()}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  if(!pref) setPath('cfg/ultRespaldo',new Date().toISOString());
+}
+const respaldoDias = () => { const u=state.cfg&&state.cfg.ultRespaldo; if(!u) return null; const t=Date.parse(u); return isNaN(t)?null:Math.floor((Date.now()-t)/864e5); };
+const respaldoTxt = () => { const n=respaldoDias(); return n==null?'Todavía no se ha descargado ningún respaldo':n===0?'Último respaldo: hoy':`Último respaldo: hace ${plu(n,'día','días')}`; };
+function respaldoAviso(){
+  const n=respaldoDias(); if(n!=null&&n<7) return '';
+  return `<div class="ls-aviso" style="margin:0 0 12px"><b>${n==null?'Aún no hay un respaldo descargado':'Respaldo pendiente: último hace '+plu(n,'día','días')}</b><span>Descárgalo y guárdalo en tu Drive o envíalo a tu correo.</span><div><button class="btn sm primary" data-act="export">Descargar respaldo ahora</button></div></div>`;
+}
+function papeleraPurga(){
+  Object.entries(state.papelera||{}).forEach(([k,it])=>{ if(!it||!it.borrado||Date.now()-Date.parse(it.borrado)>30*864e5) setPath(`papelera/${k}`,undefined); });
+}
+function abrirPapelera(){
+  const its=Object.entries(state.papelera||{}).sort((a,b)=>String(b[1].borrado).localeCompare(String(a[1].borrado)));
+  openModal(`${mHead('Papelera')}
+    <div class="sub">Lo que se elimina se conserva 30 días. Después se borra solo.</div>
+    ${its.length?`<div class="card">${its.map(([k,it])=>{ const a=getArea(it.aid); const dias=Math.max(0,30-Math.floor((Date.now()-Date.parse(it.borrado))/864e5));
+      return `<div class="row"><div><b>${esc(it.nombre||'Grupo')}</b><small>${esc(a?a.nombre:'')} · ${plu(Object.keys(it.asistencia||{}).length,'registro de asistencia','registros de asistencia')} · se borra en ${plu(dias,'día','días')}</small></div><div class="btns" style="margin:0"><button class="btn sm primary" data-act="restPapelera" data-id="${esc(k)}">Restaurar</button><button class="btn sm danger" data-act="delPapelera" data-id="${esc(k)}">Quitar</button></div></div>`; }).join('')}</div>`:'<div class="empty">La papelera está vacía.</div>'}
+    <div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`);
+}
+document.addEventListener('change',e=>{
+  if(!e.target||e.target.id!=='imp_file'||!e.target.files||!e.target.files[0]) return;
+  const f=e.target.files[0], rd=new FileReader();
+  rd.onerror=()=>toast('No se pudo leer el archivo');
+  rd.onload=()=>{
+    let obj; try{ obj=JSON.parse(rd.result); }catch(err){ toast('El archivo no es un respaldo válido'); return; }
+    if(!obj||typeof obj!=='object'||!obj.cfg||!obj.cfg.areas||!obj.cfg.pass){ toast('Ese archivo no parece un respaldo de Control Gerencia'); return; }
+    delete obj.vinculado_fitness_control;
+    if(FIREBASE_CONFIG.databaseURL&&(!online||!fbRef)){ toast('Necesitas internet para restaurar un respaldo'); return; }
+    const areas=Object.keys(obj.cfg.areas).length, d=obj.data||{};
+    const gr=Object.values(d).reduce((n,x)=>n+Object.keys((x&&x.grupos)||{}).length,0), as=Object.values(d).reduce((n,x)=>n+Object.keys((x&&x.asistencia)||{}).length,0);
+    if(!confirm(`Restaurar “${f.name}”\n\n${areas} áreas · ${gr} grupos · ${as} registros de asistencia\n\nEsto REEMPLAZA todos los datos actuales (de todos los dispositivos). Primero se descargará una copia de lo actual.\n\n¿Continuar?`)) return;
+    descargarRespaldo('antes-de-restaurar');
+    const nuevo=clean(obj);
+    const fin=()=>{ state=nuevo; outbox=[]; obSave(); lsSave(); render(); toast('Respaldo restaurado'); };
+    if(fbRef) fbRef.set(nuevo).then(fin).catch(()=>toast('No se pudo restaurar: revisa tu conexión')); else fin();
+  };
+  rd.readAsText(f);
 });
