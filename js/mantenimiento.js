@@ -6,14 +6,16 @@
      /reportes    reportes abiertos que mandan los instructores desde Control Fitness
      /equipos, /salones, /preventivo
    Gerencia NUNCA escribe en esa base. Los reportes los atiende el técnico en su app.
-   Por ahora TODO lo que llega es de Fitness, así que solo se muestra en el área vinculada
-   (la misma que Fitness Control). Para sumar otras disciplinas más adelante, se filtra en mantDe().
+   Cada reporte se muestra SOLO en el área del instructor que lo mandó. Por ahora el único origen es Control Fitness:
+   se reconoce porque el reporte trae origen:'fitness' o porque su profId es el número de instructor de Fitness Control.
+   Los reportes de ejemplo o de prueba (profId de texto) y los que no son de Fitness no se muestran en Gerencia.
+   Para sumar otras disciplinas más adelante, se agrega su origen en mantArea().
    ===================================================================== */
 const MANT_NODOS = ['salones','equipos','reportes','preventivo'];
 const MANT_CACHE = 'gd_mant_cache_v1';
 const MANT_UMBRAL = { normal:24, urgente:4, fuera:2 };          // horas sin atender antes de ponerse en rojo (igual que la app de mantenimiento)
 const MANT_URG = { normal:'Normal', urgente:'Urgente', fuera:'No se puede usar' };
-let mantRaw = { salones:null, equipos:null, reportes:null, preventivo:null }, mantMeta = { estado:'sin', msg:'' }, mantT = null;
+let mantRaw = { salones:null, equipos:null, reportes:null, preventivo:null, historial:null }, mantMeta = { estado:'sin', msg:'' }, mantT = null;
 
 if(typeof ICONS!=='undefined') ICONS.llave = '<path d="M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5z"/>';
 try{ const c=JSON.parse(localStorage.getItem(MANT_CACHE)||'null'); if(c&&c.raw){ mantRaw=Object.assign(mantRaw,c.raw); mantMeta={estado:'cache',msg:''}; } }catch(e){}
@@ -26,6 +28,10 @@ function mantConectar(db){
       mantT=setTimeout(()=>{ try{ localStorage.setItem(MANT_CACHE,JSON.stringify({ts:Date.now(),raw:mantRaw})); }catch(e){} safeRender(); },250);
     },err=>{ mantMeta={estado:'error',msg:(err&&err.message)||String(err)}; safeRender(); });
   });
+  db.ref('historial').limitToLast(200).on('value',snap=>{            // reportes que el instructor ya cerró (para contar los atendidos)
+    mantRaw.historial=snap.val()||{}; clearTimeout(mantT);
+    mantT=setTimeout(()=>{ try{ localStorage.setItem(MANT_CACHE,JSON.stringify({ts:Date.now(),raw:mantRaw})); }catch(e){} safeRender(); },250);
+  },()=>{});
 }
 
 /* ---------- datos ---------- */
@@ -34,7 +40,10 @@ const mantArr = k => Object.keys(mantRaw[k]||{}).map(id=>Object.assign({id},mant
 const mantEq = id => Object.assign({nombre:'Equipo (eliminado)',salonId:''},(mantRaw.equipos||{})[id]||{});
 const mantSalon = id => Object.assign({nombre:'—',area:''},(mantRaw.salones||{})[id]||{});
 const mantVence = r => r.estado==='nuevo' && (Date.now()-r.creado)/36e5 > (MANT_UMBRAL[r.urg]||24);
-const mantDe = (aid,r) => esFitArea(aid);                         // por ahora, todo lo que llega es de Fitness
+/* ¿De qué área es un reporte? Hoy solo hay Fitness. Devuelve el id del área o null (no se muestra en Gerencia). */
+const mantEsFitness = r => r.origen==='fitness' || (r.origen==null && /^\d+$/.test(String(r.profId==null?'':r.profId)));
+function mantArea(r){ return mantEsFitness(r) && typeof fcAreaVinculada==='function' ? fcAreaVinculada() : null; }
+const mantDe = (aid,r) => !!aid && mantArea(r)===aid;
 const mantArrP = v => Array.isArray(v) ? v : v ? Object.values(v) : [];
 function mantHace(ts){
   const m=Math.max(0,Math.round((Date.now()-ts)/6e4));
@@ -47,8 +56,10 @@ function mantStats(aid){
   const hoy=new Date(); hoy.setHours(0,0,0,0);
   const dias=p=>Math.round((p.proxima-hoy.getTime())/864e5);
   const compras=rs.filter(r=>(r.compra||r.cambio)&&r.estado!=='resuelto');
+  const hace30=Date.now()-30*864e5;
+  const cer=mantAplica(aid)?Object.keys(mantRaw.historial||{}).map(id=>mantRaw.historial[id]).filter(r=>mantDe(aid,r)&&(r.cerrado||0)>=hace30).length:0;
   return {
-    rs,
+    rs, cer,
     rojos:rs.filter(mantVence),
     proceso:rs.filter(r=>r.estado!=='resuelto'&&!mantVence(r)),
     res:rs.filter(r=>r.estado==='resuelto'),
@@ -69,8 +80,8 @@ function mantRepRow(r){
   if(r.otroLugar) sm.push('<b>Reportado desde otro salón</b>');
   if(r.diag) sm.push(`<b>Diagnóstico:</b> ${esc(r.diag)}`);
   if(r.compra||r.cambio) sm.push(`${r.compra?'Requiere compra':''}${r.compra&&r.cambio?' · ':''}${r.cambio?'Requiere cambio':''}${r.costo?' · estimado $'+esc(r.costo):''}`);
-  return `<div class="card"><div class="row"><div><b>${esc(e.nombre)}</b><small>${esc(r.desc||'')}</small>${sm.map(t=>`<small>${t}</small>`).join('')}</div>
-    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">${mantPillRep(r)}${r.urg&&r.urg!=='normal'?pill(MANT_URG[r.urg]||r.urg,'warn'):''}</div></div></div>`;
+  return `<div class="card"><div class="row" style="align-items:flex-start;gap:10px"><div style="min-width:0;flex:1"><b>${esc(e.nombre)}</b><small>${esc(r.desc||'')}</small>${sm.map(t=>`<small>${t}</small>`).join('')}</div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex:none">${mantPillRep(r)}${r.urg&&r.urg!=='normal'?pill(MANT_URG[r.urg]||r.urg,'warn'):''}</div></div></div>`;
 }
 function mantOrden(a,b){ const k=r=>mantVence(r)?0:r.estado==='nuevo'?1:r.estado==='atencion'?2:3; return k(a)-k(b)||a.creado-b.creado; }
 function mantBanner(){
@@ -97,20 +108,25 @@ function vMantenimiento(aid){
     <div class="h2">Resueltos, por cerrar</div>
     ${S.res.length?S.res.map(mantRepRow).join(''):empty('No hay reportes resueltos esperando cierre.')}
     <div class="h2">Preventivos vencidos</div>
-    ${S.ven.length?S.ven.map(p=>{ const n=-S.dias(p); return `<div class="card"><div class="row"><div><b>${esc(p.titulo||'Revisión')}</b>${p.detalle?`<small>${esc(p.detalle)}</small>`:''}${p.salonId?`<small>${esc(mantSalon(p.salonId).nombre)}</small>`:''}<small>Venció hace ${n} ${n===1?'día':'días'}</small></div>${pill('Vencido','bad')}</div></div>`; }).join(''):empty('Todo el preventivo va al corriente.')}
+    ${S.ven.length?S.ven.map(p=>{ const n=-S.dias(p); return `<div class="card"><div class="row" style="align-items:flex-start;gap:10px"><div style="min-width:0;flex:1"><b>${esc(p.titulo||'Revisión')}</b>${p.detalle?`<small>${esc(p.detalle)}</small>`:''}${p.salonId?`<small>${esc(mantSalon(p.salonId).nombre)}</small>`:''}<small>Venció hace ${n} ${n===1?'día':'días'}</small></div>${pill('Vencido','bad')}</div></div>`; }).join(''):empty('Todo el preventivo va al corriente.')}
   </div>`;
 }
-/* Línea para "Notificaciones de atención requerida" del resumen de gerencia */
-function mantAtencionGerencia(){
-  const aid=typeof fcAreaVinculada==='function'?fcAreaVinculada():null; if(!mantAplica(aid)) return '';
-  const S=mantStats(aid); if(!S.rojos.length&&!S.ven.length) return '';
-  const a=getArea(aid), t=[];
-  if(S.rojos.length) t.push(plu(S.rojos.length,'reporte en rojo','reportes en rojo'));
-  if(S.ven.length) t.push(plu(S.ven.length,'preventivo vencido','preventivos vencidos'));
-  return `<button class="line" style="--ac:${a.color}" data-act="openArea" data-id="${esc(aid)}" data-tab="mantenimiento">
-    <div class="t">${ic('llave')}</div>
-    <div class="b"><b>Mantenimiento · ${esc(a.nombre)}</b><small>${t.join(' · ')}</small></div>
-    <div class="r">${pill('atención','bad')}</div></button>`;
+/* Resumen general para gerencia: cuántos reportes hay sin atender, en proceso y atendidos, y por área. */
+function mantResumenGerencia(){
+  const aids=(typeof areasList==='function'?areasList().map(a=>a.id):[]).filter(mantAplica); if(!aids.length) return '';
+  const st=aids.map(aid=>({aid,a:getArea(aid),S:mantStats(aid)}));
+  const sum=f=>st.reduce((n,x)=>n+f(x.S),0);
+  const rojos=sum(S=>S.rojos.length), proc=sum(S=>S.proceso.length), res=sum(S=>S.res.length), cer=sum(S=>S.cer), ven=sum(S=>S.ven.length), comp=sum(S=>S.compras.length);
+  return `<div class="h2">Mantenimiento</div>
+    <div class="kpis k3">
+      ${kpi('Sin atender',rojos,rojos?'problemas en rojo':'sin problemas',{cls:rojos?'bad':'ok',color:'var(--bad)'})}
+      ${kpi('En proceso',proc,'nuevos o en atención',{color:'var(--b2)'})}
+      ${kpi('Atendidos',res+cer,`${res} por cerrar · ${cer} cerrados en 30 días`,{cls:'ok',color:'var(--b1)'})}
+    </div>
+    ${st.map(x=>`<button class="line" style="--ac:${x.a.color}" data-act="openArea" data-id="${esc(x.aid)}" data-tab="mantenimiento">
+      <div class="t">${ic('llave')}</div>
+      <div class="b"><b>${esc(x.a.nombre)}</b><small>${plu(x.S.rojos.length,'reporte en rojo','reportes en rojo')} · ${plu(x.S.ven.length,'preventivo vencido','preventivos vencidos')} · ${plu(x.S.compras.length,'compra pendiente','compras pendientes')}</small></div>
+      <div class="r">${x.S.rojos.length||x.S.ven.length?pill('atención','bad'):pill('al día','ok')}</div></button>`).join('')}`;
 }
 /* Tarjeta de estado en Ajustes */
 function mantCard(){
@@ -125,4 +141,4 @@ function mantCard(){
 }
 /* Menús: la pestaña "Mantenimiento" solo existe en el área vinculada a Fitness */
 function navDir(){ return mantAplica(session&&session.area)?NAV_DIR.concat([{id:'mantenimiento',label:'Mantenimiento',ic:'llave'}]):NAV_DIR; }
-function navMDir(){ return mantAplica(session&&session.area)?NAV_M_DIR.concat([{id:'mantenimiento',label:'Mantenim.',ic:'llave',tabs:['mantenimiento']}]):NAV_M_DIR; }
+function navMDir(){ return mantAplica(session&&session.area)?NAV_M_DIR.concat([{id:'mantenimiento',label:'Manten.',ic:'llave',tabs:['mantenimiento']}]):NAV_M_DIR; }
