@@ -24,7 +24,7 @@ function viewProfesor(){
 
 function vProfHoy(){
   const aid=session.area, pid=session.profId, fecha=ui.pFecha, hoy=fecha===todayStr();
-  const gs=clasesDe(aid,pid).filter(g=>progEn(g,fecha)).sort(byHora);
+  const gs=clasesDe(aid,pid).filter(g=>progEn(g,fecha)&&daClase(g,pid,fecha)).sort(byHora);
   const recs=Object.fromEntries(coll(aid,'asistencia').filter(r=>r.fecha===fecha).map(r=>[r.grupoId,r]));
   const hechas=gs.filter(g=>recs[g.id]).length;
   const act=claseActual(gs,fecha);
@@ -56,15 +56,15 @@ function vProfHoy(){
       const rapida=n&&!esVinculada(aid)&&!fcId(g.id);
       return `<div class="pcl${rapida?' con-rapida':''}"><button class="line" style="--ac:${areaColor(aid)}" data-act="openLista" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">
         <div class="t">${esc(g.hi||'—')}</div>
-        <div class="b"><b>${esc(g.nombre)}</b><small>${esc(g.lugar||'Sin lugar')} · ${plu(n,'alumno','alumnos')}</small></div>
-        <div class="r">${r?`<span class="${info.cls}">${esc(info.txt)}${info.p!=null?'<br>'+info.p+'%':''}</span>`:'<span class="warn">Pendiente</span>'}</div></button>
+        <div class="b"><b>${esc(g.nombre)}</b><small>${esc(g.lugar||'Sin lugar')} · ${plu(n,'alumno','alumnos')}${(()=>{ const otros=profsDeDia(g,wdIdx(fecha)).filter(x=>x!==pid).map(x=>(getProf(aid,x)||{}).nombre).filter(Boolean); return otros.length?' · con '+esc(otros.join(', ')):''; })()}</small></div>
+        <div class="r">${r?`<span class="${info.cls}">${esc(info.txt)}${info.p!=null?'<br>'+info.p+'%':''}${r.porProf&&r.porProf!==pid&&r.porNom&&!r.omitida?`<br><small>lista de ${esc(r.porNom)}</small>`:''}</span>`:'<span class="warn">Pendiente</span>'}</div></button>
         ${rapida?`<button class="pcl-rapida" data-act="openListaRapida" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}" aria-label="Lista rápida de ${esc(g.nombre)}">${ic('bolt')} Lista rápida</button>`:''}</div>`;
     }).join(''):empty('No tienes clases programadas este día.')}`;
 }
 
 function vProfHorario(){
   const aid=session.area, gs=clasesDe(aid,session.profId), hoy=wdIdx(todayStr());
-  const dias=[0,1,2,3,4,5,6].map(i=>({i,gs:gs.filter(g=>diasArr(g).includes(i)).sort(byHora)}));
+  const dias=[0,1,2,3,4,5,6].map(i=>({i,gs:gs.filter(g=>diasArr(g).includes(i)&&profsDeDia(g,i).includes(session.profId)).sort(byHora)}));
   return `<div class="h2">Mi horario</div>
     <div class="sub">Tus clases de la semana. El horario lo asigna la dirección de tu área.</div>
     ${gs.length?dias.map(d=>`<div class="h2 sm${d.i===hoy?' hoy':''}">${DIAS_L[d.i]}${d.i===hoy?' · hoy':''}</div>

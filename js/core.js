@@ -336,7 +336,14 @@ const coll = (aid,k) => Object.values(mezcla(aid,k));
 const grupos = aid => coll(aid,'grupos');
 const profesores = aid => coll(aid,'profesores').sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre),'es'));
 const getProf = (aid,id) => mezcla(aid,'profesores')[id]||null;
-const clasesDe = (aid,pid) => grupos(aid).filter(g=>g.profId===pid);
+/* Profesores por día: un grupo puede tener varios profesores y cambiar según el día.
+   g.profDia = {d0:'idA,idB', d2:'idB'} (d0 = lunes). Si no existe, rige g.profId para todos los días (grupos viejos). */
+const pdActivo = g => !!(g&&g.profDia&&typeof g.profDia==='object'&&Object.keys(g.profDia).length);
+const profsDeDia = (g,wd) => pdActivo(g) ? String(g.profDia['d'+wd]||'').split(',').filter(Boolean) : (g&&g.profId?[g.profId]:[]);
+const profsDeGrupo = g => { if(!pdActivo(g)) return g&&g.profId?[g.profId]:[]; const s=new Set(); Object.values(g.profDia).forEach(v=>String(v).split(',').filter(Boolean).forEach(x=>s.add(x))); return [...s]; };
+const daClase = (g,pid,fecha) => profsDeDia(g,wdIdx(fecha)).includes(pid);
+const profNombresDe = (aid,ids,fallback) => { const n=ids.map(i=>(getProf(aid,i)||{}).nombre).filter(Boolean); return n.length?n.join(' / '):(fallback||''); };
+const clasesDe = (aid,pid) => grupos(aid).filter(g=>profsDeGrupo(g).includes(pid));
 const iniciales = n => String(n||'').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
 /* ¿Esta clase se imparte en esa fecha? Día de la semana + vigencia (desde qué fecha rige el horario en Fitness Control) */
 const progEn = (g,fecha) => { const wd=wdIdx(fecha); if(!diasArr(g).includes(wd)) return false;

@@ -542,3 +542,13 @@ button.cloud{background:none;border:0;padding:0;font:inherit;color:inherit;curso
 .tb-ent .ic{width:18px;height:18px}
 .ent-ban{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:#fff7e6;border:1.5px solid #f0c36a;font-size:13.5px;color:#7a5200}
 .ent-ban span{flex:1}.ent-ban .ic{width:16px;height:16px;vertical-align:-3px}
+
+/* Profesores por día en el formulario de grupo */
+.pchip{padding:8px 12px;border-radius:11px;border:1.5px solid var(--line-2);color:var(--ink-2);text-align:center;background:#fff;font-weight:600;font-size:.9em}
+.pchip.on{background:var(--grad);color:#fff;border-color:transparent}
+.pd-row{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.pd-row[hidden]{display:none}
+.pd-row>b{font-size:.85em;color:var(--ink-2)}
+/* Aviso de lista ya pasada por otra profesora */
+.ls-aviso{display:flex;flex-direction:column;gap:2px;margin:10px 0;padding:11px 13px;border-radius:12px;background:#fff7e0;border:1.5px solid #f0c75e;color:#6b4e00;font-size:.9em}
+.ls-aviso b{font-size:1em}

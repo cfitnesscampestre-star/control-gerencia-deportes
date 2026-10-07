@@ -65,7 +65,7 @@ function vListaRapida(){
   if(!N||ro) return `<div class="card ls-head"><div class="ls-t"><b>${esc(g.nombre)}</b><span>${esc(horaTxt(g)||'')}</span></div></div>${empty(ro?'Esta lista es de solo lectura.':'Este grupo todavía no tiene lista de alumnos. La dirección puede agregarla en Grupos.')}<div class="btns"><button class="btn primary" data-act="listaBack">Volver</button>${N?'':'<button class="btn" data-act="listaModo">Capturar el número</button>'}</div>`;
   ui.lista.nt=ui.lista.nt||{};
   ui.lista.i=Math.min(Math.max(0,ui.lista.i==null?lrPrimero(s):ui.lista.i),N);
-  return `<div class="lr" id="lr">${lrInner(aid,g,fecha,s,ui.lista.i,ro)}</div>`;
+  return `${lsAviso(s)}<div class="lr" id="lr">${lrInner(aid,g,fecha,s,ui.lista.i,ro)}</div>`;
 }
 function lrPintar(){
   const c=lsCtx(), el=document.getElementById('lr'); if(!c||!el) return;

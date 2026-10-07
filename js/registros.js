@@ -42,14 +42,18 @@ function vGrupos(aid){
 function openGrupo(gid,pidPre){
   if(esVinculada(curArea())){ toast('Los grupos de esta área se administran en Fitness Control'); return; }
   const aid=curArea(), g=gid?(getPath(`data/${aid}/grupos/${gid}`)||{}):{}, dias=diasArr(g);
-  const ps=profesores(aid).filter(p=>p.activo!==false||p.id===g.profId), cur=g.profId||pidPre||'';
-  const legacy=(!g.profId&&g.prof)?g.prof:'';
+  const asig=new Set(profsDeGrupo(g));
+  const ps=profesores(aid).filter(p=>p.activo!==false||asig.has(p.id));
+  const legacy=(!profsDeGrupo(g).length&&g.prof)?g.prof:'';
+  const selDia=i=>gid?profsDeDia(g,i):(pidPre?[pidPre]:[]);
   openModal(`${mHead(gid?'Editar grupo':'Nuevo grupo')}
     <label class="f"><span>Nombre del grupo</span><input id="g_nombre" value="${esc(g.nombre)}" placeholder="Ej. Infantil 6 a 8 años"></label>
-    <label class="f"><span>Profesor</span><select id="g_profId"><option value="">Sin asignar</option>${legacy?`<option value="__legacy" selected>${esc(legacy)} (sin ficha)</option>`:''}${ps.map(p=>`<option value="${esc(p.id)}"${cur===p.id?' selected':''}>${esc(p.nombre)}</option>`).join('')}</select>${ps.length?'':'<small class="mut">Aún no hay profesores. Da de alta profesores en la pestaña Profesores.</small>'}</label>
     <label class="f"><span>Tipo de grupo</span><select id="g_tg"><option value="academia"${tipoGrupoDe(g)==='servicio'?'':' selected'}>Academia · con costo, inscripción y lista de alumnos</option><option value="servicio"${tipoGrupoDe(g)==='servicio'?' selected':''}>Servicio · gratuito, sin inscripción</option></select>
       <small class="mut" id="g_tg_h"></small></label>
     <div class="f"><span class="lb">Días de clase</span><div class="dchips">${DIAS.map((d,i)=>`<button type="button" class="dchip${dias.includes(i)?' on':''}" data-act="togDia">${d}</button>`).join('')}</div></div>
+    <div class="f" id="g_pd_w"><span class="lb">Quién da la clase cada día</span>
+      <small class="mut">Marca al profesor de cada día. Si marcas a dos, el grupo les aparece a los dos ese día y comparten la misma lista de alumnos y de asistencia.${legacy?` Profesor anterior sin ficha: ${esc(legacy)}.`:''}</small>
+      ${ps.length?DIAS.map((dn,i)=>`<div class="pd-row" data-d="${i}"${dias.includes(i)?'':' hidden'}><b>${esc(DIAS_L[i])}</b><div class="dchips">${ps.map(p=>`<button type="button" class="pchip${selDia(i).includes(p.id)?' on':''}" data-act="togPd" data-p="${esc(p.id)}">${esc(p.nombre)}</button>`).join('')}</div></div>`).join(''):'<small class="mut">Aún no hay profesores. Da de alta profesores en la pestaña Profesores.</small>'}</div>
     <div class="two">
       <label class="f"><span>Hora de inicio</span><input id="g_hi" type="time" value="${esc(g.hi)}"></label>
       <label class="f"><span>Hora de término</span><input id="g_hf" type="time" value="${esc(g.hf)}"></label>
@@ -137,16 +141,30 @@ Object.assign(actions,{
   gDia(d){ ui.gDia=+d.d; render(); },
   openGrupo(d){ if(!isRO()&&!isProf()) openGrupo(d.id||'',d.pid||''); },
   grupoDetail(d){ grupoDetail(d.id); },
-  togDia(d,e){ e.target.closest('.dchip').classList.toggle('on'); },
+  togDia(d,e){
+    const b=e.target.closest('.dchip'); b.classList.toggle('on');
+    const i=DIAS.indexOf(b.textContent.trim()), row=document.querySelector(`.pd-row[data-d="${i}"]`); if(!row) return;
+    row.hidden=!b.classList.contains('on');
+    if(!row.hidden&&!row.querySelector('.pchip.on')){            // día nuevo: copia los profesores de otro día ya elegido
+      const o=[...document.querySelectorAll('.pd-row:not([hidden])')].find(r=>r!==row&&r.querySelector('.pchip.on'));
+      if(o) o.querySelectorAll('.pchip.on').forEach(c=>{ const m=row.querySelector(`.pchip[data-p="${c.dataset.p}"]`); if(m) m.classList.add('on'); });
+    }
+  },
+  togPd(d,e){ e.target.closest('.pchip').classList.toggle('on'); },
   saveGrupo(d){
     const aid=curArea(), nombre=$('#g_nombre').value.trim();
     if(!nombre){ toast('Escribe el nombre del grupo'); return; }
     const id=d.id||('g'+uid()), prev=d.id?(getPath(`data/${aid}/grupos/${id}`)||{}):{};
     const tg=($('#g_tg')||{}).value==='servicio'?'servicio':'academia';
     if(tg==='servicio'&&(prev.alumnos||alSerializa())&&!confirm('Como grupo de servicio no lleva lista de alumnos: se quitará la lista que tiene. ¿Continuar?')) return;
-    const sel=$('#g_profId').value; let profId='', prof='';
-    if(sel==='__legacy') prof=prev.prof||''; else if(sel){ const pr=getProf(aid,sel); profId=sel; prof=pr?pr.nombre:''; }
-    setPath(`data/${aid}/grupos/${id}`,{...prev,creado:prev.creado||todayStr(),id,nombre,prof,profId,
+    const profDia={}, cuenta={};
+    document.querySelectorAll('.pd-row').forEach(r=>{
+      if(r.hidden) return; const ids=[...r.querySelectorAll('.pchip.on')].map(b=>b.dataset.p); if(!ids.length) return;
+      profDia['d'+r.dataset.d]=ids.join(','); ids.forEach(x=>{ cuenta[x]=(cuenta[x]||0)+1; });
+    });
+    const todos=Object.keys(cuenta).sort((a,b)=>cuenta[b]-cuenta[a]);       // el de más días queda como principal (profId)
+    const profId=todos[0]||'', prof=todos.length?profNombresDe(aid,todos):(!profsDeGrupo(prev).length?(prev.prof||''):'');
+    setPath(`data/${aid}/grupos/${id}`,{...prev,creado:prev.creado||todayStr(),id,nombre,prof,profId,profDia,
       dias:[...document.querySelectorAll('.dchip.on')].map(b=>DIAS.indexOf(b.textContent)).join(','),
       hi:$('#g_hi').value,hf:$('#g_hf').value,lugar:$('#g_lugar').value.trim(),
       tipoGrupo:tg,cupo:+$('#g_cupo').value||0,inscritos:tg==='servicio'?0:(+$('#g_insc').value||0),tipo:$('#g_tipo').value.trim(),nivel:$('#g_nivel').value.trim(),alumnos:tg==='servicio'?'':alSerializa()});

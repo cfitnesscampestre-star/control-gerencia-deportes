@@ -22,7 +22,7 @@ function lsWrite(aid,g,fecha,s){
   const roster=s.roster, pres=roster.filter(n=>s.pres.has(n)), aus=roster.filter(n=>s.aus.has(n));
   const extras=Math.max(0,Math.round(+s.extras||0));
   const rec={id:`${g.id}_${fecha}`,grupoId:g.id,fecha,asistentes:s.omitida?0:pres.length+extras,presentes:pres,ausentes:aus,extras,
-    lista:roster.length>0,nota:s.nota||'',notasAl:Object.entries(s.notasAl||{}).filter(([n,t])=>t&&roster.includes(n)).map(([n,t])=>({n,t})),porProf:isProf()?session.profId:'dir',actualizado:new Date().toISOString()};
+    lista:roster.length>0,nota:s.nota||'',notasAl:Object.entries(s.notasAl||{}).filter(([n,t])=>t&&roster.includes(n)).map(([n,t])=>({n,t})),porProf:isProf()?session.profId:'dir',porNom:isProf()?((getProf(aid,session.profId)||{}).nombre||''):'Dirección',actualizado:new Date().toISOString()};
   if(s.omitida) rec.omitida=true;
   setPath(`data/${aid}/asistencia/${rec.id}`,rec);
 }
@@ -45,6 +45,14 @@ function lsRow(name,st,ro){
       ${ro?'':`<button class="ls-btn f" data-act="lsMark" data-m="f" aria-label="Falta">✖</button><button class="ls-btn p" data-act="lsMark" data-m="p" aria-label="Presente">✔</button>`}
     </div></div>`;
 }
+/* Aviso: otra persona ya pasó (o empezó) esta lista. Se puede seguir editando; solo avisa para no duplicar el trabajo. */
+function lsAviso(s){
+  const r=s.rec; if(!r||s.omitida||!(s.pres.size||s.aus.size)) return '';
+  const yo=isProf()?session.profId:'dir'; if(r.porProf===yo||!r.porProf) return '';
+  const h=r.actualizado?new Date(r.actualizado).toLocaleTimeString('es-MX',{hour:'numeric',minute:'2-digit'}):'';
+  const fin=s.roster.length&&!s.roster.some(n=>!s.pres.has(n)&&!s.aus.has(n));
+  return `<div class="ls-aviso"><b>${esc(r.porNom||'Otra persona')} ${fin?'ya pasó':'ya empezó'} esta lista${h?' · '+esc(h):''}</b><span>${s.pres.size} presentes · ${s.aus.size} faltas${fin?'. Ya está completa; solo corrígela si hace falta.':'. Continúa con las que faltan por marcar.'}</span></div>`;
+}
 function vLista(){
   if(typeof lrEs==='function'&&lrEs()) return vListaRapida();
   const c=lsCtx(); if(!c){ ui.lista=null; return ''; }
@@ -53,7 +61,7 @@ function vLista(){
   return `
     <div class="card ls-head">
       <div class="ls-t"><b>${esc(g.nombre)}</b><span>${esc(horaTxt(g)||'')}</span></div>
-      <div class="ls-sub">${esc([g.prof,g.lugar,fmtLarga(fecha)].filter(Boolean).join(' · '))}</div>
+      <div class="ls-sub">${esc([profNombresDe(aid,profsDeDia(g,wdIdx(fecha)),g.prof),g.lugar,fmtLarga(fecha)].filter(Boolean).join(' · '))}</div>
       ${s.roster.length?`<div class="ls-cnt">
         <div class="cp"><b id="ls_p">${s.pres.size}</b><span>Presentes</span></div>
         <div class="cf"><b id="ls_f">${s.aus.size}</b><span>Faltas</span></div>
@@ -62,6 +70,7 @@ function vLista(){
       <div class="ls-af"><div class="bar"><i id="ls_bar" class="${cls}" style="width:${Math.min(p||0,100)}%"></i></div><span id="ls_pct" class="af-pct ${cls}">${p==null?'—':p+'%'}</span></div>
       <div class="ls-tot" id="ls_tot">${tot} asistentes${cupo?` de ${cupo} de cupo`:''} · este número es el aforo de la clase</div>
     </div>
+    ${lsAviso(s)}
     ${s.manual?`<div class="empty" style="margin-top:10px">Ya hay una captura manual de ${+s.rec.asistentes||0} asistentes. Al marcar la lista se reemplaza.</div>`:''}
     ${s.omitida?`<div class="empty ls-off" id="ls_off">Esta clase está marcada como “no hubo clase”. Marca a alguien o pulsa “Reabrir clase”.</div>`:''}
     ${s.roster.length?`

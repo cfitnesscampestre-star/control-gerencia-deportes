@@ -87,13 +87,17 @@ Object.assign(actions,{
     if(!/^\d{4,6}$/.test(pin)){ toast('El PIN debe tener de 4 a 6 dígitos'); return; }
     const id=d.id||('p'+uid()), prev=d.id?(getProf(aid,id)||{}):{};
     setPath(`data/${aid}/profesores/${id}`,{...prev,id,nombre,pin,tipo:$('#pf_tipo').value,activo:$('#pf_activo').value==='1',especialidad:$('#pf_esp').value.trim(),foto:pfFotoData||'',...svProfLeer(aid)});
-    if(prev.nombre&&prev.nombre!==nombre) clasesDe(aid,id).forEach(g=>setPath(`data/${aid}/grupos/${g.id}/prof`,nombre));
+    if(prev.nombre&&prev.nombre!==nombre) clasesDe(aid,id).forEach(g=>setPath(`data/${aid}/grupos/${g.id}/prof`,profsDeGrupo(g).map(x=>x===id?nombre:((getProf(aid,x)||{}).nombre||'')).filter(Boolean).join(' / ')));
     closeModal(); render(); toast(esServ(aid)?'Especialista guardado':'Profesor guardado');
   },
   delProfesor(d){
     if(!confirm(esServ(curArea())?'¿Eliminar a este especialista? Sus registros de bitácora se conservan.':'¿Eliminar este profesor? Sus clases quedan sin profesor asignado.')) return;
     const aid=curArea();
-    clasesDe(aid,d.id).forEach(g=>setPath(`data/${aid}/grupos/${g.id}/profId`,''));
+    clasesDe(aid,d.id).forEach(g=>{                      // lo quita de todos sus días; si el grupo tenía a otro profesor, se queda con él
+      const pd={}; Object.entries(g.profDia||{}).forEach(([k,v])=>{ const r=String(v).split(',').filter(x=>x&&x!==d.id); if(r.length) pd[k]=r.join(','); });
+      const rest=profsDeGrupo({profDia:pd,profId:''}); const pid=rest[0]||'';
+      setPath(`data/${aid}/grupos/${g.id}`,{...g,profDia:pd,profId:pid,prof:profNombresDe(aid,rest.filter(x=>x!==d.id))});
+    });
     setPath(`data/${aid}/profesores/${d.id}`,undefined);
     closeModal(); render(); toast('Profesor eliminado');
   }
