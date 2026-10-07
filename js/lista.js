@@ -8,7 +8,7 @@ const lsRO = () => isRO() || esVinculada(curArea()) || !!(ui.lista&&fcId(ui.list
 function lsCtx(){
   const l=ui.lista; if(!l) return null;
   const aid=curArea(), g=getPath(`data/${aid}/grupos/${l.gid}`);
-  return g?{aid,g,fecha:l.fecha}:null;
+  return g?{aid,g:gDia(g,l.fecha),fecha:l.fecha}:null;
 }
 function lsState(aid,g,fecha){
   const rec=getPath(`data/${aid}/asistencia/${g.id}_${fecha}`)||null, roster=rosterOf(g);

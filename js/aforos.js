@@ -16,7 +16,7 @@ function afList(aid,fecha){
   return {
     total:all.length,
     prog:gruposDelDia(aid,fecha).sort(byHora),
-    otros:ui.afTodos?all.filter(g=>!gruposDelDia(aid,fecha).includes(g)).sort(byHora):[]
+    otros:ui.afTodos?all.filter(g=>!gruposDelDia(aid,fecha).some(x=>x.id===g.id)).map(g=>gDia(g,fecha)).sort(byHora):[]
   };
 }
 function afSummary(aid,fecha){

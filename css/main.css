@@ -552,3 +552,6 @@ button.cloud{background:none;border:0;padding:0;font:inherit;color:inherit;curso
 /* Aviso de lista ya pasada por otra profesora */
 .ls-aviso{display:flex;flex-direction:column;gap:2px;margin:10px 0;padding:11px 13px;border-radius:12px;background:#fff7e0;border:1.5px solid #f0c75e;color:#6b4e00;font-size:.9em}
 .ls-aviso b{font-size:1em}
+
+.pd-hor{display:flex;align-items:center;gap:8px}
+.pd-hor input{flex:1;min-width:0}

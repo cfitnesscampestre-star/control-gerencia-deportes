@@ -343,6 +343,10 @@ const profsDeDia = (g,wd) => pdActivo(g) ? String(g.profDia['d'+wd]||'').split('
 const profsDeGrupo = g => { if(!pdActivo(g)) return g&&g.profId?[g.profId]:[]; const s=new Set(); Object.values(g.profDia).forEach(v=>String(v).split(',').filter(Boolean).forEach(x=>s.add(x))); return [...s]; };
 const daClase = (g,pid,fecha) => profsDeDia(g,wdIdx(fecha)).includes(pid);
 const profNombresDe = (aid,ids,fallback) => { const n=ids.map(i=>(getProf(aid,i)||{}).nombre).filter(Boolean); return n.length?n.join(' / '):(fallback||''); };
+/* Horario por día: g.horDia = {d1:'16:00|17:30'} (d0 = lunes). Los días sin dato usan g.hi / g.hf. */
+const horaEn = (g,wd) => { const v=g&&g.horDia&&g.horDia['d'+wd]; if(v){ const [a,b]=String(v).split('|'); return {hi:a||'',hf:b||''}; } return {hi:(g&&g.hi)||'',hf:(g&&g.hf)||''}; };
+const gDiaWd = (g,wd) => { if(!g||!g.horDia) return g; const h=horaEn(g,wd); return (h.hi===(g.hi||'')&&h.hf===(g.hf||''))?g:{...g,hi:h.hi,hf:h.hf}; };
+const gDia = (g,fecha) => gDiaWd(g,wdIdx(fecha));            // el mismo grupo con el horario que tiene ese día
 const clasesDe = (aid,pid) => grupos(aid).filter(g=>profsDeGrupo(g).includes(pid));
 const iniciales = n => String(n||'').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
 /* ¿Esta clase se imparte en esa fecha? Día de la semana + vigencia (desde qué fecha rige el horario en Fitness Control) */
@@ -404,7 +408,7 @@ const numLugares = (asis,lug) => `${(+asis||0).toLocaleString('es-MX')} de ${(+l
    (igual que la lista del día en Fitness Control). */
 function gruposDelDia(aid,fecha){
   const conReg=new Set(coll(aid,'asistencia').filter(r=>r.fecha===fecha).map(r=>r.grupoId));
-  return grupos(aid).filter(g=>progEn(g,fecha)||conReg.has(g.id));
+  return grupos(aid).filter(g=>progEn(g,fecha)||conReg.has(g.id)).map(g=>gDia(g,fecha));
 }
 function areaStats(aid){
   const t=todayStr(), gs=grupos(aid), wk=mondayOf(t), wd=wdIdx(t);
@@ -426,7 +430,7 @@ function areaStats(aid){
 }
 function dayItems(aid,d){
   const wd=wdIdx(d);
-  const cls=grupos(aid).filter(g=>progEn(g,d)).map(g=>({t:'g',hora:g.hi||'',g}));
+  const cls=grupos(aid).filter(g=>progEn(g,d)).map(g=>gDia(g,d)).map(g=>({t:'g',hora:g.hi||'',g}));
   const evs=coll(aid,'eventos').filter(e=>e.fecha===d).map(e=>({t:'e',hora:e.hora||'',e}));
   return [...evs,...cls].sort((a,b)=>(a.hora||'99:99').localeCompare(b.hora||'99:99'));
 }
