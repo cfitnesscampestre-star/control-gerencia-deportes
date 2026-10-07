@@ -307,6 +307,12 @@ async function initFirebase(){
       const appFC = firebase.apps.find(a=>a.name==='fitness') || firebase.initializeApp(FIREBASE_CONFIG_FITNESS,'fitness');
       fcConectar(appFC.database());
     }
+    if(typeof mantConectar==='function'&&FIREBASE_CONFIG_MANT.databaseURL){        // tercera app: solo lectura de Control Mantenimiento
+      try{
+        const appM = firebase.apps.find(a=>a.name==='mant') || firebase.initializeApp(FIREBASE_CONFIG_MANT,'mant');
+        mantConectar(appM.database());
+      }catch(e){ console.warn('Control Mantenimiento no disponible',e); }
+    }
     const ref=db.ref(DB_ROOT);
     let first=true;
     ref.on('value',snap=>{

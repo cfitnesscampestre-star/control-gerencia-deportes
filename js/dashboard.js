@@ -125,7 +125,7 @@ function gResumen(){
   as.forEach(a=>{
     Object.values(areaData(a.id).reportes||{}).filter(r=>r.semana>=minWk&&String(r.apoyo||'').trim()).sort((p,q)=>q.semana.localeCompare(p.semana)).slice(0,1).forEach(r=>apoyos.push({a,r}));
   });
-  const svAt=svAtencionGerencia();
+  const svAt=svAtencionGerencia(), mAt=typeof mantAtencionGerencia==='function'?mantAtencionGerencia():'';
   const evs=[];
   as.forEach(a=>areaStats(a.id).eventos.forEach(e=>evs.push({a,e})));
   evs.sort((x,y)=>(x.e.fecha+(x.e.hora||'')).localeCompare(y.e.fecha+(y.e.hora||'')));
@@ -155,8 +155,8 @@ function gResumen(){
 
     <div class="d-att">
       <div class="h2">Notificaciones de atención requerida</div>
-      ${(atn.length||apoyos.length||svAt)?`
-        ${svAt}
+      ${(atn.length||apoyos.length||svAt||mAt)?`
+        ${svAt}${mAt}
         ${atn.slice(0,6).map(x=>`<button class="line" style="--ac:${x.a.color}" data-act="openIncFrom" data-aid="${x.a.id}" data-id="${x.i.id}">
           <div class="t">${areaIco(x.a,{tile:true,size:20})}</div>
           <div class="b"><b>${esc(x.i.tipo||'Incidencia')} · ${esc(x.a.nombre)}</b><small>${esc((x.i.desc||'').slice(0,90))}</small></div>

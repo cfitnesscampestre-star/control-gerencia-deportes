@@ -31,6 +31,15 @@ const FIREBASE_FITNESS_REAL = {
   projectId:  'fitness-campestre-e218c',
   appId:      '1:813526273487:web:3a3643ae3d95d44d4a16ba'
 };
+/* Base de Control Mantenimiento (SOLO LECTURA): reportes de equipo y preventivo */
+const FIREBASE_MANT_REAL = {
+  apiKey:     'AIzaSyB_XzEY0fLuv9pNSAtf0tGSEZIDi2JG1SM',
+  authDomain: 'registro-mantenimiento-9854c.firebaseapp.com',
+  databaseURL:'https://registro-mantenimiento-9854c-default-rtdb.firebaseio.com',
+  projectId:  'registro-mantenimiento-9854c',
+  appId:      '1:712713568770:web:a0e514012ecd34e9b8dd1b'
+};
+const FIREBASE_CONFIG_MANT = CONECTAR_FIREBASE ? FIREBASE_MANT_REAL : { apiKey:'', authDomain:'', databaseURL:'', projectId:'', appId:'' };
 const FIREBASE_CONFIG        = CONECTAR_FIREBASE ? FIREBASE_GERENCIA_REAL : { apiKey:'', authDomain:'', databaseURL:'', projectId:'', appId:'' };
 const FIREBASE_CONFIG_FITNESS= CONECTAR_FIREBASE ? FIREBASE_FITNESS_REAL  : { apiKey:'', authDomain:'', databaseURL:'', projectId:'', appId:'' };
 
