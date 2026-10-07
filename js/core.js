@@ -280,6 +280,17 @@ function ensureSeed(){
 
 const loadScript = src => new Promise((ok,ko)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=()=>{ s.remove(); ko(new Error('No cargó '+src)); }; document.head.appendChild(s); });
 let fbIniciado = false;
+/* Sesión anónima en la base de Gerencia. Si no se puede (sin internet o todavía no activada en la consola),
+   la app sigue: mientras las reglas estén abiertas funciona igual, y sin internet trabaja con la copia del equipo. */
+async function fbAutenticar(){
+  try{
+    if(!firebase.auth) await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js');
+    const au=firebase.auth();
+    const lista=typeof au.authStateReady==='function'?au.authStateReady():new Promise(r=>{ const u=au.onAuthStateChanged(()=>{ u(); r(); }); });
+    await Promise.race([lista,new Promise(r=>setTimeout(r,4000))]);
+    if(!au.currentUser) await Promise.race([au.signInAnonymously(),new Promise((_,ko)=>setTimeout(()=>ko(new Error('tiempo')),6000))]);
+  }catch(e){ console.warn('Firebase Auth no disponible:',e&&e.message); }
+}
 async function initFirebase(){
   if(fbIniciado) return;
   try{
@@ -289,6 +300,7 @@ async function initFirebase(){
     }
     fbIniciado=true;
     if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);              // app de Gerencia (por defecto)
+    await fbAutenticar();                                                           // sesión anónima: las reglas de Firebase exigen auth != null
     const db=firebase.database();
     db.ref('.info/connected').on('value',s=>{ online=!!s.val(); if(online) obFlush(); safeRender(); });
     if(typeof fcConectar==='function'){                                            // segunda app: solo lectura de Fitness Control
