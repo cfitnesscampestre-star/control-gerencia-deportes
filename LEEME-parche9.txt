@@ -1,0 +1,10 @@
+PARCHE 9 - Control Gerencia: buscar a una persona en el Reporte de interpretación (Metodología > Pruebas)
+==========================================================================================================
+Requiere el parche 8. Deja el service worker en gd-v79.
+Sube (reemplazando): index.html, sw.js, js/metodologia.js
+
+- Nuevo campo "Buscar persona": se escribe el nombre (o parte; no importan acentos ni mayúsculas) o se elige de la lista que
+  sugiere. El reporte de la pantalla se actualiza al momento.
+- Con una persona buscada, todo sale solo de ella: "Imprimir interpretación de <nombre>", la tabla de captura con resultados
+  (una sola fila) y "Exportar a Excel" (el archivo lleva su nombre). El filtro de Disciplina sigue funcionando junto con la búsqueda.
+- Botón "Ver a todas" quita el filtro. Si el nombre no existe, avisa y no imprime nada vacío.

@@ -211,6 +211,8 @@ const normNom = n => String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'
 const rfKey = (aid,nombre) => `${aid}_${normNom(nombre).replace(/ /g,'')}`.slice(0,80);
 const rfResultado = (pid,aid,nombre) => { const r=(((state.met&&state.met.rufier)||{})[pid]||{})[rfKey(aid,nombre)]; return r?rfNorm(r):null; };
 const rfLista = (pid,aid) => rfResultados(pid).filter(r=>!aid||r.aid===aid).sort((a,b)=>String(b.fecha+(b.hora||'')).localeCompare(a.fecha+(a.hora||'')));
+/* búsqueda por persona (sin acentos ni mayúsculas): deja solo a quien coincida con lo escrito */
+const rfBuscar = (rs,q) => { q=normNom(q); return q?rs.filter(r=>normNom(r.nombre).includes(q)):rs; };
 const rfMios = (pid,aid) => rfLista(pid,aid).filter(r=>r.aplicaId===(session.rol==='dir'?'dir':session.profId));
 
 /* TEST DE RUFFIER-DICKSON (como lo define Metodología deportiva, Manual de consulta del profesor deportivo, 2.ª ed. 2023, págs. 8 y 9):
@@ -653,9 +655,9 @@ const mtLect = items => `<div class="card"><ul class="mt-lect">${items.map(x=>`<
 
 /* ----- Prueba de Rufier: reporte de interpretación ----- */
 const ordenRes = res => res.slice().sort((a,b)=>String(a.aid).localeCompare(String(b.aid))||a.nombre.localeCompare(b.nombre,'es'));
-function rfReporteHTML(pid,aid){
+function rfReporteHTML(pid,aid,q){
   const p=getPrueba(pid); if(!p) return '<div class="empty">No se encontró la prueba.</div>';
-  const todo=aid&&aid!=='all'?aid:null, res=rfLista(pid,todo), n=res.length;
+  const todo=aid&&aid!=='all'?aid:null, res=rfBuscar(rfLista(pid,todo),q), n=res.length;
   const params=`<div class="h2">Parámetros para interpretar</div>
     ${mtTabla([{t:'Índice'},{t:'Categoría'},{t:'Qué significa'},{t:'Qué hacer'}],RF_PARAMS.map(x=>({c:[`<b>${x[0]}</b>`,pill(x[1],RF_CAT_CLS[x[1]]),esc(x[2]),esc(x[3])]})))}
     <div class="h2">Cómo se califica (0 a 10)</div>
@@ -674,6 +676,7 @@ function rfReporteHTML(pid,aid){
       <li>Evaluación final: junta IMC, flexibilidad y Ruffier de cada persona y señala hacia dónde trabajar su condición física.</li>
       <li>Flexibilidad: se compara con la referencia en cm por sexo y edad de la tabla de captura (varones de 10 cm a los 10 años hasta 34 cm a los 90; mujeres de 14 a 37 cm).</li></ul>
       <p class="mt-p" style="font-size:10.5px">Fuente: Manual de consulta del profesor deportivo, Club Campestre Ags. Mtro. Alido Rigal Borroto, Lic. Yandi Rafael Morales Montiel (segunda edición 2023), págs. 8 y 9.</p></div>`;
+  if(!n&&String(q||'').trim()) return `<div class="empty">No se encontró a «${esc(String(q).trim())}» en esta prueba${todo?' ('+esc((getArea(todo)||{}).nombre)+')':''}. Revisa cómo está escrito el nombre o quita el filtro.</div>`;
   if(!n) return `<div class="empty">Todavía no hay personas evaluadas${todo?' en '+esc((getArea(todo)||{}).nombre):''} en esta prueba.</div>${params}`;
   const prom=mtProm(res.map(r=>r.ind)), cat=rfClasifica(prom), conteo=RF_CATS.map(c=>({c,n:res.filter(r=>rfClasifica(r.ind).t===c).length}));
   const buenos=conteo[0].n+conteo[1].n+conteo[2].n, reg=conteo[3].n, atn=conteo[4].n, pc=x=>Math.round(x/n*100);
@@ -727,11 +730,15 @@ function vMetReporte(){
     <div class="an-f no-print"><div class="an-row">
       <label class="f"><span>Aplicación</span><select id="mr_prueba">${ps.map(x=>`<option value="${esc(x.id)}"${x.id===p.id?' selected':''}>${esc(x.nombre||'Prueba de Rufier')} · ${esc(fmtCorta(x.inicio||todayStr()))}${x.fin?' al '+esc(fmtCorta(x.fin)):''}</option>`).join('')}</select></label>
       <label class="f"><span>Disciplina</span><select id="mr_area"><option value="all"${R.area==='all'?' selected':''}>Todas (en conjunto)</option>${areasP.map(a=>`<option value="${esc(a.id)}"${R.area===a.id?' selected':''}>${esc(a.nombre)}</option>`).join('')}</select></label>
-    </div><div class="btns"><button class="btn primary" data-act="mtRepPrint">${ic('doc')} Imprimir interpretación</button></div>
+    </div>
+      <div class="an-row"><label class="f" style="flex:1"><span>Buscar persona (para imprimir o exportar solo sus resultados)</span><input id="mr_q" type="search" list="mr_nombres" autocomplete="off" placeholder="Escribe el nombre…" value="${esc(R.q||'')}"></label>
+        ${R.q?`<button class="btn sm" data-act="mtRepQ0" style="align-self:flex-end">Ver a todas</button>`:''}</div>
+      <datalist id="mr_nombres">${[...new Set(rfLista(p.id,R.area==='all'?null:R.area).map(r=>r.nombre))].sort((a,b)=>a.localeCompare(b,'es')).map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+      <div class="btns"><button class="btn primary" data-act="mtRepPrint">${ic('doc')} ${R.q?'Imprimir interpretación de '+esc(String(R.q).trim()):'Imprimir interpretación'}</button></div>
       <div class="btns"><button class="btn" data-act="mtRepTabla" data-b="0">Tabla de captura con resultados</button><button class="btn" data-act="mtRepTabla" data-b="1">Tabla de captura en blanco</button></div>
       <div class="btns"><button class="btn primary" data-act="mtRepXlsx">${ic('doc')} Exportar a Excel</button></div>
       <div class="btns"><button class="btn" data-act="mtRepInfo">Hoja informativa del test</button></div></div>
-    <div class="rep-pantalla">${rfReporteHTML(p.id,R.area)}</div>`;
+    <div class="rep-pantalla">${rfReporteHTML(p.id,R.area,R.q)}</div>`;
 }
 
 /* ----- Eventos: ficha y reporte ----- */
@@ -802,10 +809,12 @@ function evReporteHTML(aids,desde,hasta){
 
 Object.assign(actions,{
   mtRep(d){ ui.mt.rep={pid:d.id,area:'all'}; render(); top0(); },
+  mtRepQ0(){ ui.mt.rep.q=''; render(); },
   mtRepVolver(){ ui.mt.rep=null; render(); top0(); },
   mtRepPrint(){
     const R=ui.mt.rep, p=getPrueba(R&&R.pid); if(!p) return;
-    imprimirDoc({titulo:'Interpretación · '+(p.nombre||'Prueba de Rufier'),sub:`${R.area==='all'?'Todas las disciplinas':(getArea(R.area)||{}).nombre} · aplicación del ${fmtCorta(p.inicio||todayStr())}${p.fin?' al '+fmtCorta(p.fin):''}`,html:rfReporteHTML(p.id,R.area)});
+    if(!rfBuscar(rfLista(p.id,R.area==='all'?null:R.area),R.q).length){ toast('No hay resultados con ese nombre'); return; }
+    imprimirDoc({titulo:'Interpretación · '+(p.nombre||'Prueba de Rufier')+(String(R.q||'').trim()?' · '+String(R.q).trim():''),sub:`${R.area==='all'?'Todas las disciplinas':(getArea(R.area)||{}).nombre} · aplicación del ${fmtCorta(p.inicio||todayStr())}${p.fin?' al '+fmtCorta(p.fin):''}`,html:rfReporteHTML(p.id,R.area,R.q)});
   },
   mtEvReporte(d){
     const r=mtRango(), aids=d.aid==='all'?areasList().map(a=>a.id):[d.aid];
@@ -817,8 +826,15 @@ Object.assign(actions,{
     imprimirDoc({titulo:'Ficha del evento · '+e.nombre,sub:`${(getArea(d.aid)||{}).nombre} · ${fmtLarga(e.fecha)}`,html:evFichaHTML(d.aid,e)});
   }
 });
+document.addEventListener('input',e=>{                           // búsqueda por persona: solo se actualiza el reporte, sin perder el cursor
+  const t=e.target; if(!t||t.id!=='mr_q'||!ui.mt||!ui.mt.rep) return;
+  const R=ui.mt.rep, p=getPrueba(R.pid); if(!p) return; R.q=t.value;
+  const box=document.querySelector('.rep-pantalla'); if(box) box.innerHTML=rfReporteHTML(p.id,R.area,R.q);
+  const pr=document.querySelector('[data-act="mtRepPrint"]'); if(pr) pr.lastChild.textContent=' '+(String(R.q).trim()?'Imprimir interpretación de '+String(R.q).trim():'Imprimir interpretación');
+});
 document.addEventListener('change',e=>{
   const t=e.target; if(!ui.mt||!ui.mt.rep) return;
+  if(t.id==='mr_q'){ ui.mt.rep.q=t.value; render(); return; }
   if(t.id==='mr_prueba'){ ui.mt.rep.pid=t.value; ui.mt.rep.area='all'; render(); }
   if(t.id==='mr_area'){ ui.mt.rep.area=t.value; render(); }
 });
@@ -970,8 +986,8 @@ document.addEventListener('input',e=>{
    · Hoja informativa: el texto del test tal como lo redactó Metodología.
    ===================================================================== */
 const RF_BIBLIO = 'Bibliografía. Manual de consulta del profesor deportivo, Club Campestre Ags. Mtro. Alido Rigal Borroto, Lic. Yandi Rafael Morales Montiel (Segunda edición 2023). (Pág. 8 y 9)';
-function rfTablaHTML(p,area,blanco){
-  const areas=(p.areas||[]).filter(a=>area==='all'||a===area).map(a=>getArea(a)).filter(Boolean);
+function rfTablaHTML(p,area,blanco,q){
+  const areas=(p.areas||[]).filter(a=>area==='all'||a===area).map(a=>getArea(a)).filter(Boolean).filter(a=>blanco||!String(q||'').trim()||rfBuscar(rfLista(p.id,a.id),q).length);
   const vacia='<td></td>'.repeat(13);
   const flexTb=(t,v)=>`<table class="fm-t rf-mini"><tr><th>${t}</th>${RF_FLEX_EDADES.map(e=>`<th>${e}</th>`).join('')}</tr><tr><td class="l">Cm.</td>${v.map(x=>`<td class="c">${x}</td>`).join('')}</tr></table>`;
   const leyenda=`<div class="rf-leyenda"><table class="fm-t rf-mini"><tr><th colspan="2">EVALUACIÓN (RUFFIER)</th></tr>${[['E','0 o menos'],['MB','0.1 a 5'],['B','5.1 a 10'],['R','10.1 a 15'],['M','+ DE 15']].map(([k,v])=>`<tr><td class="c b">${k}</td><td class="c">${v}</td></tr>`).join('')}</table>
@@ -979,7 +995,7 @@ function rfTablaHTML(p,area,blanco){
     <table class="fm-t rf-mini"><tr><th>PTS</th><th>CALIFICACIÓN</th></tr>${RF_CALIF_TABLA.map(x=>`<tr><td class="c b">${x[0]}</td><td class="c">${x[1].toLowerCase()}</td></tr>`).join('')}</table>
     <div class="rf-lado"><div class="rf-dep"><b>FÓRMULAS:</b> Ruffier = (P0 + P1 + P2) − 200 ÷ 10 · IMC = peso (kg) ÷ talla (m)²</div>${flexTb('FLEX. VARONES',RF_FLEX.M)}${flexTb('FLEX. MUJERES',RF_FLEX.F)}</div></div>`;
   return areas.map((a,ix)=>{
-    const rs=blanco?[]:rfLista(p.id,a.id).slice().sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre),'es')), n=Math.max(blanco?20:12,rs.length);
+    const rs=blanco?[]:rfBuscar(rfLista(p.id,a.id),q).slice().sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre),'es')), n=String(q||'').trim()&&!blanco?rs.length:Math.max(blanco?20:12,rs.length);
     const filas=Array.from({length:n},(_,i)=>{ const r=rs[i];
       if(!r) return `<tr><td class="c">${i+1}</td>${vacia}</tr>`;
       const c=rfClasifica(r.ind), im=rfImc(r.peso,r.talla), fx=rfFlexEval(r), f=rfFinal(r);
@@ -990,9 +1006,10 @@ function rfTablaHTML(p,area,blanco){
   }).join('');
 }
 /* ---------- exportar a Excel (con formato) ---------- */
-function rfExcel(p,area){
-  const areas=(p.areas||[]).filter(a=>area==='all'||a===area).map(a=>getArea(a)).filter(Boolean);
-  const periodo=`Aplicación del ${fmtCorta(p.inicio||todayStr())}${p.fin?' al '+fmtCorta(p.fin):''}`;
+function rfExcel(p,area,q){
+  const L=a=>rfBuscar(rfLista(p.id,a.id),q), hayQ=!!String(q||'').trim();
+  const areas=(p.areas||[]).filter(a=>area==='all'||a===area).map(a=>getArea(a)).filter(Boolean).filter(a=>!hayQ||L(a).length);
+  const periodo=`${hayQ?'Persona: '+String(q).trim()+' · ':''}Aplicación del ${fmtCorta(p.inicio||todayStr())}${p.fin?' al '+fmtCorta(p.fin):''}`;
   const ENC=['#','Nombres y apellidos','Sexo','Edad','Talla (cm)','Peso (kg)','IMC','Eval. IMC','Flexibilidad (cm)','Referencia (cm)','Diferencia (cm)','Eval. flexibilidad','P0 reposo (ppm)','P1 después de la actividad (ppm)','P2 a un minuto (ppm)','Índice Ruffier','Eval. Ruffier','Puntos IMC','Puntos flexibilidad','Puntos Ruffier','Calificación final (0–10)','Nivel','Interpretación y recomendación'];
   const ANCH=[5,30,7,7,10,10,8,16,13,12,12,16,11,15,13,10,17,10,12,10,14,14,70];
   const hojaCaptura=(nombre,titulo,rs,conArea)=>{
@@ -1021,7 +1038,7 @@ function rfExcel(p,area){
   };
   const hojas=[];
   /* Resumen */
-  const todos=areas.flatMap(a=>rfLista(p.id,a.id)), nT=todos.length;
+  const todos=areas.flatMap(a=>L(a)), nT=todos.length;
   const cnt=(arr,f)=>arr.filter(f).length;
   const resumen=[[{v:'Test de Ruffier – Dickson · Resumen',s:'titulo'}],[{v:`${periodo} · ${area==='all'?'Todas las disciplinas':(getArea(area)||{}).nombre}`,s:'nota'}],[],
     [{v:'Disciplina',s:'enc'},{v:'Evaluados',s:'enc'},{v:'Índice promedio',s:'enc'},{v:'E',s:'enc'},{v:'MB',s:'enc'},{v:'B',s:'enc'},{v:'R',s:'enc'},{v:'M',s:'enc'},{v:'IMC promedio',s:'enc'},{v:'Con sobrepeso u obesidad',s:'enc'},{v:'Flexibilidad: cumplen',s:'enc'},{v:'Calificación promedio (0–10)',s:'enc'},{v:'Requieren atención',s:'enc'}]];
@@ -1031,7 +1048,7 @@ function rfExcel(p,area){
       ...['E','MB','B','R','M'].map(k=>({v:cnt(rs,r=>rfClasifica(r.ind).k===k),s:s||'ent'})),
       ims.length?{v:Math.round(mtProm(ims.map(i=>i.v))*10)/10,s:s||'num1'}:{v:'',s:s||'ctr'},{v:cnt(ims,i=>['SP','OL','OM2','OM'].includes(i.k)),s:s||'ent'},
       {v:fxs.length?`${cnt(fxs,f=>f.ok)} de ${fxs.length}`:'',s:s||'ctr'},fin.length?{v:Math.round(mtProm(fin.map(f=>f.cal.v))*10)/10,s:s||'num1'}:{v:'',s:s||'ctr'},{v:cnt(fin,f=>f.nc==='bad'),s:s||'ent'}]; };
-  areas.forEach(a=>{ const rs=rfLista(p.id,a.id); if(rs.length) resumen.push(filaRes(a.nombre,rs)); });
+  areas.forEach(a=>{ const rs=L(a); if(rs.length) resumen.push(filaRes(a.nombre,rs)); });
   if(nT&&areas.length>1) resumen.push(filaRes('TOTAL',todos,'tot'));
   resumen.push([],[{v:'Hacia dónde trabajar (veces que se repite)',s:'sub'}]);
   const cuenta={}; todos.map(rfFinal).forEach(f=>f.cortos.filter(k=>!/mantener/.test(k)).forEach(kk=>{ cuenta[kk]=(cuenta[kk]||0)+1; }));
@@ -1039,7 +1056,7 @@ function rfExcel(p,area){
   if(!Object.keys(cuenta).length) resumen.push([{v:'Todavía no hay personas evaluadas.',s:'nota'}]);
   hojas.push({nombre:'Resumen',cols:[28,11,11,6,6,6,6,6,11,15,15,15,13],filas:resumen,combinar:['A1:M1','A2:M2'],congelar:null});
   if(areas.length>1) hojas.push(hojaCaptura('Todas las disciplinas','Test de Ruffier – Dickson · Todas las disciplinas',ordenRes(todos),true));
-  areas.forEach(a=>hojas.push(hojaCaptura(a.nombre,'Test de Ruffier – Dickson · '+a.nombre,rfLista(p.id,a.id).slice().sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre),'es')),false)));
+  areas.forEach(a=>hojas.push(hojaCaptura(a.nombre,'Test de Ruffier – Dickson · '+a.nombre,L(a).slice().sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre),'es')),false)));
   /* Ponderaciones */
   const pon=[[{v:'Ponderaciones y fórmulas',s:'titulo'}],[],
     [{v:'Índice de Ruffier = (P0 + P1 + P2) − 200 ÷ 10',s:'sub'}],
@@ -1084,13 +1101,13 @@ function rfInfoHTML(){
 Object.assign(actions,{
   mtRepTabla(d){
     const R=ui.mt.rep, p=getPrueba(R&&R.pid); if(!p) return;
-    imprimirFormato({titulo:'TEST DE RUFFIER – DICKSON DEPORTES: TABLA DE CAPTURA',cuerpo:rfTablaHTML(p,R.area,d.b==='1'),notas:[esc(RF_BIBLIO)]});
+    imprimirFormato({titulo:'TEST DE RUFFIER – DICKSON DEPORTES: TABLA DE CAPTURA',cuerpo:rfTablaHTML(p,R.area,d.b==='1',R.q),notas:[esc(RF_BIBLIO)]});
   },
   mtRepXlsx(){
     const R=ui.mt.rep, p=getPrueba(R&&R.pid); if(!p) return;
-    if(!rfLista(p.id,R.area==='all'?null:R.area).length){ toast('Todavía no hay personas evaluadas para exportar'); return; }
-    const nom=R.area==='all'?'todas':normNom((getArea(R.area)||{}).nombre).replace(/ /g,'-');
-    try{ xlsxDescargar(`ruffier-${nom}-${todayStr()}.xlsx`,rfExcel(p,R.area)); toast('Excel descargado'); }catch(e){ console.error(e); toast('No se pudo crear el Excel'); }
+    if(!rfBuscar(rfLista(p.id,R.area==='all'?null:R.area),R.q).length){ toast(String(R.q||'').trim()?'No hay resultados con ese nombre':'Todavía no hay personas evaluadas para exportar'); return; }
+    const nom=(R.area==='all'?'todas':normNom((getArea(R.area)||{}).nombre).replace(/ /g,'-'))+(String(R.q||'').trim()?'-'+normNom(R.q).replace(/ /g,'-'):'');
+    try{ xlsxDescargar(`ruffier-${nom}-${todayStr()}.xlsx`,rfExcel(p,R.area,R.q)); toast('Excel descargado'); }catch(e){ console.error(e); toast('No se pudo crear el Excel'); }
   },
   mtRepInfo(){ imprimirFormato({titulo:'Test de Ruffier – Dickson',vertical:true,cuerpo:rfInfoHTML()}); }
 });
