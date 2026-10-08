@@ -1,0 +1,16 @@
+PARCHE 6 - Control Gerencia: reportes que manda Mantenimiento
+=============================================================
+Requiere tener puesto el parche 5 (service worker gd-v74). Este deja gd-v75.
+
+Sube al repositorio control-gerencia-deportes (reemplazando):
+  index.html
+  sw.js
+  css/mantenimiento.css
+  js/mantenimiento.js
+
+Qué hace
+- En la pestaña Mantenimiento de Gerencia aparece "Reportes de Mantenimiento": los reportes que el técnico envía desde
+  Control Mantenimiento (por ejemplo "Reporte diario de mantenimiento"). Se toca uno, se abre con el membrete de Campestre y
+  se imprime o se guarda en PDF desde ahí. Se muestran los 4 más recientes y un botón para ver todos (hasta 30).
+- Es solo lectura. Para que lleguen, en Control Mantenimiento hay que subir su parche y publicar las reglas de Firebase nuevas
+  (reglas-firebase.txt: agrega "informes").

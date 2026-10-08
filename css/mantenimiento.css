@@ -132,3 +132,19 @@
 #mp-qr-ov .mp-qr-guia{position:absolute;left:50%;top:42%;width:62vmin;height:62vmin;transform:translate(-50%,-50%);border:3px solid #5eff9f;border-radius:20px;box-shadow:0 0 0 100vmax rgba(0,0,0,.45);pointer-events:none}
 #mp-qr-ov .mp-qr-pie{position:absolute;left:0;right:0;bottom:0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,rgba(0,0,0,.85));text-align:center;color:#fff;font:600 14px 'Outfit',sans-serif}
 #mp-qr-ov button{margin-top:12px;padding:12px 26px;border-radius:12px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;font:700 15px 'Outfit',sans-serif}
+
+/* ---------- reportes que manda Mantenimiento (lista y hoja impresa) ---------- */
+.mantv .mn-infs{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin:8px 0 10px}
+.mantv .mn-inf{display:flex;align-items:center;gap:12px;text-align:left;width:100%;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px;box-shadow:var(--sh);transition:transform .12s}
+.mantv .mn-inf:hover{transform:translateY(-2px)}
+.mantv .mn-inf-i{flex:none;width:38px;height:38px;border-radius:12px;background:var(--g-l);color:var(--g-d);display:grid;place-items:center}
+.mantv .mn-mnt-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.mantv .mn-mnt-t b{font-size:15px}
+.mantv .mn-mnt-t small{color:var(--mut);font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
+.mantv .mn-inf .go{flex:none;color:var(--mut)}
+.doc-c .doc-tabla.mnt-t{table-layout:fixed;font-size:8.6px}
+.doc-c .doc-tabla.mnt-t th{font-size:7.6px;padding:4px;letter-spacing:.02em}
+.doc-c .doc-tabla.mnt-t td{padding:4px;vertical-align:top;overflow-wrap:anywhere}
+.doc-c .doc-tabla.mnt-t small{display:block;font-size:7.8px;color:#5b6f78;margin-top:1px}
+.doc-c .doc-tabla.mnt-t thead{display:table-header-group}
+.doc-c td.s-rojo{border-left:4px solid #c62d22}.doc-c td.s-amar{border-left:4px solid #e0a100}.doc-c td.s-verde{border-left:4px solid #0f9d74}

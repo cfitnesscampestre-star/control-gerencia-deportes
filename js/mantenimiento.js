@@ -23,6 +23,7 @@ const MANT_CACHE = 'gd_mant_cache_v1';
 const MANT_URG = { normal:'Normal', urgente:'Urgente', fuera:'No se puede usar' };
 const MT_SEG = 6, MT_ESPERA = 15;                    // carrusel: segundos por reporte y espera después de tocarlo
 let mantRaw = { salones:null, equipos:null, reportes:null, preventivo:null, historial:null }, mantMeta = { estado:'sin', msg:'' }, mantT = null, mantDb = null;
+let mantInformes = {};                               // reportes que Mantenimiento mandó a Gerencia (no se guardan en el caché)
 const MFOT = {};                                     // fotos ya pedidas: MFOT[idReporte] = {antes,despues}
 const mnUi = { estado:null, urg:null, urgAbre:false, per:{t:'pend'}, area:'todas', reset:false,
   pausa:!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches) };
@@ -45,6 +46,7 @@ function mantConectar(db){
       mantT=setTimeout(()=>{ try{ localStorage.setItem(MANT_CACHE,JSON.stringify({ts:Date.now(),raw:mantRaw})); }catch(e){} safeRender(); },250);
     },err=>{ mantMeta={estado:'error',msg:(err&&err.message)||String(err)}; safeRender(); });
   });
+  db.ref('informes').limitToLast(30).on('value',snap=>{ mantInformes=snap.val()||{}; clearTimeout(mantT); mantT=setTimeout(safeRender,250); },()=>{});
   db.ref('historial').limitToLast(200).on('value',snap=>{            // reportes que el entrenador ya cerró (para contar los atendidos)
     mantRaw.historial=snap.val()||{}; clearTimeout(mantT);
     mantT=setTimeout(()=>{ try{ localStorage.setItem(MANT_CACHE,JSON.stringify({ts:Date.now(),raw:mantRaw})); }catch(e){} safeRender(); },250);
@@ -219,7 +221,37 @@ function vMantGerencia(){
   const as=areasList().filter(a=>mantAplica(a.id));
   if(mnUi.area!=='todas'&&!as.some(a=>a.id===mnUi.area)) mnUi.area='todas';
   const chips=as.length>1?`<div class="chips"><button class="chip${mnUi.area==='todas'?' on':''}" data-act="mnArea" data-v="todas">Todas las áreas</button>${as.map(a=>`<button class="chip${mnUi.area===a.id?' on':''}" data-act="mnArea" data-v="${esc(a.id)}">${esc(a.nombre)}</button>`).join('')}</div>`:'';
-  return `<div class="mantv">${chips}${vMantPantalla(null)}</div>`;
+  return `<div class="mantv">${mnInformesHTML()}${chips}${vMantPantalla(null)}</div>`;
+}
+
+/* ---------- reportes que manda Mantenimiento (informes) ----------
+   Mantenimiento los arma y los envía ya terminados (títulos, indicadores y tablas en texto);
+   aquí solo se leen y se imprimen con el membrete, igual que los demás reportes de Gerencia. */
+const mnArrI = v => Array.isArray(v) ? v : v ? Object.values(v) : [];
+const mnInfLista = () => Object.keys(mantInformes||{}).map(id=>Object.assign({id},mantInformes[id])).sort((a,b)=>(b.creado||0)-(a.creado||0));
+function mnInfCelda(s){ const p=String(s==null?'':s).split('\n'); return esc(p[0])+p.slice(1).map(x=>`<br><small>${esc(x)}</small>`).join(''); }
+function mnInfSec(s){
+  const filas=mnArrI(s.filas), cols=mnArrI(s.cols), sem=mnArrI(s.sem);
+  if(!filas.length) return `<div class="h2 sm">${esc(s.t)} (0)</div><div class="empty">No hay registros.</div>`;
+  return `<div class="h2 sm">${esc(s.t)} (${filas.length})</div><table class="doc-tabla mnt-t"><colgroup>${cols.map(c=>`<col style="width:${+c.w||10}%">`).join('')}</colgroup>
+    <thead><tr>${cols.map(c=>`<th${c.n?' class="n"':''}>${esc(c.t)}</th>`).join('')}</tr></thead><tbody>${filas.map((f,i)=>`<tr>${mnArrI(f).map((v,j)=>`<td class="${j===0&&sem[i]?'s-'+esc(sem[i]):''}${cols[j]&&cols[j].n?' n':''}">${mnInfCelda(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+function mnInfCuerpo(x){
+  const k=mnArrI(x.kpis).map(mnArrI);
+  return (k.length?`<div class="kpis">${k.map(a=>`<div class="kpi" style="--kc:var(--g)"><span class="k-l">${esc(a[0])}</span><b>${esc(a[1])}</b>${a[2]?`<em class="k-c">${esc(a[2])}</em>`:''}</div>`).join('')}</div>`:'')+
+    mnArrI(x.secs).map(mnInfSec).join('')+(x.nota?`<p class="an-nota">${esc(x.nota)}</p>`:'')+
+    '<div class="doc-firmas"><div>Mantenimiento</div><div>Gerencia deportiva</div></div>';
+}
+function mnInformesHTML(){
+  const l=mnInfLista(); if(!l.length) return '';
+  const ver=mnUi.infTodos?l:l.slice(0,4), fh=ts=>new Date(ts).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}).replace('.','');
+  return `<div class="h2 sm">Reportes de Mantenimiento</div><div class="sub" style="margin-top:-2px">Los que manda el técnico desde Control Mantenimiento. Ábrelos para verlos e imprimirlos.</div>
+    <div class="mn-infs">${ver.map(x=>`<button class="mn-inf" data-act="mnInfAbre" data-id="${esc(x.id)}"><span class="mn-inf-i">${ic('doc')}</span><span class="mn-mnt-t"><b>${esc(x.titulo||'Reporte')}</b><small>${esc(fh(x.creado||0))}${x.por?' · '+esc(x.por):''} · ${plu(+x.n||0,'renglón','renglones')}</small>${x.sub?`<small>${esc(x.sub)}</small>`:''}</span><span class="go">${ic('next')}</span></button>`).join('')}</div>
+    ${l.length>4?`<button class="btn sm" data-act="mnInfTodos">${mnUi.infTodos?'Ver solo los recientes':`Ver los ${l.length} reportes`}</button>`:''}`;
+}
+function mnInfImprime(id){
+  const x=mantInformes[id]; if(!x) return;
+  imprimirDoc({titulo:x.titulo||'Reporte de mantenimiento', sub:x.sub||'', html:mnInfCuerpo(x)});
 }
 
 /* ---------- detalle de un reporte (solo lectura) ---------- */
@@ -307,6 +339,8 @@ Object.assign(actions,{
   mnUrg(d){ mnUi.urg=mnUi.urg===d.v?null:d.v; mnUi.reset=true; render(); },
   mnPausa(){ mnUi.pausa=!mnUi.pausa; render(); },
   mnCarr(d){ mnUlt=Date.now(); const c=mnCar(); if(c) c.scrollBy({left:(+d.v)*c.clientWidth*0.9,behavior:'smooth'}); },
+  mnInfAbre(d){ mnInfImprime(d.id); },
+  mnInfTodos(){ mnUi.infTodos=!mnUi.infTodos; render(); },
   mnArea(d){ mnUi.area=d.v; mnUi.reset=true; render(); },
   mnCal(){ mnSheetId=null; openModal(mnCalendario()); },
   mnPer(d){ mnUi.per={t:d.v}; mnUi.estado=null; mnUi.reset=true; closeModal(); render(); },
