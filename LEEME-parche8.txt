@@ -1,0 +1,21 @@
+PARCHE 8 - Control Gerencia: calificación (0 a 10) de la prueba de Ruffier = IMC + flexibilidad + Ruffier
+=========================================================================================================
+Requiere el parche 7 (js/xlsx.js ya puesto). Este deja el service worker en gd-v78.
+Sube (reemplazando): index.html, sw.js, js/metodologia.js   (js/xlsx.js va incluido por si no lo habías subido)
+
+CÓMO SE CALIFICA
+Cada prueba da puntos según su nivel: 10 excelente · 8 muy buena · 7 buena · 6 regular · 5 deficiente (por debajo de regular).
+  Ruffier     E=10 · MB=8 · B=7 · R=6 · M=5
+  IMC         peso normal=10 · sobrepeso=8 · peso bajo=7 · obesidad leve=6 · obesidad media o mórbida=5
+  Flexibilidad  según los cm contra la referencia de su sexo y edad: 110% o más=10 · 100-109%=8 · 85-99%=7 · 70-84%=6 · menos de 70%=5
+Calificación final = promedio de las tres (si falta una prueba se promedia con las que hay y se marca "parcial").
+  9 a 10 excelente · 8 a 8.9 muy buena · 7 a 7.9 buena · 6 a 6.9 regular · menos de 6 deficiente.
+Los valores están juntos en js/metodologia.js (RF_PTS_IMC, RF_PTS_RUF, rfPtsFlex, RF_NIV_FINAL, RF_CALIF_TABLA) por si
+Metodología quiere ajustarlos.
+
+DÓNDE SALE
+- Reporte de interpretación: columna Calif. en el detalle, tabla "Evaluación final" con puntos de cada prueba + calificación,
+  tabla "Cómo se califica" en los parámetros y la calificación promedio en la lectura.
+- Tabla de captura impresa: columna "Calificación final (0-10)" con la nota, el nivel y hacia dónde trabajar, y la leyenda de puntos.
+- Excel: columnas Puntos IMC / flexibilidad / Ruffier, Calificación final y Nivel; Resumen con calificación promedio;
+  hoja Ponderaciones con la tabla de cómo se califica.

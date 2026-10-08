@@ -243,6 +243,76 @@ function rfFlexEval(r){                                        // {ref, dif, ok}
   const ref=rfFlexRef(r.sexo,+r.edad); if(ref==null) return null;
   const dif=Math.round((+r.flex-ref)*10)/10; return {ref,dif,ok:dif>=0};
 }
+/* Índice de masa corporal (tabla de captura de Metodología): IMC = peso (kg) ÷ talla (m)².
+   La tabla trae "menor a 18.9" y "18.50 a 24.99" encimados; se usa 18.5 como corte del peso normal. */
+const RF_IMC = [
+  {min:40,  t:'Obesidad mórbida', k:'OM', c:'bad',  r:'Mayor a 40.0'},
+  {min:35,  t:'Obesidad media',   k:'OM2',c:'bad',  r:'35.00 a 39.99'},
+  {min:30,  t:'Obesidad leve',    k:'OL', c:'warn', r:'30.00 a 34.99'},
+  {min:25,  t:'Sobrepeso',        k:'SP', c:'warn', r:'25.00 a 29.99'},
+  {min:18.5,t:'Peso normal',      k:'N',  c:'ok',   r:'18.50 a 24.99'},
+  {min:0,   t:'Peso bajo',        k:'PB', c:'info', r:'Menor a 18.5'}
+];
+function rfImc(peso,talla){                                     // {v, t, c} o null si falta peso o talla
+  peso=+peso; talla=+talla; if(!(peso>0&&talla>0)) return null;
+  const m=talla>3?talla/100:talla, v=peso/(m*m), cat=RF_IMC.find(x=>v>=x.min)||RF_IMC[RF_IMC.length-1];
+  return {v:Math.round(v*10)/10, t:cat.t, c:cat.c, k:cat.k};
+}
+/* CALIFICACIÓN (0 a 10) — cada prueba da puntos según su nivel y la calificación final es el promedio de las tres:
+     10 = excelente · 8 = muy buena · 7 = buena · 6 = regular  (por debajo de regular: 5 = deficiente)
+   Ruffier: E=10 · MB=8 · B=7 · R=6 · M=5.
+   IMC: peso normal=10 · sobrepeso=8 · peso bajo=7 · obesidad leve=6 · obesidad media o mórbida=5.
+   Flexibilidad (centímetros contra la referencia de su sexo y edad): 110% o más=10 · 100 a 109%=8 · 85 a 99%=7 · 70 a 84%=6 · menos de 70%=5.
+   Si falta una prueba (por ejemplo no se midió la flexibilidad), el promedio se hace con las que sí hay y se marca como parcial.
+   Calificación final: 9 a 10 excelente · 8 a 8.9 muy buena · 7 a 7.9 buena · 6 a 6.9 regular · menos de 6 deficiente. */
+const RF_PTS_NIVEL = {10:['Excelente','ok'],8:['Muy buena','ok'],7:['Buena','info'],6:['Regular','warn'],5:['Deficiente','bad']};
+const RF_PTS_IMC = {N:10,SP:8,PB:7,OL:6,OM2:5,OM:5};
+const RF_PTS_RUF = {E:10,MB:8,B:7,R:6,M:5};
+const RF_NIV_FINAL = [[9,'Excelente','ok'],[8,'Muy buena','ok'],[7,'Buena','info'],[6,'Regular','warn'],[0,'Deficiente','bad']];
+function rfPtsFlex(r){ const fx=rfFlexEval(r); if(!fx) return null; const pc=fx.ref>0?(+r.flex/fx.ref*100):100; return pc>=110?10:pc>=100?8:pc>=85?7:pc>=70?6:5; }
+function rfCalif(r){
+  const im=rfImc(r.peso,r.talla), c=rfClasifica(r.ind), pi=im?RF_PTS_IMC[im.k]:null, pf=rfPtsFlex(r), pr=RF_PTS_RUF[c.k];
+  const a=[pi,pf,pr].filter(x=>x!=null), v=Math.round(a.reduce((x,y)=>x+y,0)/a.length*10)/10, n=RF_NIV_FINAL.find(x=>v>=x[0]);
+  return {pi,pf,pr,v,t:n[1],c:n[2],n:a.length,parcial:a.length<3};
+}
+/* Evaluación final: junta IMC + flexibilidad + Ruffier y dice hacia dónde trabajar la condición física. */
+function rfFinal(r){
+  const im=rfImc(r.peso,r.talla), fx=rfFlexEval(r), c=rfClasifica(r.ind), tr=[], cortos=[], fo=[], av=[];
+  if(im){
+    if(im.k==='N') fo.push('peso adecuado para su talla');
+    else if(im.k==='PB'){ tr.push('peso bajo: ganar masa muscular con apoyo de nutrición y fuerza progresiva'); cortos.push('Peso'); }
+    else if(im.k==='SP'){ tr.push('sobrepeso: control de peso con ejercicio aeróbico regular y cuidado de la alimentación'); cortos.push('Peso'); }
+    else if(im.k==='OL'){ tr.push('obesidad leve: plan de reducción de peso con ejercicio aeróbico de bajo impacto y orientación nutricional'); cortos.push('Peso'); }
+    else { tr.push('obesidad '+(im.k==='OM'?'mórbida':'media')+': orientación nutricional y valoración médica; ejercicio de bajo impacto y progresivo'); cortos.push('Peso'); av.push('IMC muy elevado'); }
+  }
+  if(fx){
+    if(fx.ok) fo.push('flexibilidad en o sobre la referencia');
+    else { tr.push(`flexibilidad ${Math.abs(fx.dif)} cm por debajo de la referencia: estiramientos diarios y movilidad`); cortos.push('Flexibilidad'); }
+  }
+  if(c.k==='E'||c.k==='MB') fo.push('resistencia cardiovascular '+(c.k==='E'?'excelente':'muy buena'));
+  else if(c.k==='B'){ fo.push('resistencia cardiovascular buena'); tr.push('seguir con trabajo aeróbico progresivo para pasar de buena a muy buena'); cortos.push('Resistencia (mantener)'); }
+  else if(c.k==='R'){ tr.push('resistencia cardiovascular baja: acondicionamiento aeróbico gradual y reevaluar'); cortos.push('Resistencia'); }
+  else { tr.push('resistencia cardiovascular mala: evitar cargas intensas, consultar al médico y empezar con aeróbico suave'); cortos.push('Resistencia'); av.push('índice Ruffier mayor a 15'); }
+  if(r.p0>100) av.push('pulso en reposo arriba de 100 ppm');
+  const falta=[!im&&'talla y peso',!fx&&'flexibilidad (o sexo y edad)'].filter(Boolean);
+  const urgente = av.length>0, aMejorar = tr.filter(x=>!/^seguir con trabajo aeróbico/.test(x)).length;
+  const nivel = urgente?'Requiere atención':aMejorar===0?'Favorable':aMejorar===1?'Un área por mejorar':'Varias áreas por mejorar';
+  const nc = urgente?'bad':aMejorar===0?'ok':aMejorar===1?'info':'warn';
+  const txt = (tr.length?'Trabajar: '+tr.join('; ')+'.':'Sin áreas prioritarias: mantener y progresar.')
+    + (fo.length?' Fortalezas: '+fo.join('; ')+'.':'')
+    + (av.length?' Atención: '+av.join('; ')+' (se sugiere valoración médica).':'')
+    + (falta.length?' Faltan datos: '+falta.join(' y ')+'.':'');
+  const cal=rfCalif(r);
+  return {txt,tr,cortos,fo,av,nivel,nc,im,fx,c,cal};
+}
+const RF_CALIF_TABLA = [   // puntos, nivel, IMC, flexibilidad (% de la referencia), Ruffier
+  [10,'Excelente','Peso normal','110% o más','E · índice 0 o menos'],
+  [8,'Muy buena','Sobrepeso','100% a 109%','MB · 0.1 a 5'],
+  [7,'Buena','Peso bajo','85% a 99%','B · 5.1 a 10'],
+  [6,'Regular','Obesidad leve','70% a 84%','R · 10.1 a 15'],
+  [5,'Deficiente','Obesidad media o mórbida','Menos de 70%','M · más de 15']
+];
+const RF_CALIF_NOTA = 'La calificación final (0 a 10) es el promedio de los puntos de IMC, flexibilidad y Ruffier: 9 a 10 excelente · 8 a 8.9 muy buena · 7 a 7.9 buena · 6 a 6.9 regular · menos de 6 deficiente. Si falta alguna prueba, se promedia con las que sí se hicieron y se marca como parcial.';
 const rfRef = [['0 o menos','Excelente (E)'],['0.1 a 5','Muy buena (MB)'],['5.1 a 10','Buena (B)'],['10.1 a 15','Regular (R)'],['Más de 15','Mala (M)']];
 
 /* ---------- pestaña Pruebas (metodólogo) ---------- */
@@ -582,16 +652,26 @@ const mtTabla = (cols,filas,o) => `<table class="doc-tabla"><thead><tr>${cols.ma
 const mtLect = items => `<div class="card"><ul class="mt-lect">${items.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
 
 /* ----- Prueba de Rufier: reporte de interpretación ----- */
+const ordenRes = res => res.slice().sort((a,b)=>String(a.aid).localeCompare(String(b.aid))||a.nombre.localeCompare(b.nombre,'es'));
 function rfReporteHTML(pid,aid){
   const p=getPrueba(pid); if(!p) return '<div class="empty">No se encontró la prueba.</div>';
   const todo=aid&&aid!=='all'?aid:null, res=rfLista(pid,todo), n=res.length;
   const params=`<div class="h2">Parámetros para interpretar</div>
     ${mtTabla([{t:'Índice'},{t:'Categoría'},{t:'Qué significa'},{t:'Qué hacer'}],RF_PARAMS.map(x=>({c:[`<b>${x[0]}</b>`,pill(x[1],RF_CAT_CLS[x[1]]),esc(x[2]),esc(x[3])]})))}
+    <div class="h2">Cómo se califica (0 a 10)</div>
+    ${mtTabla([{t:'Puntos',n:1},{t:'Nivel'},{t:'IMC'},{t:'Flexibilidad (% de la referencia)'},{t:'Ruffier'}],RF_CALIF_TABLA.map(x=>({c:[`<b>${x[0]}</b>`,pill(x[1],RF_PTS_NIVEL[x[0]][1]),esc(x[2]),esc(x[3]),esc(x[4])]})))}
+    <p class="mt-p">${esc(RF_CALIF_NOTA)}</p>
+    <div class="h2">Ponderación del índice de masa corporal (IMC)</div>
+    ${mtTabla([{t:'IMC'},{t:'Evaluación'}],RF_IMC.slice().reverse().map(x=>({c:[`<b>${x.r}</b>`,pill(x.t,x.c)]})))}
+    <div class="h2">Flexibilidad: referencia en cm por edad</div>
+    ${mtTabla([{t:'Edad (años)'},...RF_FLEX_EDADES.map(e=>({t:String(e),n:1}))],[{c:['<b>Varones</b>',...RF_FLEX.M]},{c:['<b>Mujeres</b>',...RF_FLEX.F]}])}
     <div class="card"><b>Cómo se calcula</b><p class="mt-p">Índice de Ruffier-Dickson = ((P0 + P1 + P2) − 200) ÷ 10. P0 son las pulsaciones por minuto (ppm) en reposo, P1 las ppm al finalizar 30 flexiones y extensiones profundas de piernas en 45 segundos y P2 las ppm transcurrido un minuto de acabadas las flexiones. Entre más bajo el índice, mejor la condición. Claves de la tabla de captura: E excelente · MB muy buena · B buena · R regular · M mala.</p>
       <b>Para leerlo bien</b><ul class="mt-lect"><li>Es una prueba de tamizaje de la resistencia cardiovascular: orienta, no diagnostica.</li>
       <li>Los rangos son de referencia para adultos. En niños y adolescentes conviene comparar contra su propio grupo y contra su resultado anterior.</li>
       <li>Lo más útil es repetir la prueba en las mismas condiciones y comparar a la misma persona con el tiempo.</li>
       <li>Un pulso en reposo (P0) arriba de 100 ppm se marca para revisión (criterio adicional del sistema).</li>
+      <li>IMC = peso (kg) ÷ talla (m)². Es un indicador general: no distingue músculo de grasa, así que en deportistas con mucha masa muscular puede salir alto.</li>
+      <li>Evaluación final: junta IMC, flexibilidad y Ruffier de cada persona y señala hacia dónde trabajar su condición física.</li>
       <li>Flexibilidad: se compara con la referencia en cm por sexo y edad de la tabla de captura (varones de 10 cm a los 10 años hasta 34 cm a los 90; mujeres de 14 a 37 cm).</li></ul>
       <p class="mt-p" style="font-size:10.5px">Fuente: Manual de consulta del profesor deportivo, Club Campestre Ags. Mtro. Alido Rigal Borroto, Lic. Yandi Rafael Morales Montiel (segunda edición 2023), págs. 8 y 9.</p></div>`;
   if(!n) return `<div class="empty">Todavía no hay personas evaluadas${todo?' en '+esc((getArea(todo)||{}).nombre):''} en esta prueba.</div>${params}`;
@@ -604,6 +684,13 @@ function rfReporteHTML(pid,aid){
   const lect=[`De <b>${plu(n,'persona evaluada','personas evaluadas')}</b>, el índice promedio es <b>${mtR1(prom).toFixed(1)}</b> (${esc(cat.t.toLowerCase())}).`,
     `<b>${pc(buenos)}%</b> tiene condición buena o mejor (E, MB o B), <b>${pc(reg)}%</b> regular (R) y <b>${pc(atn)}%</b> mala (M)${atn?': se sugiere consultar':''}.`];
   if(conFlex.length) lect.push(`Flexibilidad: <b>${Math.round(flexOk/conFlex.length*100)}%</b> de las ${conFlex.length} personas medidas está en o sobre la referencia para su sexo y edad.`);
+  const conImc=res.map(r=>rfImc(r.peso,r.talla)).filter(Boolean);
+  if(conImc.length){ const sp=conImc.filter(i=>['SP','OL','OM2','OM'].includes(i.k)).length, pb=conImc.filter(i=>i.k==='PB').length, nr=conImc.filter(i=>i.k==='N').length;
+    lect.push(`IMC (${plu(conImc.length,'persona medida','personas medidas')}): promedio <b>${mtR1(mtProm(conImc.map(i=>i.v))).toFixed(1)}</b>; <b>${Math.round(nr/conImc.length*100)}%</b> en peso normal, <b>${Math.round(sp/conImc.length*100)}%</b> con sobrepeso u obesidad${pb?` y <b>${Math.round(pb/conImc.length*100)}%</b> con peso bajo`:''}.`); }
+  const finales=res.map(r=>rfFinal(r)), nAt=finales.filter(f=>f.nc==='bad').length, nFav=finales.filter(f=>f.nc==='ok').length;
+  const cuenta={}; finales.forEach(f=>f.cortos.filter(k=>!/mantener/.test(k)).forEach(kk=>{ cuenta[kk]=(cuenta[kk]||0)+1; }));
+  const prio=Object.entries(cuenta).sort((a,b)=>b[1]-a[1]).filter(x=>x[1]>0);
+  if(prio.length) lect.push(`Hacia dónde trabajar: lo que más se repite es <b>${esc(prio[0][0].toLowerCase())}</b> (${plu(prio[0][1],'persona','personas')})${prio[1]?`, seguido de <b>${esc(prio[1][0].toLowerCase())}</b> (${prio[1][1]})`:''}${prio[2]?` y <b>${esc(prio[2][0].toLowerCase())}</b> (${prio[2][1]})`:''}. Calificación promedio: <b>${mtR1(mtProm(finales.map(f=>f.cal.v))).toFixed(1)} de 10</b> (${esc(RF_NIV_FINAL.find(x=>mtProm(finales.map(f=>f.cal.v))>=x[0])[1].toLowerCase())})${nAt?`; requieren atención: <b>${nAt}</b>`:''}.`);
   if(areas.length>1){ const o=areas.map(x=>({n:(getArea(x.a)||{}).nombre,v:mtProm(x.r.map(y=>y.ind))})).sort((a,b)=>a.v-b.v); lect.push(`Mejor promedio: <b>${esc(o[0].n)}</b> (${mtR1(o[0].v).toFixed(1)}). Más alto, con mayor margen de mejora: <b>${esc(o[o.length-1].n)}</b> (${mtR1(o[o.length-1].v).toFixed(1)}).`); }
   if(grEdad.length>1){ const o=grEdad.map(x=>({l:x.l,v:mtProm(x.r.map(y=>y.ind))})).sort((a,b)=>a.v-b.v); lect.push(`Por edad, el grupo con mejor respuesta es <b>${esc(o[0].l)} años</b> (${mtR1(o[0].v).toFixed(1)}) y el de menor, <b>${esc(o[o.length-1].l)} años</b> (${mtR1(o[o.length-1].v).toFixed(1)}).`); }
   if(alertas.length) lect.push(`<b>${plu(alertas.length,'persona para revisar','personas para revisar')}</b>: índice mayor a 15 (clave M) o pulso en reposo arriba de 100 ppm (ver la lista más abajo).`);
@@ -612,6 +699,7 @@ function rfReporteHTML(pid,aid){
     <div class="h2">Lectura de los resultados</div>${mtLect(lect)}
     <div class="h2">Personas por categoría</div>
     <div class="card">${mtBarras(conteo.map(x=>({label:x.c,sub:'',val:x.n,txt:`${x.n} · ${pc(x.n)}%`,cls:RF_CAT_CLS[x.c],max:n})))}</div>
+    ${conImc.length?`<div class="h2">Personas por categoría de IMC</div><div class="card">${mtBarras(RF_IMC.slice().reverse().map(x=>{ const k=conImc.filter(i=>i.k===x.k).length; return {label:x.t,sub:x.r,val:k,txt:`${k} · ${Math.round(k/conImc.length*100)}%`,cls:x.c,max:conImc.length}; }))}</div>`:''}
     ${areas.length>1?`<div class="h2">Índice promedio por disciplina</div><div class="card">${mtBarras(areas.map(x=>{ const v=mtProm(x.r.map(y=>y.ind)); return {label:(getArea(x.a)||{}).nombre,sub:plu(x.r.length,'persona','personas'),val:Math.max(0,v),max:20,txt:mtR1(v).toFixed(1),cls:rfClasifica(v).c}; }))}<div class="an-cs" style="margin-top:6px">Entre más corta la barra, mejor la condición (0 o menos es lo ideal).</div></div>`:''}
     ${grEdad.length?`<div class="h2">Índice promedio por edad</div><div class="card">${mtBarras(grEdad.map(x=>{ const v=mtProm(x.r.map(y=>y.ind)); return {label:x.l+' años',sub:plu(x.r.length,'persona','personas'),val:Math.max(0,v),max:20,txt:mtR1(v).toFixed(1),cls:rfClasifica(v).c}; }))}</div>`:''}
     <div class="h2">Pulso promedio en cada etapa</div>
@@ -619,10 +707,14 @@ function rfReporteHTML(pid,aid){
     ${alertas.length?`<div class="h2">Para revisión</div>${mtTabla([{t:'Persona'},{t:'Disciplina'},{t:'Índice',n:1},{t:'P0 en reposo',n:1},{t:'Motivo'}],alertas.map(r=>({c:[esc(r.nombre),esc((getArea(r.aid)||{}).nombre||''),r.ind.toFixed(1),r.p0,esc([r.ind>15?'Índice mayor a 15 (M)':'',r.p0>100?'Pulso en reposo alto':''].filter(Boolean).join(' · '))]})))}`:''}
     ${params}
     <div class="h2">Detalle de las personas evaluadas</div>
-    ${mtTabla([{t:'Persona'},{t:'Disciplina / grupo'},{t:'Sexo'},{t:'Edad',n:1},{t:'Talla',n:1},{t:'Peso',n:1},{t:'Flex. (cm)',n:1},{t:'P0',n:1},{t:'P1',n:1},{t:'P2',n:1},{t:'Índice',n:1},{t:'Eval.'}],
-      res.slice().sort((a,b)=>String(a.aid).localeCompare(b.aid)||a.nombre.localeCompare(b.nombre,'es')).map(r=>{ const fx=rfFlexEval(r), c=rfClasifica(r.ind);
-        return {c:[esc(r.nombre),esc([(getArea(r.aid)||{}).nombre,r.grupo].filter(Boolean).join(' · ')),r.sexo||'—',r.edad||'—',r.talla==null?'—':r.talla,r.peso==null?'—':r.peso,r.flex==null?'—':`${r.flex}${fx?(fx.ok?' ▲':' ▼'):''}`,r.p0,r.p1,r.p2,`<b>${r.ind.toFixed(1)}</b>`,pill(c.k,c.c)]}; }))}
-    <p class="mt-p" style="font-size:10px">P0, P1 y P2 en pulsaciones por minuto (ppm). Flexibilidad: ▲ en o sobre la referencia para su sexo y edad, ▼ por debajo. Aplicación del ${esc(fmtCorta(p.inicio||todayStr()))}${p.fin?' al '+esc(fmtCorta(p.fin)):''}.</p>
+    ${mtTabla([{t:'Persona'},{t:'Disciplina / grupo'},{t:'Sexo'},{t:'Edad',n:1},{t:'Talla',n:1},{t:'Peso',n:1},{t:'IMC',n:1},{t:'Eval. IMC'},{t:'Flex. (cm)',n:1},{t:'Eval. flex.'},{t:'P0',n:1},{t:'P1',n:1},{t:'P2',n:1},{t:'Índice',n:1},{t:'Eval.'},{t:'Calif.',n:1}],
+      ordenRes(res).map(r=>{ const fx=rfFlexEval(r), c=rfClasifica(r.ind), im=rfImc(r.peso,r.talla);
+        return {c:[esc(r.nombre),esc([(getArea(r.aid)||{}).nombre,r.grupo].filter(Boolean).join(' · ')),r.sexo||'—',r.edad||'—',r.talla==null?'—':r.talla,r.peso==null?'—':r.peso,im?im.v.toFixed(1):'—',im?pill(im.t,im.c):'—',r.flex==null?'—':r.flex,fx?pill(fx.ok?'Cumple':`−${Math.abs(fx.dif)} cm`,fx.ok?'ok':'warn'):'—',r.p0,r.p1,r.p2,`<b>${r.ind.toFixed(1)}</b>`,pill(c.k,c.c),`<b>${rfCalif(r).v.toFixed(1)}</b>`]}; }))}
+    <div class="h2">Evaluación final: hacia dónde trabajar</div>
+    ${mtTabla([{t:'Persona'},{t:'Disciplina'},{t:'IMC',n:1},{t:'Flex.',n:1},{t:'Ruffier',n:1},{t:'Calificación'},{t:'Interpretación y recomendación'}],
+      ordenRes(res).map(r=>{ const f=rfFinal(r), k=f.cal; return {c:[esc(r.nombre),esc((getArea(r.aid)||{}).nombre||''),k.pi==null?'—':k.pi,k.pf==null?'—':k.pf,k.pr,pill(`${k.v.toFixed(1)} · ${k.t}${k.parcial?' (parcial)':''}`,k.c),esc(f.txt)]}; }))}
+    <p class="mt-p" style="font-size:10px">Puntos por prueba: 10 excelente · 8 muy buena · 7 buena · 6 regular · 5 deficiente. Calificación = promedio de las tres pruebas (parcial si falta alguna).</p>
+    <p class="mt-p" style="font-size:10px">P0, P1 y P2 en pulsaciones por minuto (ppm). Flexibilidad: «Cumple» si está en o sobre la referencia para su sexo y edad; si no, cuántos cm le faltan. IMC = peso ÷ talla². Aplicación del ${esc(fmtCorta(p.inicio||todayStr()))}${p.fin?' al '+esc(fmtCorta(p.fin)):''}.</p>
     <div class="doc-firmas"><div>Metodología deportiva</div><div>Gerencia deportiva</div></div>`;
 }
 function vMetReporte(){
@@ -637,6 +729,7 @@ function vMetReporte(){
       <label class="f"><span>Disciplina</span><select id="mr_area"><option value="all"${R.area==='all'?' selected':''}>Todas (en conjunto)</option>${areasP.map(a=>`<option value="${esc(a.id)}"${R.area===a.id?' selected':''}>${esc(a.nombre)}</option>`).join('')}</select></label>
     </div><div class="btns"><button class="btn primary" data-act="mtRepPrint">${ic('doc')} Imprimir interpretación</button></div>
       <div class="btns"><button class="btn" data-act="mtRepTabla" data-b="0">Tabla de captura con resultados</button><button class="btn" data-act="mtRepTabla" data-b="1">Tabla de captura en blanco</button></div>
+      <div class="btns"><button class="btn primary" data-act="mtRepXlsx">${ic('doc')} Exportar a Excel</button></div>
       <div class="btns"><button class="btn" data-act="mtRepInfo">Hoja informativa del test</button></div></div>
     <div class="rep-pantalla">${rfReporteHTML(p.id,R.area)}</div>`;
 }
@@ -879,19 +972,95 @@ document.addEventListener('input',e=>{
 const RF_BIBLIO = 'Bibliografía. Manual de consulta del profesor deportivo, Club Campestre Ags. Mtro. Alido Rigal Borroto, Lic. Yandi Rafael Morales Montiel (Segunda edición 2023). (Pág. 8 y 9)';
 function rfTablaHTML(p,area,blanco){
   const areas=(p.areas||[]).filter(a=>area==='all'||a===area).map(a=>getArea(a)).filter(Boolean);
-  const vacia='<td></td>'.repeat(10);
+  const vacia='<td></td>'.repeat(13);
   const flexTb=(t,v)=>`<table class="fm-t rf-mini"><tr><th>${t}</th>${RF_FLEX_EDADES.map(e=>`<th>${e}</th>`).join('')}</tr><tr><td class="l">Cm.</td>${v.map(x=>`<td class="c">${x}</td>`).join('')}</tr></table>`;
-  const leyenda=`<div class="rf-leyenda"><table class="fm-t rf-mini"><tr><th colspan="2">EVALUACIÓN</th></tr>${[['E','0 o menos'],['MB','0.1 a 5'],['B','5.1 a 10'],['R','10.1 a 15'],['M','+ DE 15']].map(([k,v])=>`<tr><td class="c b">${k}</td><td class="c">${v}</td></tr>`).join('')}</table>
-    <div class="rf-lado"><div class="rf-dep"><b>FÓRMULA:</b> (P0 + P1 + P2) − 200 ÷ 10</div>${flexTb('VARONES',RF_FLEX.M)}${flexTb('MUJERES',RF_FLEX.F)}</div></div>`;
+  const leyenda=`<div class="rf-leyenda"><table class="fm-t rf-mini"><tr><th colspan="2">EVALUACIÓN (RUFFIER)</th></tr>${[['E','0 o menos'],['MB','0.1 a 5'],['B','5.1 a 10'],['R','10.1 a 15'],['M','+ DE 15']].map(([k,v])=>`<tr><td class="c b">${k}</td><td class="c">${v}</td></tr>`).join('')}</table>
+    <table class="fm-t rf-mini"><tr><th colspan="2">PONDERACIÓN (I. M. C.)</th></tr>${RF_IMC.slice().reverse().map(x=>`<tr><td class="c">${x.r}</td><td class="c">${x.t.toLowerCase()}</td></tr>`).join('')}</table>
+    <table class="fm-t rf-mini"><tr><th>PTS</th><th>CALIFICACIÓN</th></tr>${RF_CALIF_TABLA.map(x=>`<tr><td class="c b">${x[0]}</td><td class="c">${x[1].toLowerCase()}</td></tr>`).join('')}</table>
+    <div class="rf-lado"><div class="rf-dep"><b>FÓRMULAS:</b> Ruffier = (P0 + P1 + P2) − 200 ÷ 10 · IMC = peso (kg) ÷ talla (m)²</div>${flexTb('FLEX. VARONES',RF_FLEX.M)}${flexTb('FLEX. MUJERES',RF_FLEX.F)}</div></div>`;
   return areas.map((a,ix)=>{
     const rs=blanco?[]:rfLista(p.id,a.id).slice().sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre),'es')), n=Math.max(blanco?20:12,rs.length);
     const filas=Array.from({length:n},(_,i)=>{ const r=rs[i];
       if(!r) return `<tr><td class="c">${i+1}</td>${vacia}</tr>`;
-      const c=rfClasifica(r.ind);
-      return `<tr><td class="c">${i+1}</td><td class="l">${esc(r.nombre)}</td><td class="c">${esc(r.sexo||'')}</td><td class="c">${r.edad||''}</td><td class="c">${r.talla==null?'':r.talla}</td><td class="c">${r.peso==null?'':r.peso}</td><td class="c">${r.flex==null?'':r.flex}</td><td class="c">${r.p0}</td><td class="c">${r.p1}</td><td class="c">${r.p2}</td><td class="c b">${c.k}</td></tr>`; }).join('');
+      const c=rfClasifica(r.ind), im=rfImc(r.peso,r.talla), fx=rfFlexEval(r), f=rfFinal(r);
+      return `<tr><td class="c">${i+1}</td><td class="l">${esc(r.nombre)}</td><td class="c">${esc(r.sexo||'')}</td><td class="c">${r.edad||''}</td><td class="c">${r.talla==null?'':r.talla}</td><td class="c">${r.peso==null?'':r.peso}</td><td class="c">${im?im.v.toFixed(1)+'<br>'+esc(im.t.toLowerCase()):''}</td><td class="c">${r.flex==null?'':r.flex}</td><td class="c">${fx?(fx.ok?'Cumple':'−'+Math.abs(fx.dif)+' cm'):''}</td><td class="c">${r.p0}</td><td class="c">${r.p1}</td><td class="c">${r.p2}</td><td class="c b">${r.ind.toFixed(1)} · ${c.k}</td><td class="l" style="font-size:8px"><b>${f.cal.v.toFixed(1)}</b> ${esc(f.cal.t)}${f.cal.parcial?' (parcial)':''}${f.cortos.length?'<br>Trabajar: '+esc(f.cortos.join(', ').toLowerCase()):''}</td></tr>`; }).join('');
     return `<div${ix?' style="break-before:page;margin-top:0"':''}><div class="rf-dep"><b>DEPORTES:</b> ${esc(a.nombre)}</div>
-      <table class="fm-t rf-t"><thead><tr><th style="width:3%">#</th><th style="width:27%">NOMBRES Y APELLIDOS</th><th style="width:5%">SEXO</th><th style="width:5%">EDAD</th><th style="width:6%">TALLA</th><th style="width:6%">PESO</th><th style="width:9%">FLEXIBILIDAD</th><th style="width:7%">ppm 0<br>REPOSO</th><th style="width:10%">P1 DESPUÉS DE LA ACTIVIDAD</th><th style="width:13%">P2 DESPUÉS DE UN MINUTO DE RECUPERACIÓN</th><th style="width:9%">EVALUACIÓN</th></tr></thead><tbody>${filas}</tbody></table>${leyenda}</div>`;
+      <table class="fm-t rf-t"><thead><tr><th rowspan="2" style="width:3%">#</th><th rowspan="2" style="width:19%">NOMBRES Y APELLIDOS</th><th colspan="5">ÍNDICE DE MASA CORPORAL</th><th colspan="2">FLEXIBILIDAD</th><th colspan="4">TEST RUFFIER – DICKSON</th><th rowspan="2" style="width:17%">CALIFICACIÓN FINAL (0–10)</th></tr>
+      <tr><th style="width:4%">SEXO</th><th style="width:4%">EDAD</th><th style="width:5%">TALLA</th><th style="width:5%">PESO</th><th style="width:9%">IMC / EVAL.</th><th style="width:6%">FLEXIBI.</th><th style="width:7%">EVAL.</th><th style="width:5%">P0 REPOSO</th><th style="width:6%">P1 DESPUÉS DE LA ACT.</th><th style="width:7%">P2 A UN MINUTO</th><th style="width:7%">ÍNDICE / EVAL.</th></tr></thead><tbody>${filas}</tbody></table>${leyenda}</div>`;
   }).join('');
+}
+/* ---------- exportar a Excel (con formato) ---------- */
+function rfExcel(p,area){
+  const areas=(p.areas||[]).filter(a=>area==='all'||a===area).map(a=>getArea(a)).filter(Boolean);
+  const periodo=`Aplicación del ${fmtCorta(p.inicio||todayStr())}${p.fin?' al '+fmtCorta(p.fin):''}`;
+  const ENC=['#','Nombres y apellidos','Sexo','Edad','Talla (cm)','Peso (kg)','IMC','Eval. IMC','Flexibilidad (cm)','Referencia (cm)','Diferencia (cm)','Eval. flexibilidad','P0 reposo (ppm)','P1 después de la actividad (ppm)','P2 a un minuto (ppm)','Índice Ruffier','Eval. Ruffier','Puntos IMC','Puntos flexibilidad','Puntos Ruffier','Calificación final (0–10)','Nivel','Interpretación y recomendación'];
+  const ANCH=[5,30,7,7,10,10,8,16,13,12,12,16,11,15,13,10,17,10,12,10,14,14,70];
+  const hojaCaptura=(nombre,titulo,rs,conArea)=>{
+    const enc=conArea?[ENC[0],'Disciplina',...ENC.slice(1)]:ENC, an=conArea?[ANCH[0],20,...ANCH.slice(1)]:ANCH, d=conArea?1:0, N=enc.length;
+    const grupo=(ini,fin,t)=>({ini:ini+d,fin:fin+d,t});
+    const cGr=Array(N).fill(''); [grupo(2,7,'ÍNDICE DE MASA CORPORAL'),grupo(8,11,'FLEXIBILIDAD'),grupo(12,16,'TEST RUFFIER – DICKSON'),grupo(17,22,'CALIFICACIÓN FINAL')].forEach(g=>{ cGr[g.ini]={v:g.t,s:'encG'}; for(let i=g.ini+1;i<=g.fin;i++) cGr[i]={v:'',s:'encG'}; });
+    const colL=i=>{ let t='';i++; while(i>0){ const m=(i-1)%26; t=String.fromCharCode(65+m)+t; i=Math.floor((i-1)/26);} return t; };
+    const merges=[`A1:${colL(N-1)}1`,`A2:${colL(N-1)}2`,...[[2,7],[8,11],[12,16],[17,22]].map(([x,y])=>`${colL(x+d)}4:${colL(y+d)}4`)];
+    const filas=[[{v:titulo,s:'titulo'}],[{v:`${periodo} · Club Campestre Aguascalientes · Metodología deportiva`,s:'nota'}],[],cGr.map(x=>x===''?{v:'',s:'encG'}:x),enc.map(t=>({v:t,s:'enc'}))];
+    filas[4].alto=42;
+    rs.forEach((r,i)=>{
+      const c=rfClasifica(r.ind), im=rfImc(r.peso,r.talla), fx=rfFlexEval(r), f=rfFinal(r), fk=f.cal;
+      const fila=[{v:i+1,s:'ent'}];
+      if(conArea) fila.push({v:(getArea(r.aid)||{}).nombre||'',s:'txt'});
+      fila.push({v:r.nombre,s:'txt'},{v:r.sexo||'',s:'ctr'},r.edad?{v:+r.edad,s:'ent'}:{v:'',s:'ctr'},
+        r.talla==null?{v:'',s:'ctr'}:{v:+r.talla,s:'num1'}, r.peso==null?{v:'',s:'ctr'}:{v:+r.peso,s:'num1'},
+        im?{v:im.v,s:'num1'}:{v:'',s:'ctr'}, im?{v:im.t,s:im.c}:{v:'',s:'ctr'},
+        (r.flex==null||r.flex==='')?{v:'',s:'ctr'}:{v:+r.flex,s:'num1'}, fx?{v:fx.ref,s:'num1'}:{v:'',s:'ctr'}, fx?{v:fx.dif,s:'num1'}:{v:'',s:'ctr'}, fx?{v:fx.ok?'Cumple':'Por debajo',s:fx.ok?'ok':'warn'}:{v:'',s:'ctr'},
+        {v:r.p0,s:'ent'},{v:r.p1,s:'ent'},{v:r.p2,s:'ent'},{v:r.ind,s:'num1'},{v:`${c.k} · ${c.t}`,s:c.c},
+        fk.pi==null?{v:'',s:'ctr'}:{v:fk.pi,s:'ent'},fk.pf==null?{v:'',s:'ctr'}:{v:fk.pf,s:'ent'},{v:fk.pr,s:'ent'},{v:fk.v,s:fk.c},{v:fk.t+(fk.parcial?' (parcial)':''),s:fk.c},{v:f.txt,s:'txt'});
+      fila.alto=Math.max(30,Math.ceil(f.txt.length/80)*13+4);
+      filas.push(fila);
+    });
+    const ultima=5+rs.length;
+    return {nombre,cols:an,filas,combinar:merges,congelar:`${colL(2+d)}6`,filtro:rs.length?`A5:${colL(N-1)}${ultima}`:null};
+  };
+  const hojas=[];
+  /* Resumen */
+  const todos=areas.flatMap(a=>rfLista(p.id,a.id)), nT=todos.length;
+  const cnt=(arr,f)=>arr.filter(f).length;
+  const resumen=[[{v:'Test de Ruffier – Dickson · Resumen',s:'titulo'}],[{v:`${periodo} · ${area==='all'?'Todas las disciplinas':(getArea(area)||{}).nombre}`,s:'nota'}],[],
+    [{v:'Disciplina',s:'enc'},{v:'Evaluados',s:'enc'},{v:'Índice promedio',s:'enc'},{v:'E',s:'enc'},{v:'MB',s:'enc'},{v:'B',s:'enc'},{v:'R',s:'enc'},{v:'M',s:'enc'},{v:'IMC promedio',s:'enc'},{v:'Con sobrepeso u obesidad',s:'enc'},{v:'Flexibilidad: cumplen',s:'enc'},{v:'Calificación promedio (0–10)',s:'enc'},{v:'Requieren atención',s:'enc'}]];
+  resumen[3].alto=42;
+  const filaRes=(nom,rs,s)=>{ const ims=rs.map(r=>rfImc(r.peso,r.talla)).filter(Boolean), fxs=rs.map(rfFlexEval).filter(Boolean), fin=rs.map(rfFinal);
+    return [{v:nom,s:s||'neg'},{v:rs.length,s:s||'ent'},rs.length?{v:Math.round(mtProm(rs.map(r=>r.ind))*10)/10,s:s||'num1'}:{v:'',s:s||'ctr'},
+      ...['E','MB','B','R','M'].map(k=>({v:cnt(rs,r=>rfClasifica(r.ind).k===k),s:s||'ent'})),
+      ims.length?{v:Math.round(mtProm(ims.map(i=>i.v))*10)/10,s:s||'num1'}:{v:'',s:s||'ctr'},{v:cnt(ims,i=>['SP','OL','OM2','OM'].includes(i.k)),s:s||'ent'},
+      {v:fxs.length?`${cnt(fxs,f=>f.ok)} de ${fxs.length}`:'',s:s||'ctr'},fin.length?{v:Math.round(mtProm(fin.map(f=>f.cal.v))*10)/10,s:s||'num1'}:{v:'',s:s||'ctr'},{v:cnt(fin,f=>f.nc==='bad'),s:s||'ent'}]; };
+  areas.forEach(a=>{ const rs=rfLista(p.id,a.id); if(rs.length) resumen.push(filaRes(a.nombre,rs)); });
+  if(nT&&areas.length>1) resumen.push(filaRes('TOTAL',todos,'tot'));
+  resumen.push([],[{v:'Hacia dónde trabajar (veces que se repite)',s:'sub'}]);
+  const cuenta={}; todos.map(rfFinal).forEach(f=>f.cortos.filter(k=>!/mantener/.test(k)).forEach(kk=>{ cuenta[kk]=(cuenta[kk]||0)+1; }));
+  Object.entries(cuenta).sort((x,y)=>y[1]-x[1]).forEach(([k,v])=>resumen.push([{v:k,s:'neg'},{v:v,s:'ent'},{v:nT?Math.round(v/nT*100)+'%':'',s:'ctr'}]));
+  if(!Object.keys(cuenta).length) resumen.push([{v:'Todavía no hay personas evaluadas.',s:'nota'}]);
+  hojas.push({nombre:'Resumen',cols:[28,11,11,6,6,6,6,6,11,15,15,15,13],filas:resumen,combinar:['A1:M1','A2:M2'],congelar:null});
+  if(areas.length>1) hojas.push(hojaCaptura('Todas las disciplinas','Test de Ruffier – Dickson · Todas las disciplinas',ordenRes(todos),true));
+  areas.forEach(a=>hojas.push(hojaCaptura(a.nombre,'Test de Ruffier – Dickson · '+a.nombre,rfLista(p.id,a.id).slice().sort((x,y)=>String(x.nombre).localeCompare(String(y.nombre),'es')),false)));
+  /* Ponderaciones */
+  const pon=[[{v:'Ponderaciones y fórmulas',s:'titulo'}],[],
+    [{v:'Índice de Ruffier = (P0 + P1 + P2) − 200 ÷ 10',s:'sub'}],
+    [{v:'Evaluación',s:'enc'},{v:'Índice',s:'enc'},{v:'Significado',s:'enc'}],
+    ...RF_PARAMS.map(x=>[{v:RF_LETRA[x[1]]+' · '+x[1],s:RF_CAT_CLS[x[1]]},{v:x[0],s:'ctr'},{v:x[2],s:'txt'}]),[],
+    [{v:'Calificación (0 a 10): cómo se obtiene',s:'sub'}],
+    [{v:'Puntos',s:'enc'},{v:'Nivel',s:'enc'},{v:'IMC',s:'enc'},{v:'Flexibilidad (% de la referencia)',s:'enc'},{v:'Ruffier',s:'enc'}],
+    ...RF_CALIF_TABLA.map(x=>[{v:x[0],s:RF_PTS_NIVEL[x[0]][1]},{v:x[1],s:RF_PTS_NIVEL[x[0]][1]},{v:x[2],s:'txt'},{v:x[3],s:'txt'},{v:x[4],s:'txt'}]),
+    [{v:RF_CALIF_NOTA,s:'nota'}],[],
+    [{v:'Índice de masa corporal = peso (kg) ÷ talla (m)²',s:'sub'}],
+    [{v:'Evaluación',s:'enc'},{v:'IMC',s:'enc'}],
+    ...RF_IMC.slice().reverse().map(x=>[{v:x.t,s:x.c},{v:x.r,s:'ctr'}]),[],
+    [{v:'Flexibilidad: referencia en cm por edad',s:'sub'}],
+    [{v:'Edad (años)',s:'enc'},...RF_FLEX_EDADES.map(e=>({v:e,s:'enc'}))],
+    [{v:'Varones',s:'neg'},...RF_FLEX.M.map(v=>({v,s:'ent'}))],
+    [{v:'Mujeres',s:'neg'},...RF_FLEX.F.map(v=>({v,s:'ent'}))],
+    [{v:'Entre una década y otra la referencia se calcula proporcionalmente.',s:'nota'}],[],
+    [{v:RF_BIBLIO,s:'nota'}]];
+  const iN=pon.findIndex(r=>r[0]&&r[0].v===RF_CALIF_NOTA); if(iN>=0) pon[iN].alto=44;
+  hojas.push({nombre:'Ponderaciones',cols:[26,14,48,28,22,8,8,8,8],filas:pon,combinar:['A1:I1',`A${pon.findIndex(r=>r[0]&&r[0].v===RF_CALIF_NOTA)+1}:E${pon.findIndex(r=>r[0]&&r[0].v===RF_CALIF_NOTA)+1}`],congelar:null});
+  return hojas;
 }
 function rfInfoHTML(){
   return `<div class="rf-info">
@@ -916,6 +1085,12 @@ Object.assign(actions,{
   mtRepTabla(d){
     const R=ui.mt.rep, p=getPrueba(R&&R.pid); if(!p) return;
     imprimirFormato({titulo:'TEST DE RUFFIER – DICKSON DEPORTES: TABLA DE CAPTURA',cuerpo:rfTablaHTML(p,R.area,d.b==='1'),notas:[esc(RF_BIBLIO)]});
+  },
+  mtRepXlsx(){
+    const R=ui.mt.rep, p=getPrueba(R&&R.pid); if(!p) return;
+    if(!rfLista(p.id,R.area==='all'?null:R.area).length){ toast('Todavía no hay personas evaluadas para exportar'); return; }
+    const nom=R.area==='all'?'todas':normNom((getArea(R.area)||{}).nombre).replace(/ /g,'-');
+    try{ xlsxDescargar(`ruffier-${nom}-${todayStr()}.xlsx`,rfExcel(p,R.area)); toast('Excel descargado'); }catch(e){ console.error(e); toast('No se pudo crear el Excel'); }
   },
   mtRepInfo(){ imprimirFormato({titulo:'Test de Ruffier – Dickson',vertical:true,cuerpo:rfInfoHTML()}); }
 });
