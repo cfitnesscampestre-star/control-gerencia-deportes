@@ -18,8 +18,11 @@ function claseActual(gs,fecha){                       // clase en curso o la pr�
 function viewProfesor(){
   const a=getArea(session.area), p=getProf(session.area,session.profId);
   const srv=esServ(session.area), gim=esGim(session.area);
-  const body = ui.rufier ? vRufier() : (typeof fzBanner==='function'?fzBanner():'') + metBanner() + (srv ? vServProf() : gim ? vGimProf() : ui.lista ? vLista() : (ui.pTab==='horario' ? vProfHorario() : vProfHoy()));
-  return shell({title:esc(p.nombre),sub:`${srv?pfNom(session.area,0):gim?'Instructor':'Profesor'} · ${areaIco(a,{size:14})} ${esc(a.nombre)}`,body,back:(!srv&&!gim&&ui.lista)?'listaBack':null,fs:(!srv&&!gim&&!!ui.lista)||!!ui.rufier});
+  const mant = ui.pTab==='mant' && typeof mantProfActivo==='function' && mantProfActivo();      // pestaña Mantenimiento (reportar equipo)
+  if(ui.pTab==='mant'&&!mant) ui.pTab='hoy';
+  const avisoMant = (!mant&&typeof mantAvisoProf==='function') ? mantAvisoProf() : '';
+  const body = ui.rufier ? vRufier() : (typeof fzBanner==='function'?fzBanner():'') + metBanner() + (mant ? vMantProf() : avisoMant + (srv ? vServProf() : gim ? vGimProf() : ui.lista ? vLista() : (ui.pTab==='horario' ? vProfHorario() : vProfHoy())));
+  return shell({title:esc(p.nombre),sub:`${srv?pfNom(session.area,0):gim?'Instructor':'Profesor'} · ${areaIco(a,{size:14})} ${esc(a.nombre)}`,body,back:(!mant&&!srv&&!gim&&ui.lista)?'listaBack':null,fs:(!mant&&!srv&&!gim&&!!ui.lista)||!!ui.rufier});
 }
 
 function vProfHoy(){

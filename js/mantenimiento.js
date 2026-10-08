@@ -67,12 +67,12 @@ function mantArea(r){
   return null;
 }
 const mantDe = (aid,r) => !!aid && mantArea(r)===aid;
-/* ¿El área usa Mantenimiento? Fitness siempre; las demás cuando algún entrenador lo tiene activado o ya hay reportes de ellas. */
+/* ¿El área usa Mantenimiento? Fitness siempre (sus reportes vienen de Control Fitness); las demás, solo si gerencia deportiva
+   la activó (Ajustes → Mantenimiento por área). Después, la dirección activa a cada profesor. */
 function mantAplica(aid){
-  if(!aid||!mantConfig()||!getArea(aid)) return false;
-  if(esFitArea(aid)) return true;
-  if(profesores(aid).some(p=>p.mantenimiento)) return true;
-  return mantArr('reportes').concat(mantArr('historial')).some(r=>mantDe(aid,r));
+  if(!aid||!mantConfig()) return false;
+  const a=getArea(aid); if(!a) return false;
+  return esFitArea(aid) || !!a.mantenimiento;
 }
 const mantAlguna = () => mantConfig() && areasList().some(a=>mantAplica(a.id));   // ¿hay algún área con Mantenimiento? (para mostrar la pestaña de gerencia)
 const mantArrP = v => Array.isArray(v) ? v : v ? Object.values(v) : [];
@@ -315,6 +315,7 @@ Object.assign(actions,{
     if(a>b){ const x=a; a=b; b=x; }
     mnUi.per={t:'custom',desde:a,hasta:b}; mnUi.estado=null; mnUi.reset=true; closeModal(); render();
   },
+  mantAreaSet(d){ if(!getArea(d.id)) return; setPath(`cfg/areas/${d.id}/mantenimiento`,d.v==='1'); render(); toast(d.v==='1'?'Mantenimiento activado en el área':'Mantenimiento desactivado en el área'); },
   mnOpen(d){ mnSheetId=d.id; openModal(mnDetalle(d.id)); mnCargaFotos(d.id); },
   mnZoom(d){
     const f=MFOT[d.id]||{}; if(!f[d.t]) return;
@@ -350,7 +351,13 @@ function mantCard(){
     <div class="row"><div><b>Control Mantenimiento</b><small>Solo lectura · reportes de equipo de los entrenadores</small></div>${pill(est[1],est[0])}</div>
     ${m.estado==='ok'||m.estado==='cache'?`<div class="row"><div><b>Datos recibidos</b><small>${plu(mantArr('reportes').length,'reporte abierto','reportes abiertos')} · ${plu(mantArr('equipos').length,'equipo','equipos')} · ${plu(mantArr('preventivo').length,'revisión de preventivo','revisiones de preventivo')}</small></div></div>`:''}
     ${m.estado==='error'?`<div class="row"><div><b>No se pudo leer</b><small>${esc(m.msg)}. Revisa las reglas de Firebase del proyecto de mantenimiento.</small></div></div>`:''}
-    <div class="row"><div><small>Gerencia y las direcciones solo leen. Nunca escriben en la base de Control Mantenimiento.</small></div></div>
+    <div class="row"><div><small>Gerencia y las direcciones solo leen. Los profesores solo envían sus reportes y eliminan sus avisos ya resueltos.</small></div></div>
+  </div>
+  <div class="h2">Mantenimiento por área</div>
+  <div class="card">
+    <div class="row"><div><small>Elige qué áreas usan Mantenimiento. En las áreas activadas, la dirección ve la pestaña Mantenimiento y puede activar el módulo a cada profesor (Profesores → editar). Fitness siempre lo tiene: sus reportes salen de Control Fitness.</small></div></div>
+    ${areasList().map(a=>`<div class="row"><div><b>${areaIco(a,{size:18})} ${esc(a.nombre)}</b><small>${esFitArea(a.id)?'Siempre activo (Control Fitness)':a.mantenimiento?'Activo: '+plu(profesores(a.id).filter(p=>p.mantenimiento).length,'profesor con el módulo','profesores con el módulo'):'Sin Mantenimiento'}</small></div>
+      ${esFitArea(a.id)?pill('Activo','ok'):`<div class="seg"><button class="${a.mantenimiento?'on':''}" data-act="mantAreaSet" data-id="${esc(a.id)}" data-v="1">Sí</button><button class="${a.mantenimiento?'':'on'}" data-act="mantAreaSet" data-id="${esc(a.id)}" data-v="0">No</button></div>`}</div>`).join('')}
   </div>`;
 }
 /* Menús: la pestaña "Mantenimiento" existe en las áreas que lo usan, y en gerencia si hay alguna */

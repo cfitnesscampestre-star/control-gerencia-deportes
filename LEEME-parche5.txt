@@ -1,0 +1,46 @@
+PARCHE 5 DE CONTROL GERENCIA: MÓDULO DE MANTENIMIENTO PARA LOS PROFESORES + ACTIVACIÓN POR ÁREA
+===============================================================================================
+Se aplica DESPUÉS del parche 4 (el que dejó sw.js en 'gd-v73').
+
+QUÉ CAMBIA
+----------
+1) Gerencia deportiva decide qué áreas usan Mantenimiento: Ajustes → "Mantenimiento por área" (Sí / No por área).
+   Fitness siempre lo tiene (sus reportes salen de Control Fitness).
+2) En un área activada, la dirección ve la pestaña Mantenimiento y, en Profesores → editar, aparece el campo
+   "Mantenimiento" (No puede / Sí puede reportar equipo). En un área sin activar, ese campo no aparece.
+3) El profesor con el módulo activado ve en su portal el botón "Mantenimiento" (junto a Hoy y Horario) con el mismo
+   flujo de Control Fitness:
+     · Reportar equipo: salón (por la clase en curso, por QR o elegido a mano) → equipo (escanear QR o buscar por nombre,
+       con foto) → falla (atajos + descripción) → urgencia → Enviar a mantenimiento.
+     · Aviso si el equipo ya fue reportado y si está fuera de servicio.
+     · Aviso arriba en "Hoy" de los equipos en mantenimiento en los salones de sus clases.
+     · Mis reportes: rojo (sin abrir), amarillo (en atención), verde (resuelto, con diagnóstico) y "Eliminar aviso".
+     · Si no hay señal, el reporte se guarda y se envía solo al volver la conexión.
+   También lo ven los instructores del gimnasio y los especialistas de servicios (con barra inferior de dos botones).
+4) Cada reporte se guarda en Control Mantenimiento con origen:'gerencia' y areaId = el área del profesor, así llega solo
+   a la pestaña Mantenimiento de esa dirección y a la de gerencia.
+
+IMPORTANTE PARA QUE FUNCIONE
+----------------------------
+- Los equipos y salones los da de alta el técnico en Control Mantenimiento (Equipos). El salón de la clase se enlaza por
+  nombre: el "lugar" de la clase en Gerencia debe llamarse igual que el salón en Mantenimiento (ej. "Canchas").
+  Para otras áreas (tenis, pádel...) hay que crear sus salones y equipos allá, igual que se hizo con Spinning.
+- Las reglas de Firebase de Control Mantenimiento ya permiten que se escriba en /reportes y /historial sin iniciar sesión
+  (así lo usa Control Fitness); no hay que cambiar nada.
+
+QUÉ SUBIR (reemplaza los del mismo nombre)
+------------------------------------------
+  index.html
+  sw.js                (pasa a 'gd-v74')
+  css/mantenimiento.css
+  js/mantenimiento.js
+  js/mantprof.js       (NUEVO)
+  js/jsqr.min.js       (NUEVO: lector de QR para celulares sin lector propio)
+  js/portal.js
+  js/profesores.js
+  js/sidebar.js
+  js/mobile.js
+
+ANTES DE SUBIR
+--------------
+Abre sw.js en tu repositorio de Gerencia: debe decir 'gd-v73'. Si dice otra cosa, no sobrescribas; pásame tu zip.
