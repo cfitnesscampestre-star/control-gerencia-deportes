@@ -1,0 +1,38 @@
+PARCHE 4 DE CONTROL GERENCIA: PANTALLA DE MANTENIMIENTO (SOLO LECTURA) PARA GERENCIA Y DIRECCIONES
+==================================================================================================
+Se aplica DESPUÉS del parche 3 (el que dejó sw.js en 'gd-v72').
+
+QUÉ CAMBIA
+----------
+1) Pestaña "Mantenimiento" en Gerencia (menú lateral y barra inferior): la misma pantalla de Reportes de Control
+   Mantenimiento: barra de periodo con calendario, filtro de urgencia, carrusel que avanza solo, botones rojo / amarillo /
+   verde y el detalle de cada reporte (tiempos, diagnóstico, compra o cambio, fotos del antes y el después).
+   Todo se puede tocar y filtrar, pero NADA se puede modificar. Gerencia ve todas las áreas y puede filtrar por área.
+2) Cada dirección tiene la misma pantalla, pero solo con los reportes de los entrenadores de su área.
+   Fitness siempre la tiene; las demás áreas la ven cuando activan Mantenimiento en algún profesor (o ya hay reportes suyos).
+3) Al dar de alta o editar un profesor (Profesores) hay un campo nuevo "Mantenimiento": No puede / Sí puede reportar equipo.
+   Se guarda como mantenimiento:true en la ficha del profesor y se ve una etiqueta "Mantenimiento" en su tarjeta.
+4) El resumen de Gerencia ahora cuenta todas las áreas con Mantenimiento (antes solo Fitness).
+
+CÓMO SE SABE DE QUÉ ÁREA ES UN REPORTE
+--------------------------------------
+  Fitness:               origen:'fitness' o profId numérico (como hasta hoy).
+  Entrenadores de Gerencia: el reporte debe traer origen:'gerencia' y areaId = id del área (ej. 'tenis').
+  Los de ejemplo o prueba (profId 'ejemplo' o 'prueba') no se muestran.
+Pendiente: el botón "Mantenimiento" en el portal del profesor de Gerencia (para que reporte) aún NO está hecho;
+al hacerlo debe guardar los reportes con esos dos campos.
+
+QUÉ SUBIR (reemplaza los del mismo nombre)
+------------------------------------------
+  index.html
+  sw.js                (pasa a 'gd-v73')
+  css/mantenimiento.css   (NUEVO)
+  js/mantenimiento.js
+  js/app.js
+  js/sidebar.js
+  js/mobile.js
+  js/profesores.js
+
+ANTES DE SUBIR
+--------------
+Abre sw.js en tu repositorio de Gerencia: debe decir 'gd-v72'. Si dice otra cosa, no sobrescribas; pásame tu zip.

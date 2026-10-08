@@ -1,0 +1,82 @@
+/* =====================================================================
+   mantenimiento.css — pantalla "Mantenimiento" de Gerencia y direcciones (solo lectura).
+   Todo va dentro de .mantv para no chocar con los estilos de Gerencia.
+   Semáforo de reportes:  ROJO = nadie lo ha abierto · AMARILLO = ya lo vio mantenimiento (en proceso) · VERDE = resuelto.
+   ===================================================================== */
+.mantv .rep{display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;padding:14px 16px;border-radius:18px;border:1.5px solid var(--line);background:#fff;box-shadow:var(--sh);min-width:0}
+.mantv button.rep{transition:transform .12s,box-shadow .12s;cursor:pointer}
+.mantv button.rep:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(8,34,40,.14)}
+.mantv button.rep:active{transform:scale(.99)}
+.mantv .rep .rep-h{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:3px}
+.mantv .rep .rep-h .go{margin-left:auto;color:var(--mut)}
+.mantv .rep .rep-t{font-size:18px;font-weight:700;line-height:1.2;color:var(--ink)}
+.mantv .rep .rep-d{color:var(--ink);font-size:15px;margin-bottom:4px}
+.mantv .rep small{color:var(--mut);font-size:13px;line-height:1.4}
+.mantv .rep.rojo{background:#fde7e4;border-color:#e4958b}
+.mantv .rep.rojo small{color:#8a2a21}
+.mantv .rep.amar{background:#fdf0d5;border-color:#e9c15d}
+.mantv .rep.amar small{color:#7a5200}
+.mantv .rep.verde{background:#dcf5ee;border-color:#7fcdb5}
+.mantv .rep.verde small{color:#0b5f49}
+.mantv .rep .rep-x{margin-top:6px;padding-top:8px;border-top:1px solid rgba(16,34,43,.12);display:flex;flex-direction:column;gap:2px}
+.mantv .pill.u-fuera{background:var(--navy);color:#fff}
+.mantv .pill.u-urg{background:#fff;color:#b3281e;box-shadow:inset 0 0 0 1.5px #e4958b}
+.mantv .pill.big{font-size:12.5px;padding:4px 12px}
+.mantv .rep.rojo .pill.bad{background:var(--bad);color:#fff}
+.mantv .rep.amar .pill.warn{background:#c47f00;color:#fff}
+.mantv .rep.verde .pill.ok{background:#0b8a6c;color:#fff}
+.mantv .sheet .rep,.sheet .mantv .rep{box-shadow:none}
+
+/* cronómetro */
+.mantv .rep-time{margin-top:auto;padding-top:9px;border-top:1px solid rgba(16,34,43,.14);display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2)}
+.mantv .rep-time .ic{width:15px;height:15px}
+.mantv .rep-time b{margin-left:auto;font-size:14px;font-weight:700;letter-spacing:.02em;font-variant-numeric:tabular-nums;color:var(--ink)}
+.mantv .rep.rojo .rep-time b{color:#8a2a21}
+.mantv .rep.amar .rep-time b{color:#7a5200}
+.mantv .rep.verde .rep-time b{color:#0b5f49}
+
+/* carrusel */
+.mantv .mn-carr-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 6px}
+.mantv .mn-carr-nav b{font-size:19px;font-weight:700;display:block;line-height:1.2;color:var(--ink)}
+.mantv .mn-carr-nav small{color:var(--mut);font-size:13px}
+.mantv .mn-carr-ctl{display:flex;align-items:center;gap:8px;flex:none}
+.mantv .mn-carr-ctl span{font-size:13px;color:var(--ink-2);font-weight:600;margin-right:2px;white-space:nowrap}
+.mantv .mn-carr{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 2px 12px;margin:0 -2px;scrollbar-width:none;-webkit-overflow-scrolling:touch;position:relative}
+.mantv .mn-carr::-webkit-scrollbar{display:none}
+.mantv .mn-carr>.rep{flex:0 0 88%;max-width:520px;scroll-snap-align:center}
+@media (min-width:900px){.mantv .mn-carr>.rep{flex:0 0 430px;scroll-snap-align:start}}
+
+/* botones rojo / amarillo / verde */
+.mantv .sts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:6px 0 12px}
+.mantv .stb{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 6px;border-radius:18px;border:2px solid;text-align:center;font-weight:600;transition:background .12s,color .12s,transform .1s}
+.mantv .stb:active{transform:scale(.98)}
+.mantv .stb b{font-size:28px;font-weight:700;line-height:1.05}
+.mantv .stb span{font-size:13px}
+.mantv .stb.rojo{background:#fde7e4;border-color:#e4958b;color:#8a2a21}
+.mantv .stb.amar{background:#fdf0d5;border-color:#e9c15d;color:#7a5200}
+.mantv .stb.verde{background:#dcf5ee;border-color:#7fcdb5;color:#0b5f49}
+.mantv .stb.rojo.on{background:var(--bad);border-color:var(--bad);color:#fff;box-shadow:0 6px 16px rgba(214,59,47,.35)}
+.mantv .stb.amar.on{background:#c47f00;border-color:#c47f00;color:#fff;box-shadow:0 6px 16px rgba(196,127,0,.35)}
+.mantv .stb.verde.on{background:#0b8a6c;border-color:#0b8a6c;color:#fff;box-shadow:0 6px 16px rgba(11,138,108,.35)}
+.mantv .urgf{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 6px}
+.sheet .mantv .chips{flex-wrap:wrap;overflow:visible}
+
+/* barra de periodo y estado de la conexión */
+.mantv .mn-per{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.75);border:1px solid var(--line);margin-bottom:12px}
+.mantv .mn-pt b{display:block;font-size:17px;font-weight:700}
+.mantv .mn-pt small{display:block;color:var(--mut);font-size:12.5px;margin-top:1px}
+.mantv .mn-cal{display:inline-flex;align-items:center;gap:6px;flex:none;padding:9px 14px;border-radius:12px;border:1.5px solid var(--line-2,#cfdad8);background:#fff;font-weight:600;font-size:14px;color:var(--g-d)}
+.mantv .mn-cal .ic{width:20px;height:20px}
+.mantv .mn-btns{display:flex;align-items:center;gap:8px;flex:none}
+.mantv .mn-conn{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);margin:0 2px 8px}
+.mantv .mn-conn i{width:9px;height:9px;border-radius:50%;background:#1fbf8f;box-shadow:0 0 0 3px rgba(31,191,143,.2)}
+
+/* fotos del antes y el después (solo ver) */
+.mantv .mn-fotos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.mantv .mn-foto{display:flex;flex-direction:column;gap:8px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px;min-width:0}
+.mantv .mn-foto-t{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.mantv .mn-foto-t b{font-size:15px}
+.mantv .mn-foto img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;background:#e3ecea;cursor:zoom-in}
+.mantv .mn-foto-v{aspect-ratio:4/3;border:1.5px dashed var(--line-2);border-radius:12px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--mut);font-size:12.5px;padding:8px}
+.mn-zoom{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:12px;cursor:zoom-out}
+.mn-zoom img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}

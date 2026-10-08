@@ -22,6 +22,7 @@ function render(){
   app.innerHTML = session.rol==='ger' ? viewGerencia() : session.rol==='met' ? viewMetodologia() : session.rol==='dir' ? viewDireccion() : session.rol==='rec' ? viewRecepcion() : viewProfesor();
   if(typeof chAlFinal==='function') chAlFinal();
   if(typeof carInit==='function') carInit();
+  if(typeof mnInit==='function') mnInit();
 }
 
 /* ----- contenido de un área (dirección edita, gerencia solo lee) ----- */
@@ -34,8 +35,8 @@ function areaTabs(){
 }
 function areaBody(aid){
   const gim=esGim(aid), srv=esServ(aid);
-  if(gim&&!['inicio','gimaforo','gimpt','profesores','recepcion','eventos','reporte'].includes(ui.aTab)) ui.aTab='inicio';
-  if(srv&&!svTabs(aid).some(t=>t[0]===ui.aTab)) ui.aTab='inicio';
+  if(gim&&!['inicio','gimaforo','gimpt','profesores','recepcion','eventos','reporte','mantenimiento'].includes(ui.aTab)) ui.aTab='inicio';
+  if(srv&&ui.aTab!=='mantenimiento'&&!svTabs(aid).some(t=>t[0]===ui.aTab)) ui.aTab='inicio';
   if(!gim&&['gimaforo','gimpt'].includes(ui.aTab)) ui.aTab='inicio';
   if(ui.aTab==='mantenimiento'&&!(typeof mantAplica==='function'&&mantAplica(aid))) ui.aTab='inicio';
   switch(ui.aTab){
@@ -57,6 +58,7 @@ function viewGerencia(){
   if(ui.gTab==='resumen') body=respaldoAviso()+gResumen();
   else if(ui.gTab==='comite'){ body=gComite(); title='Comité directivo'; sub='Informe para gerencia general'; }
   else if(ui.gTab==='reportes'){ body=gReportes(); title='Reportes'; sub='Cualquier fecha, cualquier área, para imprimir o guardar'; }
+  else if(ui.gTab==='mantenimiento'){ body=vMantGerencia(); title='Mantenimiento'; sub='Reportes de equipo · solo lectura'; }
   else if(ui.gTab==='ajustes') body=gAjustes();
   else if(ui.gArea&&getArea(ui.gArea)){
     const a=getArea(ui.gArea); title=`${areaIco(a,{size:22})} ${esc(a.nombre)}`; sub='Vista de gerencia · solo lectura'; back=ui.lista?'listaBack':'gBack';

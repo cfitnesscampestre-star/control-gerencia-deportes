@@ -46,7 +46,7 @@ function viewBottomNav(){
   if(session.rol==='met') return `<nav class="bottomnav" aria-label="Navegación">${NAV_M_MET.map(n=>`<button class="${ui.mt.tab===n.id?'on':''}" data-act="mTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')}</nav>`;
   const ger=session.rol==='ger', prof=session.rol==='prof', rec=session.rol==='rec';
   if(prof&&(esServ(session.area)||esGim(session.area))) return '';            // el especialista solo tiene su bitácora: no hace falta barra inferior
-  const items=ger?NAV_M_GER:prof?NAV_M_PROF:rec?NAV_M_REC:(esServ(session.area)?NAV_M_SERV:esGim(session.area)?NAV_M_GIM:navMDir()), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';
+  const items=ger?(typeof navMGer==='function'?navMGer():NAV_M_GER):prof?NAV_M_PROF:rec?NAV_M_REC:(typeof navMDirExtra==='function'?navMDirExtra:x=>x)(esServ(session.area)?NAV_M_SERV:esGim(session.area)?NAV_M_GIM:NAV_M_DIR), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';
   return `<nav class="bottomnav" aria-label="Navegación">${items.map(n=>
     `<button class="${n.tabs.includes(cur)?'on':''}" data-act="${act}" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')}</nav>`;
 }
