@@ -67,7 +67,7 @@ function fcFechaV(v){
    en el área Gimnasia y el resto en Fitness, sin tocar nada en Fitness Control. */
 function fcAdapt(raw,areaId,areas){
   raw=raw||{};
-  const insts=fcArr(raw.instructores), regs=fcArr(raw.registros), sals=fcArr(raw.salones), evs=fcArr(raw.eventos);
+  const insts=fcArr(raw.instructores), regs=fcArr(raw.registros).filter(r=>!(r&&r.ger_id)), sals=fcArr(raw.salones), evs=fcArr(raw.eventos);
   const instPorId=Object.fromEntries(insts.map(i=>[String(i.id),i]));
   const TIPO_SALON={salon:'Salón general',spinning:'Ciclismo indoor',yoga:'Mente y cuerpo',funcional:'Funcional',cardio:'Cardio',piscina:'Acuática',exterior:'Exterior',multiusos:'Multiusos'};
   const capDe=clase=>{ const s=sals.find(x=>fcArr(x.clases).some(c=>fcNorm(c)===fcNorm(clase))); return s?{cap:+s.cap||20,salon:s.nombre||'',tipo:TIPO_SALON[s.tipo]||''}:{cap:20,salon:'',tipo:''}; };
