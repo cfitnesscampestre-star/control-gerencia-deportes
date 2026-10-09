@@ -5,21 +5,21 @@
 function vEventos(aid){
   const t=todayStr(), all=coll(aid,'eventos'), yr=String(new Date().getFullYear());
   let list=all.slice();
-  if(ui.evFil==='proximos') list=list.filter(e=>e.fecha>=t).sort((a,b)=>a.fecha.localeCompare(b.fecha));
-  else if(ui.evFil==='pasados') list=list.filter(e=>e.fecha<t).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  if(ui.evFil==='proximos') list=list.filter(e=>evFin(e)>=t).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  else if(ui.evFil==='pasados') list=list.filter(e=>evFin(e)<t).sort((a,b)=>b.fecha.localeCompare(a.fecha));
   else list.sort((a,b)=>b.fecha.localeCompare(a.fecha));
   return `
     <div class="h2">Eventos ${isRO()?'':`<button class="btn sm primary" data-act="openEvento">+ Evento</button>`}</div>
     ${agendaSwitch()}
     <div class="kpis k3">
       ${kpi('Este año',all.filter(e=>String(e.fecha).startsWith(yr)).length)}
-      ${kpi('Próximos',all.filter(e=>e.fecha>=t&&e.estado!=='cancelado').length,'',{color:'var(--b3)'})}
+      ${kpi('Próximos',all.filter(e=>evFin(e)>=t&&e.estado!=='cancelado').length,'',{color:'var(--b3)'})}
       ${kpi('Realizados',all.filter(e=>e.estado==='realizado').length,'',{color:'var(--b1)'})}
     </div>
     <div class="chips">${[['proximos','Próximos'],['pasados','Pasados'],['todos','Todos']].map(([id,l])=>`<button class="chip${ui.evFil===id?' on':''}" data-act="evFil" data-f="${id}">${l}</button>`).join('')}</div>
     ${list.length?`<div class="evlist">${list.map(e=>{ const d=parseYmd(e.fecha), rojo=(typeof infRojo==='function')?infRojo(aid,e):''; return `${rojo?'<div class="ev-wrap">':''}<button class="ev-c${rojo?' ev-pend':''}" data-act="openEvento" data-id="${e.id}">
       <div class="ev-d"><b>${d.getDate()}</b><span>${MESES[d.getMonth()].slice(0,3)}</span></div>
-      <div class="ev-i"><b>${esc(e.nombre)}</b><small>${esc([e.tipo,e.hora,e.lugar].filter(Boolean).join(' · '))}${e.participantes?' · '+(+e.participantes)+' participantes':''}${e.fc?' · Fitness Control':''}${(typeof infTag==='function'&&session&&session.rol==='dir')?infTag(aid,e):''}</small></div>
+      <div class="ev-i"><b>${esc(e.nombre)}</b><small>${esc([evFin(e)>e.fecha?evFechaTxt(e):'',e.tipo,e.hora,e.lugar].filter(Boolean).join(' · '))}${e.participantes?' · '+(+e.participantes)+' participantes':''}${e.fc?' · Fitness Control':''}${(typeof infTag==='function'&&session&&session.rol==='dir')?infTag(aid,e):''}</small></div>
       ${pill(e.estado||'planificado',EST_EV_CLS[e.estado]||'info')}</button>${rojo?rojo+'</div>':''}`; }).join('')}</div>`
       :empty(ui.evFil==='proximos'?(isRO()?'No hay eventos próximos.':'No hay eventos próximos. Registra el siguiente con “+ Evento”.'):'No hay eventos en esta lista.')}`;
 }
@@ -37,9 +37,10 @@ function openEvento(id,fecha,aidIn){
   openModal(`${mHead(id?(ro?'Evento':'Editar evento'):'Nuevo evento')}
     <label class="f"><span>Nombre del evento</span><input id="e_nombre" value="${esc(e.nombre)}"${dis}></label>
     <div class="two">
-      <label class="f"><span>Fecha</span><input id="e_fecha" type="date" value="${esc(e.fecha||fecha||todayStr())}"${dis}></label>
-      <label class="f"><span>Hora</span><input id="e_hora" type="time" value="${esc(e.hora)}"${dis}></label>
+      <label class="f"><span>Fecha de inicio</span><input id="e_fecha" type="date" value="${esc(e.fecha||fecha||todayStr())}"${dis}></label>
+      <label class="f"><span>Fecha de término <small class="mut">(si dura varios días)</small></span><input id="e_fin" type="date" value="${esc(evFin(e)>e.fecha?evFin(e):'')}"${dis}></label>
     </div>
+    <label class="f"><span>Hora de inicio</span><input id="e_hora" type="time" value="${esc(e.hora)}"${dis}></label>
     <label class="f"><span>Lugar</span><input id="e_lugar" value="${esc(e.lugar)}"${dis}></label>
     <div class="two">
       <label class="f"><span>Tipo</span><select id="e_tipo"${dis}>${opts(TIPOS_EV,e.tipo||TIPOS_EV[0])}</select></label>
@@ -60,8 +61,9 @@ Object.assign(actions,{
     const aid=curArea(), nombre=$('#e_nombre').value.trim(), fecha=$('#e_fecha').value;
     if(!nombre){ toast('Escribe el nombre del evento'); return; }
     if(!fecha){ toast('Elige la fecha del evento'); return; }
+    const fin=$('#e_fin').value; if(fin&&fin<fecha){ toast('La fecha de término no puede ser antes que la de inicio'); return; }
     const id=d.id||('e'+uid()), prev=d.id?(getPath(`data/${aid}/eventos/${id}`)||{}):{};
-    setPath(`data/${aid}/eventos/${id}`,{...prev,id,nombre,fecha,hora:$('#e_hora').value,lugar:$('#e_lugar').value.trim(),tipo:$('#e_tipo').value,estado:$('#e_estado').value,participantes:+$('#e_part').value||0,notas:$('#e_notas').value});
+    setPath(`data/${aid}/eventos/${id}`,{...prev,id,nombre,fecha,fechaFin:(fin&&fin>fecha)?fin:'',hora:$('#e_hora').value,lugar:$('#e_lugar').value.trim(),tipo:$('#e_tipo').value,estado:$('#e_estado').value,participantes:+$('#e_part').value||0,notas:$('#e_notas').value});
     closeModal(); render(); toast('Evento guardado');
   },
   delEvento(d){ if(!confirm('¿Eliminar este evento?')) return; setPath(`data/${curArea()}/eventos/${d.id}`,undefined); closeModal(); render(); toast('Evento eliminado'); }

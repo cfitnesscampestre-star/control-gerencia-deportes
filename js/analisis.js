@@ -135,8 +135,8 @@ function anIncid(aids,desde,hasta){
 function anEventos(aids,desde,hasta){
   const t=todayStr(), lim=addDays(t,30), all=[]; aids.forEach(aid=>coll(aid,'eventos').forEach(e=>all.push({aid,e})));
   return {
-    enPer:all.filter(x=>x.e.fecha>=desde&&x.e.fecha<=hasta),
-    proximos:all.filter(x=>x.e.fecha>=t&&x.e.fecha<=lim&&x.e.estado!=='cancelado').sort((a,b)=>a.e.fecha.localeCompare(b.e.fecha))
+    enPer:all.filter(x=>evCruza(x.e,desde,hasta)),
+    proximos:all.filter(x=>evFin(x.e)>=t&&x.e.fecha<=lim&&x.e.estado!=='cancelado').sort((a,b)=>a.e.fecha.localeCompare(b.e.fecha))
   };
 }
 function anApoyos(aids,desde,hasta){
@@ -326,7 +326,7 @@ function pIncid(d){
 }
 function pEventos(d){
   const ev=anEventos(d.aids,d.r.desde,d.r.hasta), real=ev.enPer.filter(x=>x.e.estado==='realizado');
-  const fila=x=>{ const a=getArea(x.aid); return `<button class="line ev" data-act="openArea" data-id="${esc(x.aid)}" data-tab="eventos"><div class="t">${esc(fmtFecha(x.e.fecha))}</div><div class="b"><b>${esc(x.e.nombre)}</b><small>${areaIco(a,{size:13})} ${esc(a.nombre)}${x.e.lugar?' · '+esc(x.e.lugar):''}${x.e.participantes?' · '+(+x.e.participantes)+' participantes':''}</small></div><div class="r">${pill(x.e.estado||'planificado',EST_EV_CLS[x.e.estado]||'info')}</div></button>`; };
+  const fila=x=>{ const a=getArea(x.aid); return `<button class="line ev" data-act="openArea" data-id="${esc(x.aid)}" data-tab="eventos"><div class="t">${esc(evFin(x.e)>x.e.fecha?evFechaTxt(x.e):fmtFecha(x.e.fecha))}</div><div class="b"><b>${esc(x.e.nombre)}</b><small>${areaIco(a,{size:13})} ${esc(a.nombre)}${x.e.lugar?' · '+esc(x.e.lugar):''}${x.e.participantes?' · '+(+x.e.participantes)+' participantes':''}</small></div><div class="r">${pill(x.e.estado||'planificado',EST_EV_CLS[x.e.estado]||'info')}</div></button>`; };
   return `<div class="kpis an-kpis">
       ${kpi('Realizados',real.length,'en el período',{color:'var(--b2)'})}
       ${kpi('Participantes',anSum(real,x=>+x.e.participantes||0).toLocaleString('es-MX'),'en eventos realizados',{color:'var(--b1)'})}

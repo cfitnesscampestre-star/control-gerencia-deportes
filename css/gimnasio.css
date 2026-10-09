@@ -109,3 +109,44 @@
 /* el botón + va junto al número, siempre dentro de la tarjeta, aun en pantallas angostas */
 .gi-numrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .gi-h2 .gi-lbl{font-size:11.5px;letter-spacing:.04em}
+
+/* ===== Horarios de instructores, horario semanal de personalizados y rutinas genéricas ===== */
+.gh-box{display:flex;flex-direction:column;gap:10px;margin:6px 0 8px}
+.gh-row{border:1.5px solid var(--line);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;background:#fff}
+.gh-d{font-size:14px}
+.gh-l{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px 8px}
+.gh-l input[type=time]{width:100%;min-width:0;padding:10px 8px}
+.gh-l .gh-ck{grid-column:1/-1}
+.gh-l em{color:var(--mut);font-style:normal}
+.gh-ck{display:inline-flex;align-items:center;gap:8px;font-weight:600}
+.gh-ck input{width:20px;height:20px}
+.gh-wrap{overflow-x:auto;margin:10px 0 6px;-webkit-overflow-scrolling:touch}
+.gh-tb{width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed;min-width:340px}
+.gh-tb th{font-size:12px;font-weight:700;color:var(--ink-2);padding:4px 0;text-align:center}
+.gh-tb thead th.hoy{color:var(--b2)}
+.gh-tb tbody th{width:46px;text-align:right;padding-right:4px;white-space:nowrap}
+.gh-c{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:46px;border-radius:10px;border:0;font:inherit;line-height:1.05;padding:0}
+.gh-c b{font-size:14px}.gh-c small{font-size:10px;font-weight:600}
+.gh-c.ok{background:var(--ok-l);color:#0a6b55;border:1.5px solid var(--ok);cursor:pointer}
+.gh-c.bad{background:var(--bad-l);color:var(--bad);border:1.5px solid var(--bad);cursor:pointer}
+.gh-c.off{background:#eef1f2;border:1.5px dashed var(--line-2)}
+.gh-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin:4px 0 12px}
+.gh-leg span{display:inline-flex;align-items:center;gap:6px}
+.gh-leg i{width:14px;height:14px;border-radius:4px;display:inline-block}
+.gh-leg i.ok{background:var(--ok-l);border:1.5px solid var(--ok)}.gh-leg i.bad{background:var(--bad-l);border:1.5px solid var(--bad)}.gh-leg i.off{background:#eef1f2;border:1.5px dashed var(--line-2)}
+.gh-ins .row{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.gh-ins .row>div:nth-child(2){flex:1;min-width:0}
+.gh-ins small{display:block;color:var(--ink-2)}
+.gh-chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.gh-chip{display:inline-flex;align-items:center;gap:4px;background:var(--ok-l);border:1px solid var(--ok);border-radius:999px;padding:4px 6px 4px 12px;font-weight:600;font-size:13px}
+.gh-chip button{border:0;background:none;display:inline-flex;padding:4px}
+.gh-sig{display:flex;flex-direction:column;gap:4px;margin:10px 0;background:var(--ok-l);border-color:var(--ok)}
+.gh-sig>span{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2)}
+.gh-sig>b{font-size:20px}
+.gh-fila{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:13px;color:var(--ink-2)}
+.gh-fila span{padding:2px 9px;border-radius:999px;border:1px solid var(--line-2);background:#fff}
+.gh-fila span.on{background:var(--ok);color:#fff;border-color:var(--ok);font-weight:700}
+.gh-fila i{font-style:normal;color:var(--mut)}
+.gh-rp{border-left:4px solid var(--warn);margin-bottom:10px}
+.gh-rp .row small{display:block;color:var(--ink-2)}
+.gh-rp .btns .btn{flex:1}

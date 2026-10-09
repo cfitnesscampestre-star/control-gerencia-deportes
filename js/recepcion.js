@@ -5,9 +5,11 @@
    · DIRECCIÓN del gimnasio: todo (aforo, personalizados, instructores,
      recepción). Da de alta a las recepcionistas y a los instructores, cada
      uno con su PIN.
-   · RECEPCIÓN (entra con su PIN): solo dos cosas
+   · RECEPCIÓN (entra con su PIN): solo estas cosas
        1) captura el aforo por hora (junto con la dirección)
        2) da de alta los personalizados y se los asigna a un instructor
+       3) consulta el horario semanal de personalizados (horas libres u ocupadas)
+       4) solicita rutinas genéricas, que llegan al entrenador que sigue en la fila
      No ve instructores, eventos, reportes ni otras áreas.
    · INSTRUCTOR / ENTRENADOR (entra con su PIN): solo ve los personalizados
      que le asignaron y registra cada sesión que da de ellos.
@@ -45,8 +47,8 @@ function openRec(id){
 /* ---------- pantalla de Recepción ---------- */
 function viewRecepcion(){
   const aid=session.area, a=getArea(aid), r=getRec(aid,session.recId)||{};
-  if(!['gimaforo','gimpt'].includes(ui.aTab)) ui.aTab='gimaforo';
-  const body = ui.aTab==='gimpt' ? vGimPT(aid) : vGimAforo(aid);
+  if(!['gimaforo','gimpt','gimhorario','gimrutinas'].includes(ui.aTab)) ui.aTab='gimaforo';
+  const body = ui.aTab==='gimpt' ? vGimPT(aid) : ui.aTab==='gimhorario' ? vGimHorario(aid) : ui.aTab==='gimrutinas' ? vGimRutinas(aid) : vGimAforo(aid);
   return shell({title:esc(r.nombre||'Recepción'),sub:`Recepción · ${areaIco(a,{size:14})} ${esc(a.nombre)}`,body});
 }
 
@@ -68,6 +70,7 @@ function vGimProf(){
   const sesMes=pk.reduce((n,x)=>n+ptSes(x).filter(s=>s.e==='realizada'&&String(s.f).startsWith(mes)).length,0);
   const sesHoy=pk.reduce((n,x)=>n+ptSes(x).filter(s=>s.e==='realizada'&&s.f===t).length,0);
   return `<div class="gpf">
+    ${gimRutProf()}
     <div class="sub">Aquí ves los personalizados que recepción te asignó. Registra cada sesión que des.</div>
     <div class="kpis k3">${kpi('Por entregar',saldo,plu(act.length,'paquete activo','paquetes activos'),{cls:saldo?'warn':'ok',color:'var(--warn)'})}${kpi('Hoy',sesHoy,'sesiones realizadas',{color:'var(--b2)'})}${kpi('Este mes',sesMes,'sesiones realizadas',{color:'var(--b1)'})}</div>
     <div class="h2">Mis personalizados</div>

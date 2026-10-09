@@ -430,7 +430,7 @@ function gruposDelDia(aid,fecha){
 }
 function areaStats(aid){
   const t=todayStr(), gs=grupos(aid), wk=mondayOf(t), wd=wdIdx(t);
-  const evs=coll(aid,'eventos').filter(e=>e.fecha>=t&&e.estado!=='cancelado').sort((a,b)=>(a.fecha+(a.hora||'')).localeCompare(b.fecha+(b.hora||'')));
+  const evs=coll(aid,'eventos').filter(e=>evFin(e)>=t&&e.estado!=='cancelado').sort((a,b)=>(a.fecha+(a.hora||'')).localeCompare(b.fecha+(b.hora||'')));
   const reps=areaData(aid).reportes||{};
   const rep=reps[wk];
   const ult=Object.values(reps).filter(r=>r.entregado).sort((a,b)=>b.semana.localeCompare(a.semana))[0];
@@ -449,7 +449,7 @@ function areaStats(aid){
 function dayItems(aid,d){
   const wd=wdIdx(d);
   const cls=grupos(aid).filter(g=>progEn(g,d)).map(g=>gDia(g,d)).map(g=>({t:'g',hora:g.hi||'',g}));
-  const evs=coll(aid,'eventos').filter(e=>e.fecha===d).map(e=>({t:'e',hora:e.hora||'',e}));
+  const evs=coll(aid,'eventos').filter(e=>evEnDia(e,d)).map(e=>({t:'e',hora:e.fecha===d?(e.hora||''):'',e}));
   return [...evs,...cls].sort((a,b)=>(a.hora||'99:99').localeCompare(b.hora||'99:99'));
 }
 
@@ -462,6 +462,14 @@ const ui = {
   pTab:'hoy', pFecha:todayStr(), lista:null,
   chartSel:null, gaFecha:todayStr()
 };
+/* Eventos con periodo: fecha = inicio, fechaFin (opcional) = último día. Sin fechaFin dura un solo día. */
+const evFin = e => (e&&e.fechaFin&&e.fechaFin>e.fecha)?e.fechaFin:(e?e.fecha:'');
+const evEnDia = (e,d) => !!e&&e.fecha<=d&&d<=evFin(e);
+const evCruza = (e,desde,hasta) => !!e&&e.fecha<=hasta&&evFin(e)>=desde;
+function evFechaTxt(e,largo){
+  if(!e) return ''; const f=evFin(e), fm=largo?fmtLarga:fmtCorta;
+  return f>e.fecha?(largo?`del ${fmtLarga(e.fecha)} al ${fmtLarga(f)}`:`${fmtCorta(e.fecha)} – ${fmtCorta(f)}`):fm(e.fecha);
+}
 const isRO = () => !!session && (session.rol==='ger'||session.rol==='met');
 const isProf = () => !!session && session.rol==='prof';
 const curArea = () => session ? (session.rol==='ger' ? ui.gArea : session.area) : null;

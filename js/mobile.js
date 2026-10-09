@@ -12,13 +12,15 @@ const NAV_M_DIR = [
 const NAV_M_GIM = [
   {id:'inicio',label:'Inicio',ic:'home',tabs:['inicio']},
   {id:'gimaforo',label:'Aforo',ic:'gauge',tabs:['gimaforo']},
-  {id:'gimpt',label:'Personal.',ic:'users',tabs:['gimpt']},
+  {id:'gimpt',label:'Personal.',ic:'users',tabs:['gimpt','gimhorario','gimrutinas']},
   {id:'profesores',label:'Equipo',ic:'clip',tabs:['profesores','recepcion','eventos']},
   {id:'reporte',label:'Reporte',ic:'doc',tabs:['reporte']}
 ];
 const NAV_M_REC = [
   {id:'gimaforo',label:'Aforo',ic:'gauge',tabs:['gimaforo']},
-  {id:'gimpt',label:'Personalizados',ic:'users',tabs:['gimpt']}
+  {id:'gimpt',label:'Personal.',ic:'users',tabs:['gimpt']},
+  {id:'gimhorario',label:'Horario',ic:'cal',tabs:['gimhorario']},
+  {id:'gimrutinas',label:'Rutinas',ic:'doc',tabs:['gimrutinas']}
 ];
 const NAV_M_SERV = [
   {id:'inicio',label:'Resumen',ic:'cal',tabs:['inicio']},
@@ -62,6 +64,11 @@ function viewBottomNav(){
 function gimSwitch(){                          // gimnasio: Instructores | Recepción | Eventos comparten la pestaña
   const b=(t,l)=>`<button class="${ui.aTab===t?'on':''}" data-act="aTab" data-tab="${t}">${l}</button>`;
   return `<div class="seg only-m" style="margin-top:6px">${b('profesores','Instructores')}${b('recepcion','Recepción')}${b('eventos','Eventos')}</div>`;
+}
+function gimPtSwitch(){                        // celular (director): Personalizados | Horario semanal | Rutinas comparten la pestaña
+  if(!session||session.rol!=='dir') return '';
+  const b=(t,l)=>`<button class="${ui.aTab===t?'on':''}" data-act="aTab" data-tab="${t}">${l}</button>`;
+  return `<div class="seg only-m" style="margin-top:6px">${b('gimpt','Personalizados')}${b('gimhorario','Horario')}${b('gimrutinas','Rutinas')}</div>`;
 }
 function agendaSwitch(){
   if(session.rol==='dir'&&esServ(curArea())) return servSwitch();

@@ -1,0 +1,37 @@
+PARCHE 10 - Control Gerencia: horarios de entrenadores, horario semanal de personalizados, rutinas genéricas y eventos por periodo
+===================================================================================================================================
+Requiere el parche 9. Deja el service worker en gd-v80.
+Sube (reemplazando): index.html, sw.js, css/gimnasio.css
+  js/app.js, js/analisis.js, js/calendario.js, js/core.js, js/dashboard.js, js/eventos.js, js/gimnasio.js, js/metodologia.js,
+  js/mobile.js, js/profesores.js, js/recepcion.js, js/sidebar.js, js/sincronizacion.js
+Sube (NUEVO): js/gimhorario.js
+
+1) HORARIOS DE LOS ENTRENADORES (Dirección del gimnasio > Instructores > ficha del instructor)
+   Por cada día (lunes a domingo): casilla "Laboral" con su entrada/salida y casilla "Personalizados" con las horas en que da personalizados
+   (pueden estar fuera del horario laboral, ej. laboral 6-14 y personalizados 15-20). Día sin marcar = no trabaja / no da personalizados.
+   Botón "Copiar el primer día marcado a los demás días". Se puede modificar cuando se quiera.
+   También: "Entra en la fila para recibir rutinas" (Sí/No).
+
+2) HORARIO SEMANAL DE PERSONALIZADOS (pestaña "Horario semanal"; la ven Dirección, Recepción y Gerencia)
+   Cuadrícula lunes a domingo por hora. VERDE = al menos un instructor libre (dice cuántos) · ROJO = todos ocupados · GRIS = nadie da personalizados.
+   Al tocar una hora aparecen los instructores de esa hora, libres u ocupados (y con quién). Si está libre, "Asignar personalizado"
+   abre el alta del personalizado con el instructor, el día y la hora ya puestos.
+   Una hora queda OCUPADA cuando un personalizado vigente tiene esa hora en su "Horario semanal fijo" (campo nuevo en Personalizados >
+   alta/edición; se pueden agregar varias horas). No deja ocupar dos veces la misma hora del mismo instructor.
+
+3) RUTINAS GENÉRICAS (pestaña "Rutinas"; Dirección y Recepción)
+   "+ Solicitar rutina": nombre del socio, teléfono (opcional) y objetivo (incremento de masa muscular / pérdida de porcentaje de grasa / rendimiento).
+   Se manda automáticamente al entrenador que sigue en la fila (orden alfabético de los instructores que entran en la fila; sigue después del último
+   asignado en automático). Se puede elegir a otro entrenador: en ese caso la fila NO se mueve. Se ve quién sigue en turno y el orden de la fila.
+   El entrenador ve en su pantalla "Rutinas por enviar" con el nombre, objetivo y teléfono, y la marca como enviada. Dirección y Recepción
+   pueden reasignarla o volverla a pendiente; solo Dirección puede eliminarla.
+
+4) EVENTOS POR PERIODO
+   El evento ahora tiene "Fecha de inicio" y "Fecha de término" (opcional; vacía = un solo día, igual que antes). Los eventos ya capturados no cambian.
+   El periodo se respeta en: lista de eventos (próximos/pasados), calendario (marca todos los días y aparece en cada día), próximos eventos de
+   Resumen y Gerencia, filtros de fechas de Metodología y fichas. El informe para Metodología se pide hasta que termina el último día.
+
+NOTAS
+- Las rutinas se guardan en data/<área>/rutinas. Si en Firebase las reglas validan nodo por nodo, hay que permitir ese nodo
+  igual que "paquetes".
+- No hay notificación push: el aviso al entrenador es dentro de la app (su pantalla de instructor).

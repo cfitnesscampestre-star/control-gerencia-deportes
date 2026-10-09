@@ -257,13 +257,15 @@ function ptDetalle(pid){
       return `<div class="card ptp"><div class="row"><div><b>${esc(x.cliente||'Cliente')}</b><small>${esc(fmtCorta(x.inicio))} al ${esc(fmtCorta(x.fin))}${x.monto?' · '+esc(mxn(+x.monto)):''}</small></div>${pill(est,PT_CLS[est])}</div>
         <div class="ptp-b"><div class="bar"><i class="${real>=tot?'info':aforoCls(tot?Math.round(real/tot*100):0)}" style="width:${tot?Math.min(100,Math.round(real/tot*100)):0}%"></i></div><b>${real}/${tot}</b></div>
         ${ses.length?`<div class="ptp-s">${ses.map(s=>`<span class="${s.e==='realizada'?'ok':'mut'}">${esc(fmtFecha(s.f))}${s.h?' '+esc(s.h):''} · ${esc(s.e==='realizada'?'realizada':s.e)}</span>${(ro||sim||rec)?'':`<button class="ptp-x" data-act="delSesion" data-pk="${esc(x.id)}" data-id="${esc(s.id)}" aria-label="Borrar sesión">${ic('x')}</button>`}`).join('')}</div>`:''}
+        ${ghSlots(x).length?`<small class="mut">Horario fijo: ${esc(ghSlots(x).sort((a,b)=>(a.d-b.d)||(a.h-b.h)).map(s=>DIAS[s.d]+' '+hh(s.h)).join(' · '))}</small>`:''}
         ${x.notas?`<small class="mut">${esc(x.notas)}</small>`:''}
         ${x.por?`<small class="mut">Dado de alta por ${esc(x.por)}</small>`:''}
         ${(ro||sim)?'':`<div class="btns">${rec?'':`<button class="btn sm primary" data-act="openSesion" data-id="${esc(x.id)}">+ Sesión</button>`}<button class="btn sm" data-act="openPT" data-id="${esc(x.id)}">Editar</button></div>`}</div>`; }).join(''):empty('Este instructor todavía no tiene personalizados.')}
     ${ro?`<div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`:`<div class="btns"><button class="btn primary" data-act="openPT" data-prof="${esc(pid)}">+ Personalizado para ${esc(p.nombre.split(' ')[0])}</button></div>`}`);
 }
-function openPT(id,profPre){
+function openPT(id,profPre,slotPre){
   const aid=curArea(), x=id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{}, ps=profesores(aid).filter(p=>p.activo!==false), t=todayStr(), cur=x.profId||profPre||'';
+  ptSlotsTmp={}; ghSlots(x).forEach(s=>{ ptSlotsTmp[ghKey(s.d,s.h)]={d:+s.d,h:+s.h}; }); if(slotPre) ptSlotsTmp[ghKey(slotPre.d,slotPre.h)]={d:slotPre.d,h:slotPre.h};
   if(!ps.length){ toast('Primero da de alta a los instructores'); return; }
   openModal(`${mHead(id?'Editar personalizado':'Nuevo personalizado')}
     <label class="f"><span>Asignar al instructor</span><select id="pt_prof">${ps.map(p=>`<option value="${esc(p.id)}"${cur===p.id?' selected':''}>${esc(p.nombre)}${p.pin?'':' (sin PIN: aún no puede entrar)'}</option>`).join('')}</select></label>
@@ -272,6 +274,7 @@ function openPT(id,profPre){
       <label class="f"><span>Monto (opcional)</span><input id="pt_monto" type="number" inputmode="numeric" min="0" value="${esc(x.monto)}" placeholder="$"></label></div>
     <div class="two"><label class="f"><span>Inicio</span><input id="pt_ini" type="date" value="${esc(x.inicio||t)}"></label>
       <label class="f"><span>Vence</span><input id="pt_fin" type="date" value="${esc(x.fin||addDays(t,60))}"></label></div>
+    ${ghSlotsCampo()}
     <label class="f"><span>Notas (opcional)</span><textarea id="pt_notas">${esc(x.notas)}</textarea></label>
     <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="savePT" data-id="${esc(id||'')}">Guardar</button></div>
     ${(id&&(!isRec()||!ptSes(x).length))?`<div class="btns"><button class="btn danger" data-act="delPT" data-id="${esc(id)}">Eliminar personalizado</button></div>`:''}`);
@@ -302,7 +305,8 @@ Object.assign(actions,{
     if(tot<1){ toast('Indica cuántas sesiones se contrataron'); return; }
     if(!ini||!fin||fin<ini){ toast('Revisa las fechas de inicio y vencimiento'); return; }
     const id=d.id||('pt'+uid()), prev=d.id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{};
-    setPath(`data/${aid}/paquetes/${id}`,{...prev,id,profId:$('#pt_prof').value,cliente:cli,total:tot,monto:+$('#pt_monto').value||0,inicio:ini,fin,notas:$('#pt_notas').value.trim(),por:prev.por||gimPor(),alta:prev.alta||Date.now()});
+    const choque=ghSlotsConflicto(aid,$('#pt_prof').value,id); if(choque){ toast(choque); return; }
+    setPath(`data/${aid}/paquetes/${id}`,{...prev,id,slots:{...ptSlotsTmp},profId:$('#pt_prof').value,cliente:cli,total:tot,monto:+$('#pt_monto').value||0,inicio:ini,fin,notas:$('#pt_notas').value.trim(),por:prev.por||gimPor(),alta:prev.alta||Date.now()});
     closeModal(); render(); toast('Personalizado guardado');
   },
   delPT(d){ if(isRec()&&ptSes(getPath(`data/${curArea()}/paquetes/${d.id}`)||{}).length){ toast('Ya tiene sesiones registradas: solo la dirección puede eliminarlo'); return; } if(!confirm('¿Eliminar este personalizado y sus sesiones?')) return; setPath(`data/${curArea()}/paquetes/${d.id}`,undefined); closeModal(); render(); toast('Personalizado eliminado'); },

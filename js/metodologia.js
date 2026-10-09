@@ -157,7 +157,7 @@ function mtFila(titulo,sub,valor,detalle){
 }
 
 /* ---------- EVENTOS ---------- */
-function mtEventos(aid,r){ return coll(aid,'eventos').filter(e=>e.fecha>=r.desde&&e.fecha<=r.hasta).sort((a,b)=>a.fecha.localeCompare(b.fecha)); }
+function mtEventos(aid,r){ return coll(aid,'eventos').filter(e=>evCruza(e,r.desde,r.hasta)).sort((a,b)=>a.fecha.localeCompare(b.fecha)); }
 function vMetEventos(){
   const r=mtRango();
   if(ui.mt.eArea&&getArea(ui.mt.eArea)) return vMetEventosArea(ui.mt.eArea,r);
@@ -183,7 +183,7 @@ function vMetEventosArea(aid,r){
     ${evs.length?`<div class="btns"><button class="btn primary" data-act="mtEvReporte" data-aid="${esc(aid)}">${ic('doc')} Imprimir reporte de ${esc(a.nombre)}</button></div>`:''}
     ${evs.length?`<div class="evlist">${evs.map(e=>{ const d=parseYmd(e.fecha); return `<button class="ev-c" data-act="mtEvento" data-aid="${esc(aid)}" data-id="${esc(e.id)}">
       <div class="ev-d"><b>${d.getDate()}</b><span>${MESES[d.getMonth()].slice(0,3)}</span></div>
-      <div class="ev-i"><b>${esc(e.nombre)}</b><small>${esc([e.tipo,e.hora,e.lugar].filter(Boolean).join(' · '))}${e.participantes?' · '+(+e.participantes)+' participantes':''}${infTag(aid,e)}</small></div>
+      <div class="ev-i"><b>${esc(e.nombre)}</b><small>${esc([evFin(e)>e.fecha?evFechaTxt(e):'',e.tipo,e.hora,e.lugar].filter(Boolean).join(' · '))}${e.participantes?' · '+(+e.participantes)+' participantes':''}${infTag(aid,e)}</small></div>
       ${pill(e.estado||'planificado',EST_EV_CLS[e.estado]||'info')}</button>`; }).join('')}</div>`
       :empty('No hay eventos de esta área en el período elegido.')}`;
 }
@@ -762,7 +762,7 @@ function evFichaHTML(aid,e){
   if(pp) lect.push(`Costo por participante: <b>${mxn(pp)}</b>.`);
   if(!lect.length) lect.push('Este evento todavía no tiene presupuesto, costo real o calificación capturados.');
   return `${mtTabla([{t:'Dato'},{t:'Detalle'}],[
-      {c:['<b>Evento</b>',esc(e.nombre)]},{c:['<b>Área</b>',esc(a.nombre)]},{c:['<b>Fecha y hora</b>',esc(fmtLarga(e.fecha))+(e.hora?' · '+esc(e.hora):'')]},
+      {c:['<b>Evento</b>',esc(e.nombre)]},{c:['<b>Área</b>',esc(a.nombre)]},{c:['<b>Fecha y hora</b>',esc(evFechaTxt(e,1))+(e.hora?' · '+esc(e.hora):'')]},
       {c:['<b>Lugar</b>',esc(e.lugar||'—')]},{c:['<b>Tipo</b>',esc([e.tipo,e.categoria].filter(Boolean).join(' · ')||'—')]},{c:['<b>Estado</b>',esc(e.estado||'planificado')]},
       {c:['<b>Participantes</b>',e.participantes?metNum(e.participantes):'—']},
       {c:['<b>Presupuesto</b>',e.presupuesto?mxn(e.presupuesto):'—']},{c:['<b>Costo real</b>',e.costoReal?mxn(e.costoReal):'—']},
@@ -861,14 +861,15 @@ const infTot = i => { const cm=+i.clubM||0, cf=+i.clubF||0, fm=+i.forM||0, ff=+i
 const evTerminado = e => {
   if(!e||e.estado==='cancelado'||e.estado==='pospuesto') return false;
   if(e.estado==='realizado') return true;
-  const t=todayStr(); if(e.fecha<t) return true; if(e.fecha>t) return false;
+  const t=todayStr(), fin=evFin(e); if(fin<t) return true; if(e.fecha>t) return false;
+  if(fin>e.fecha) return false;                       // evento de varios días: termina hasta que pasa su último día
   const h=String(e.hora||'').match(/^(\d{1,2}):(\d{2})/); if(!h) return false;
   const n=new Date(); return n.getHours()*60+n.getMinutes()>=(+h[1])*60+(+h[2]);
 };
 /* Recordatorio en rojo para la dirección: evento terminado sin informe. Solo se avisa de los últimos INF_VENTANA días
    (los eventos más viejos se pueden capturar desde su ficha, pero no llenan la pantalla de alertas). */
 const INF_VENTANA = 45;
-const infPendiente = (aid,e) => !!session && session.rol==='dir' && !e.sim && evTerminado(e) && !getInforme(aid,e.id) && e.fecha>=addDays(todayStr(),-INF_VENTANA);
+const infPendiente = (aid,e) => !!session && session.rol==='dir' && !e.sim && evTerminado(e) && !getInforme(aid,e.id) && evFin(e)>=addDays(todayStr(),-INF_VENTANA);
 const infPendientes = aid => coll(aid,'eventos').filter(e=>infPendiente(aid,e)).sort((a,b)=>a.fecha.localeCompare(b.fecha));
 const infRojo = (aid,e) => infPendiente(aid,e)
   ? `<button class="inf-rojo" data-act="infAbrir" data-aid="${esc(aid)}" data-id="${esc(e.id)}"><i></i><span><b>Informe de Metodología pendiente</b><small>El evento ya terminó. Captura participantes y resultados.</small></span><em>Capturar</em></button>` : '';
@@ -894,7 +895,7 @@ function openInforme(aid,eid){
     <div class="sub">Este informe es para <b>Metodología deportiva</b>. Gerencia no lo ve.</div>
     <div class="card"><div class="dl"><dt>Deporte</dt><dd>${esc(e.deporte||a.nombre)}</dd></div>
       <div class="dl"><dt>Evento</dt><dd>${esc(e.nombre)}</dd></div>
-      <div class="dl"><dt>Lugar y fecha</dt><dd>${esc([e.lugar,fmtLarga(e.fecha)].filter(Boolean).join(' · '))}</dd></div></div>
+      <div class="dl"><dt>Lugar y fecha</dt><dd>${esc([e.lugar,evFechaTxt(e,1)].filter(Boolean).join(' · '))}</dd></div></div>
     <div class="two"><label class="f"><span>Inicio</span><input id="inf_ini" type="time" value="${esc(I.ini||e.hora||'')}"></label>
       <label class="f"><span>Final</span><input id="inf_fin" type="time" value="${esc(I.fin||'')}"></label></div>
     <div class="h2 sm">Participantes del club</div>
@@ -926,7 +927,7 @@ function infDocHTML(aid,eid){
   return `<div class="inf-doc">
     <div class="inf-dep"><b>DEPORTE:</b> ${esc(e.deporte||a.nombre)}</div>
     <table class="inf-tb"><tr>${cel('NOMBRE DEL EVENTO:',e.nombre)}${cel('LUGAR:',e.lugar)}</tr></table>
-    <table class="inf-tb"><tr>${cel('FECHA DEL EVENTO:',fmtLarga(e.fecha))}${cel('INICIO:',I.ini||e.hora)}${cel('FINAL:',I.fin)}</tr></table>
+    <table class="inf-tb"><tr>${cel('FECHA DEL EVENTO:',evFechaTxt(e,1))}${cel('INICIO:',I.ini||e.hora)}${cel('FINAL:',I.fin)}</tr></table>
     <div class="inf-h">DESGLOSE</div>
     <div class="inf-fila"><table class="inf-tb inf-des"><tr><th colspan="3">PARTICIPANTES DEL CLUB</th><th colspan="3">PARTICIPANTES FORÁNEOS</th></tr>
       <tr><th>M</th><th>F</th><th>T</th><th>M</th><th>F</th><th>T</th></tr>

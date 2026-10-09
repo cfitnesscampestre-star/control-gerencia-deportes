@@ -15,6 +15,8 @@ const NAV_GIM = [
   {id:'inicio',label:'Inicio',ic:'home'},
   {id:'gimaforo',label:'Aforo por hora',ic:'gauge'},
   {id:'gimpt',label:'Personalizados',ic:'users'},
+  {id:'gimhorario',label:'Horario semanal',ic:'cal'},
+  {id:'gimrutinas',label:'Rutinas',ic:'doc'},
   {id:'profesores',label:'Instructores',ic:'clip'},
   {id:'recepcion',label:'Recepción',ic:'user'},
   {id:'eventos',label:'Eventos',ic:'flag'},
@@ -26,7 +28,9 @@ const NAV_SERV = [
 ];
 const NAV_REC = [
   {id:'gimaforo',label:'Aforo por hora',ic:'gauge'},
-  {id:'gimpt',label:'Personalizados',ic:'users'}
+  {id:'gimpt',label:'Personalizados',ic:'users'},
+  {id:'gimhorario',label:'Horario semanal',ic:'cal'},
+  {id:'gimrutinas',label:'Rutinas',ic:'doc'}
 ];
 const NAV_PROF_GIM = [
   {id:'hoy',label:'Mis personalizados',ic:'users'}

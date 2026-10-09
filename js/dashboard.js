@@ -173,7 +173,7 @@ function gResumen(){
     <div class="d-ev">
       <div class="h2">Próximos eventos</div>
       ${evs.length?evs.slice(0,6).map(x=>`<button class="line ev" data-act="openArea" data-id="${x.a.id}" data-tab="eventos">
-        <div class="t">${esc(fmtFecha(x.e.fecha))}</div>
+        <div class="t">${esc(evFin(x.e)>x.e.fecha?evFechaTxt(x.e):fmtFecha(x.e.fecha))}</div>
         <div class="b"><b>${esc(x.e.nombre)}</b><small>${areaIco(x.a,{size:13})} ${esc(x.a.nombre)}${x.e.lugar?' · '+esc(x.e.lugar):''}</small></div>
         <div class="r">${pill(x.e.estado||'planificado',EST_EV_CLS[x.e.estado]||'info')}</div></button>`).join(''):empty('Todavía no hay eventos próximos registrados.')}
     </div>

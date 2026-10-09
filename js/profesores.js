@@ -49,6 +49,7 @@ function openProfesor(pid){
     </div>
     <label class="f"><span>Especialidades</span><input id="pf_esp" value="${esc(p.especialidad)}" placeholder="${esServ(aid)?'Ej. Rehabilitación deportiva, Nutrición deportiva':'Ej. Pilates, CrossFit'}"${dis}></label>
     ${esServ(aid)?svProfCampos(aid,p,ro):''}
+    ${esGim(aid)?gimProfCampos(aid,p,ro):''}
     ${(typeof mantAplica==='function'&&mantAplica(aid)&&!fcId(pid))?`<label class="f"><span>Mantenimiento</span><select id="pf_mant"${dis}><option value="0"${p.mantenimiento?'':' selected'}>No puede reportar equipo</option><option value="1"${p.mantenimiento?' selected':''}>Sí puede reportar equipo</option></select>
       <small class="mut">Si lo activas, a este profesor le aparece el botón Mantenimiento en su portal para reportar equipo. Sus reportes llegan al técnico y los ves en la pestaña Mantenimiento de tu área.</small></label>`:''}
     ${ro?'':`<div class="f"><span class="lb">PIN de acceso (4 a 6 dígitos)</span>
@@ -85,10 +86,10 @@ Object.assign(actions,{
   saveProfesor(d){
     const aid=curArea(), nombre=$('#pf_nombre').value.trim(), pin=($('#pf_pin')||{value:''}).value.trim();
     if(!nombre){ toast('Escribe el nombre del profesor'); return; }
-    const errH=svProfError(aid); if(errH){ toast(errH); return; }
+    const errH=svProfError(aid)||gimProfError(aid); if(errH){ toast(errH); return; }
     if(!/^\d{4,6}$/.test(pin)){ toast('El PIN debe tener de 4 a 6 dígitos'); return; }
     const id=d.id||('p'+uid()), prev=d.id?(getProf(aid,id)||{}):{};
-    setPath(`data/${aid}/profesores/${id}`,{...prev,id,nombre,pin,tipo:$('#pf_tipo').value,activo:$('#pf_activo').value==='1',especialidad:$('#pf_esp').value.trim(),foto:pfFotoData||'',mantenimiento:!!($('#pf_mant')?$('#pf_mant').value==='1':prev.mantenimiento),...svProfLeer(aid)});
+    setPath(`data/${aid}/profesores/${id}`,{...prev,id,nombre,pin,tipo:$('#pf_tipo').value,activo:$('#pf_activo').value==='1',especialidad:$('#pf_esp').value.trim(),foto:pfFotoData||'',mantenimiento:!!($('#pf_mant')?$('#pf_mant').value==='1':prev.mantenimiento),...svProfLeer(aid),...gimProfLeer(aid)});
     if(prev.nombre&&prev.nombre!==nombre) clasesDe(aid,id).forEach(g=>setPath(`data/${aid}/grupos/${g.id}/prof`,profsDeGrupo(g).map(x=>x===id?nombre:((getProf(aid,x)||{}).nombre||'')).filter(Boolean).join(' / ')));
     closeModal(); render(); toast(esServ(aid)?'Especialista guardado':'Profesor guardado');
   },
