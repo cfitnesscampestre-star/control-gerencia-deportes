@@ -18,8 +18,8 @@ const NAV_M_GIM = [
 ];
 const NAV_M_REC = [
   {id:'gimaforo',label:'Aforo',ic:'gauge',tabs:['gimaforo']},
-  {id:'gimpt',label:'Personal.',ic:'users',tabs:['gimpt']},
   {id:'gimhorario',label:'Horario',ic:'cal',tabs:['gimhorario']},
+  {id:'gimpt',label:'Personal.',ic:'users',tabs:['gimpt']},
   {id:'gimrutinas',label:'Rutinas',ic:'doc',tabs:['gimrutinas']}
 ];
 const NAV_M_SERV = [

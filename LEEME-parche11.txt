@@ -1,0 +1,12 @@
+PARCHE 11 - Control Gerencia: aforo solo de la hora en curso + horario de personalizados debajo
+================================================================================================
+Requiere el parche 10. Deja el service worker en gd-v81.
+Sube (reemplazando): index.html, sw.js, css/gimnasio.css, js/gimnasio.js, js/gimhorario.js, js/sidebar.js, js/mobile.js
+
+- Aforo por hora (Recepción, Dirección del gimnasio y Gerencia al entrar a Gimnasio): hoy solo aparece el recuadro de la hora en curso
+  (si es antes de abrir, la primera hora; si ya cerró, la última). Pasa solo a la siguiente cuando cambia la hora (revisa cada 20 s y no
+  interrumpe si se está escribiendo). El botón "Ver todas las horas" despliega la lista completa y "Mostrar solo la hora en curso" la vuelve a cerrar.
+  Si se consulta otro día, salen todas las horas.
+- Debajo del aforo va el horario de personalizados (verde = hay instructor libre, rojo = todo ocupado), con botón "Ver completo".
+- Menú de Recepción: Aforo · Horario · Personalizados · Rutinas (el horario pasó al segundo lugar y Personalizados al tercero).
+- Gerencia ve lo mismo que el director, solo lectura.

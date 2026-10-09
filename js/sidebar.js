@@ -28,8 +28,8 @@ const NAV_SERV = [
 ];
 const NAV_REC = [
   {id:'gimaforo',label:'Aforo por hora',ic:'gauge'},
-  {id:'gimpt',label:'Personalizados',ic:'users'},
   {id:'gimhorario',label:'Horario semanal',ic:'cal'},
+  {id:'gimpt',label:'Personalizados',ic:'users'},
   {id:'gimrutinas',label:'Rutinas',ic:'doc'}
 ];
 const NAV_PROF_GIM = [

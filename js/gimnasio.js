@@ -168,16 +168,21 @@ function vGimAforo(aid){
   const fecha=ui.gaFecha, ro=isRO(), desk=isDesktop(), cap=gimCapDia(aid,fecha), horas=gimHoras(aid,fecha), esHoy=fecha===todayStr(), hAct=new Date().getHours();
   const S=gimStats(aid,fecha,fecha), serie=gimSerie(aid,fecha);
   const nav=`<div class="af-date"><button class="ibtn" data-act="gaNav" data-n="-1" aria-label="Día anterior">${ic('back')}</button><b>${esc(fmtLarga(fecha))}</b><button class="ibtn" data-act="gaNav" data-n="1" aria-label="Día siguiente">${ic('next')}</button><input class="only-d" type="date" id="ga_date" value="${esc(fecha)}" aria-label="Elegir fecha"><button class="btn sm" data-act="gaHoy">Hoy</button></div>`;
-  const filas=horas.map(h=>({h,r:getPath(`data/${aid}/accesos/${fecha}_${pad(h)}`)}));
+  const todas=!esHoy||!!ui.gaTodas, hCur=horas.length?(horas.includes(hAct)?hAct:(hAct<horas[0]?horas[0]:horas[horas.length-1])):null;
+  const filas=horas.filter(h=>todas||h===hCur).map(h=>({h,r:getPath(`data/${aid}/accesos/${fecha}_${pad(h)}`)}));
   const body=!horas.length?empty('El gimnasio no abre este día según el horario configurado en Ajustes.'):desk
     ?`<div class="af-wrap"><table class="af-table ga-table"><thead><tr><th>Hora</th><th>Mujeres</th><th>Hombres</th><th>Total</th><th>Aforo</th><th>Estado</th><th></th></tr></thead><tbody>${filas.map(x=>gaFilaTr(aid,fecha,x.h,x.r,ro,cap)).join('')}</tbody></table></div>`
     :filas.map(x=>gaFilaCard(aid,fecha,x.h,x.r,ro,cap,esHoy,hAct)).join('');
+  const verTodas=(esHoy&&horas.length>1)?`<div class="btns ga-todas"><button class="btn block" data-act="gaTodas">${ui.gaTodas?'Mostrar solo la hora en curso':`Ver todas las horas (${horas.length})`}</button></div>`:'';
   return `<div class="h2">Aforo por hora <button class="btn sm" data-act="gaPrint">Imprimir / PDF</button></div>
     <div class="sub">${ro?'Conteos capturados por la dirección y la recepción del gimnasio.':'Cada hora cuenta cuántas personas hay en la sala, separadas en mujeres y hombres. Se guarda solo.'} Capacidad: ${cap} personas.</div>
     ${nav}
     <div class="ga-sum">${gaResumen(aid,fecha)}</div>
     <div class="card" style="margin:12px 0">${gimBarras(serie,cap,120)}</div>
-    ${body}`;
+    ${esHoy&&!ui.gaTodas&&horas.length?`<div class="sub ga-cur">Hora en curso: <b>${hh(hCur)}</b>. Cuando cambie la hora, pasa sola a la siguiente.</div>`:''}
+    ${body}
+    ${verTodas}
+    ${vGimHorario(aid,true)}`;
 }
 function gaResumen(aid,fecha){
   const S=gimStats(aid,fecha,fecha);
@@ -291,6 +296,7 @@ function openSesion(pkId){
 Object.assign(actions,{
   gaNav(d){ ui.gaFecha=addDays(ui.gaFecha,+d.n); render(); },
   gaHoy(){ ui.gaFecha=todayStr(); render(); },
+  gaTodas(){ ui.gaTodas=!ui.gaTodas; render(); },
   gaStep(d){ const inp=document.querySelector(`.ga-row[data-h="${d.h}"] .ga-in[data-g=${d.g}]`); if(!inp) return; gaSet(d.h,d.g,(inp.value===''?0:+inp.value)+(+d.n)); },
   gaCopiar(d){
     const aid=curArea(), prev=getPath(`data/${aid}/accesos/${ui.gaFecha}_${pad(+d.h-1)}`);
@@ -334,3 +340,10 @@ document.addEventListener('keydown',e=>{
   const t=e.target; if(e.key!=='Enter'||!t.classList||!t.classList.contains('ga-in')) return; e.preventDefault();
   const all=[...document.querySelectorAll('.ga-in')], nx=all[all.indexOf(t)+1]||t; nx.focus(); if(nx.select) nx.select();
 });
+
+/* Con el aforo de “solo la hora en curso”, cuando cambia la hora la pantalla pasa sola a la siguiente */
+let gaHoraVista = new Date().getHours();
+setInterval(()=>{
+  const h=new Date().getHours(); if(h===gaHoraVista) return; gaHoraVista=h;
+  if(session&&ui.gaFecha===todayStr()&&!ui.gaTodas&&['gimaforo'].includes(ui.aTab)&&!gaBusy()) safeRender();
+},20000);

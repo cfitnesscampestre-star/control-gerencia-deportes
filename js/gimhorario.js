@@ -71,12 +71,12 @@ function ghOferta(ctx,d,h){                              // instructores que dan
   return ctx.ps.filter(p=>ghCubre(ghDia(p,'horPt',d),h)).map(p=>({p,oc:ctx.pk.find(x=>x.profId===p.id&&ghSlots(x).some(s=>+s.d===d&&+s.h===h))||null}));
 }
 function ghCtx(aid){ return {ps:profesores(aid).filter(p=>p.activo!==false), pk:coll(aid,'paquetes').filter(ptVigente)}; }
-function vGimHorario(aid){
+function vGimHorario(aid,embed){
   const ro=roDatos(aid), ctx=ghCtx(aid), hoy=wdIdx(todayStr());
   let h0=24, h1=0;
   ctx.ps.forEach(p=>{ for(let d=0;d<7;d++){ const x=ghDia(p,'horPt',d); if(!x) continue; h0=Math.min(h0,Math.floor(ghMin(x.i)/60)); h1=Math.max(h1,Math.ceil(ghMin(x.f)/60)); } });
-  const sw=(typeof gimPtSwitch==='function')?gimPtSwitch():'';
-  const head=`<div class="h2">Horario semanal de personalizados</div>${sw}`;
+  const sw=(!embed&&typeof gimPtSwitch==='function')?gimPtSwitch():'';
+  const head=embed?`<div class="h2" style="margin-top:18px">Horario de personalizados <button class="btn sm" data-act="aTab" data-tab="gimhorario">Ver completo</button></div>`:`<div class="h2">Horario semanal de personalizados</div>${sw}`;
   if(h1<=h0) return `${head}<div class="sub">Aquí se ve qué horas tienen libres los entrenadores para un personalizado.</div>${empty(ro?'Todavía no hay horarios de personalizados capturados.':'Primero captura el horario de personalizados de cada instructor, en Instructores.')}`;
   let libres=0, llenas=0;
   const filas=[]; for(let h=h0;h<h1;h++){
@@ -89,7 +89,7 @@ function vGimHorario(aid){
   }
   return `${head}
     <div class="sub">${ro?'Horas de personalizados de los entrenadores.':'Toca una hora para ver qué instructores tienen libre y asignarle el personalizado al socio.'} Verde = hay al menos un instructor libre · Rojo = todos ocupados · Gris = nadie da personalizados a esa hora.</div>
-    <div class="kpis k3">${kpi('Horas con lugar',libres,'verdes en la semana',{cls:'ok',color:'var(--b1)'})}${kpi('Horas llenas',llenas,'rojas en la semana',{cls:llenas?'bad':'',color:'var(--bad)'})}${kpi('Instructores',ctx.ps.filter(p=>Object.keys(p.horPt||{}).length).length,'con horario de personalizados',{color:'var(--b3)'})}</div>
+    ${embed?'':`<div class="kpis k3">${kpi('Horas con lugar',libres,'verdes en la semana',{cls:'ok',color:'var(--b1)'})}${kpi('Horas llenas',llenas,'rojas en la semana',{cls:llenas?'bad':'',color:'var(--bad)'})}${kpi('Instructores',ctx.ps.filter(p=>Object.keys(p.horPt||{}).length).length,'con horario de personalizados',{color:'var(--b3)'})}</div>`}
     <div class="gh-wrap"><table class="gh-tb"><thead><tr><th></th>${DIAS.map((l,i)=>`<th class="${i===hoy?'hoy':''}">${l}</th>`).join('')}</tr></thead><tbody>${filas.join('')}</tbody></table></div>
     <div class="gh-leg"><span><i class="ok"></i>Libre</span><span><i class="bad"></i>Ocupado</span><span><i class="off"></i>Sin instructor</span></div>`;
 }
