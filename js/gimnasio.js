@@ -104,6 +104,7 @@ function vGimInicio(aid){
   return `<div class="dash has-chart gi">
     <div class="d-kpis">
       <div class="sub">${esc(fmtLarga(t))} · ${dh?`hoy abierto de ${hh(dh.abre)} a ${hh(dh.cierra)} · capacidad ${cap} personas`:'hoy el gimnasio no abre'}</div>
+      ${dirPendientes(aid)}
       <div class="gi-hero">
         <div class="gi-h1">
           <div class="gi-lbl">Mujeres / Hombres</div>

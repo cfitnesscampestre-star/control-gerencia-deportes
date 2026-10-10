@@ -65,6 +65,11 @@ function vGimProf(){
   return `<div class="gpf">
     ${gimAvisosProf(aid,pid)}
     ${gimRutProf()}
+    ${(()=>{ const y=hoy.filter(y=>!y.c.reg&&ctKey(y.c.f,y.c.h)<=ahoraKey()).pop(); if(!y) return '';      // la sesión que acaba de empezar: registro en un toque
+      return `<div class="h2">Ahora</div><div class="hero gpf-ahora"><div class="hero-t"><span>${y.c.st==='en curso'?'Sesión en curso':'Sesión de hoy sin registrar'}</span><b>${esc(y.pk.cliente||'Cliente')}</b><span>${hh(y.c.h)} · sesión ${ptReal(y.pk)+1} de ${+y.pk.total||0}</span></div>
+        <div class="hero-bs"><button class="hero-b" data-act="ctRegistrar" data-pk="${esc(y.pk.id)}" data-c="${esc(y.c.id)}" data-e="realizada">✓ Realizada</button>
+        <button class="hero-b2" data-act="ctRegistrar" data-pk="${esc(y.pk.id)}" data-c="${esc(y.c.id)}" data-e="falta">No asistió</button>
+        <button class="hero-b2" data-act="ctVer" data-pk="${esc(y.pk.id)}" data-c="${esc(y.c.id)}" data-from="">Otro…</button></div></div>`; })()}
     <div class="sub">Tu agenda de personalizados. Cuando pase la hora de cada sesión, regístrala: realizada, no asistió o cancelada.</div>
     <div class="kpis k3">${kpi('Hoy',hoy.length,plu(hoy.filter(y=>y.c.reg).length,'registrada','registradas'),{color:'var(--b2)'})}${kpi('Por entregar',saldo,plu(act.length,'paquete activo','paquetes activos'),{cls:saldo?'warn':'ok',color:'var(--warn)'})}${kpi('Sin registrar',sinReg.length,`${sesMes} realizadas este mes`,{cls:sinReg.length?'bad':'ok',color:'var(--bad)'})}</div>
     ${sinReg.length?`<div class="h2">Sin registrar <span class="pill bad">${sinReg.length}</span></div><div class="sub">Ya pasaron y no tienen registro. La dirección las ve como pendientes.</div>${sinReg.map(y=>ctFila(aid,y.pk,y.c,{fecha:true})).join('')}`:''}

@@ -78,8 +78,8 @@ function chartDetalle(P,id){
   </div>`;
 }
 function gChart(P,as){
-  const rows=as.map(a=>({a,s:P.por[a.id]})).filter(x=>x.s.grupos>0||(x.s.gim&&x.s.g.recs>0)).sort((x,y)=>y.s.asisTot-x.s.asisTot);
-  const sinGrupos=as.length-rows.length, max=Math.max(1,...rows.map(x=>x.s.asisTot));
+  const rows=as.map(a=>({a,s:P.por[a.id]})).filter(x=>!x.s.serv&&x.s.asisTot>0).sort((x,y)=>y.s.asisTot-x.s.asisTot);
+  const sinDatos=as.filter(a=>!P.por[a.id].serv&&!rows.some(x=>x.a.id===a.id)), max=Math.max(1,...rows.map(x=>x.s.asisTot));
   const conA=rows.filter(x=>x.s.aforo!=null), T={asisTot:anSum(rows,x=>x.s.asisTot),aforo:conA.length?Math.round(anSum(conA,x=>x.s.aforo)/conA.length):null};
   const sel=rows.some(x=>x.a.id===ui.chartSel)?ui.chartSel:null;
   return `<div class="d-chart">
@@ -97,15 +97,42 @@ function gChart(P,as){
             <span class="bar ch-b"><i class="${aforoCls(s.aforo)}" style="width:${Math.max(s.asisTot?3:0,Math.round(Math.sqrt(s.asisTot/max)*100))}%"></i></span>
             <span class="ch-v"><b>${s.asisTot.toLocaleString('es-MX')}</b><em class="${aforoCls(s.aforo)}">${anPct(s.aforo)}</em></span></button>${sel===a.id?`<div class="ch-inl">${chartDetalle(P,a.id)}</div>`:''}`).join('')}</div>
           <div class="an-leg"><span>Largo de la barra = usuarios (escala comprimida para que todas se vean)</span><span><i class="ok"></i>efectividad ≥ 75%</span><span><i class="warn"></i>30–75%</span><span><i class="bad"></i>&lt; 30%</span></div>
-          ${sinGrupos?`<div class="an-cs" style="margin:8px 0 0">${sinGrupos} ${sinGrupos===1?'área sin grupos registrados no aparece':'áreas sin grupos registrados no aparecen'}.</div>`:''}
+          ${sinDatos.length?`<div class="an-cs" style="margin:8px 0 0">Sin asistencia en el período: ${esc(sinDatos.map(a=>a.nombre).join(', '))}.</div>`:''}
         </div>
         <div class="ch-side">${sel?chartDetalle(P,sel):'<div class="ch-d ch-hint">Toca una barra para ver las clases, los profesores y los usuarios de esa disciplina.</div>'}</div>
-      </div>`:empty('Todavía no hay áreas con grupos registrados.')}
+      </div>`:empty('Ninguna área tiene asistencia capturada en el período.')}
     </div>
   </div>`;
 }
 Object.assign(actions,{ chartSel(d){ ui.chartSel=ui.chartSel===d.id?null:d.id; render(); } });
 
+/* Resumen de gerencia por excepciones: solo lo que necesita atención, agrupado y con el área a un toque. */
+function gAtnChips(L,tab,rt){
+  return `<div class="gx-ar">${L.map(x=>`<button class="gx-c" data-act="gAbrir" data-id="${esc(x.a.id)}" data-tab="${tab}"${rt?` data-rt="${rt}"`:''} style="--ac:${esc(x.a.color)}">${areaIco(x.a,{size:15})} ${esc(x.a.nombre)}${x.n!=null?` <b>${x.n}</b>`:''}</button>`).join('')}</div>`;
+}
+function gAtencion(as){
+  const t=todayStr(), ayer=addDays(t,-1), wkP=addDays(mondayOf(t),-7), out=[];
+  const it=(tono,titulo,cuerpo,n)=>out.push(`<div class="gx-it ${tono}"><div class="gx-h"><i></i><b>${titulo}</b>${n!=null?`<span class="pill ${tono}">${n}</span>`:''}</div>${cuerpo}</div>`);
+  const clases=as.filter(a=>!esServ(a.id)&&!esGim(a.id)&&!esVinculada(a.id));
+  const altas=[], otras=[];
+  as.forEach(a=>{ const ab=coll(a.id,'incidencias').filter(i=>i.estado!=='resuelta'), h=ab.filter(i=>i.grav==='alta').length;
+    if(h) altas.push({a,n:h}); if(ab.length-h) otras.push({a,n:ab.length-h}); });
+  if(altas.length) it('bad','Incidencias de gravedad alta',gAtnChips(altas,'reporte','incidencias'),anSum(altas,x=>x.n));
+  const apoyos=[]; as.forEach(a=>{ const r=Object.values(areaData(a.id).reportes||{}).filter(r=>r.semana>=wkP&&String(r.apoyo||'').trim()).sort((p,q)=>q.semana.localeCompare(p.semana))[0]; if(r) apoyos.push({a,r}); });
+  if(apoyos.length) it('info','Te piden apoyo',apoyos.map(x=>`<button class="gx-ap" data-act="gAbrir" data-id="${esc(x.a.id)}" data-tab="reporte" style="--ac:${esc(x.a.color)}">${areaIco(x.a,{size:15})} <b>${esc(x.a.nombre)}:</b> ${esc(String(x.r.apoyo).slice(0,140))}</button>`).join(''),apoyos.length);
+  const sinRep=as.filter(a=>!esServ(a.id)&&!((areaData(a.id).reportes||{})[wkP]||{}).entregado).map(a=>({a}));
+  if(sinRep.length) it('warn',`Reportes de la semana pasada sin entregar <small>(del ${esc(fmtCorta(wkP))})</small>`,gAtnChips(sinRep,'reporte'),sinRep.length);
+  const sinL=clases.map(a=>{ const hay=new Set(coll(a.id,'asistencia').filter(r=>r.fecha===ayer).map(r=>r.grupoId)); return {a,n:gruposDelDia(a.id,ayer).filter(g=>!hay.has(g.id)).length}; }).filter(x=>x.n);
+  if(sinL.length) it('warn','Clases de ayer sin lista',gAtnChips(sinL,'inicio'),anSum(sinL,x=>x.n));
+  const gimP=as.filter(a=>esGim(a.id)&&typeof gimAtencion==='function').map(a=>({a,n:gimAtencion(a.id).sinReg.length})).filter(x=>x.n);
+  if(gimP.length) it('warn','Personalizados sin registrar',gAtnChips(gimP,'gimpt'),anSum(gimP,x=>x.n));
+  if(otras.length) it('mut','Otras incidencias abiertas',gAtnChips(otras,'reporte','incidencias'),anSum(otras,x=>x.n));
+  const sv=svAtencionGerencia();
+  if(sv) out.push(`<div class="gx-it info"><div class="gx-h"><i></i><b>Nutrición y Fisioterapia</b></div>${sv}</div>`);
+  return `<div class="g-atn"><div class="h2">Requiere tu atención${out.length?'':' <span class="pill ok">al día</span>'}</div>
+    ${out.length?`<div class="gx-list">${out.join('')}</div>`:`<div class="card pend"><div class="pend-ok">✓ Todo en orden: reportes entregados, listas al día y sin incidencias graves.</div></div>`}</div>`;
+}
+Object.assign(actions,{ gAbrir(d){ actions.openArea(d); if(d.rt){ ui.repTab=d.rt; ui.incFil='abiertas'; render(); } } });
 function gResumen(){
   const t=todayStr(), as=areasList(), aids=as.map(a=>a.id);
   const P=resumenPeriodo(aids), T=P.cur.tot, r=P.r;
@@ -135,38 +162,31 @@ function gResumen(){
       <div class="sub">${esc(fmtLarga(t))}${hoyProg?` · Hoy: ${hoyCap} de ${hoyProg} clases con aforo capturado`:''}</div>
       <div class="an-f no-print">${anPeriodoHTML()}
         <div class="an-per">${esc(anPeriodoTxt(r))}${esc(anCompTxt(r))}</div></div>
-      ${carHTML('resumen',`
+      <div class="kpis g-kpis">
         ${kpi('Alumnos inscritos',alum,'En todas las áreas',{k:'alumnos',color:'var(--b2)'})}
         ${kpi('Asistentes a clases',T.asisTot.toLocaleString('es-MX'),anDeltaChip(dAs,'%')||`${T.ses} sesiones`,{k:'asistentes',color:'var(--b3)'})}
         ${kpi('Aforo de clases',anPct(T.aforo),`${anDeltaChip(dAf)||`Período: ${anPerLabel()}`}<span class="k-n">${T.lugares?numLugares(T.asisL,T.lugares):''}</span>`,{k:'aforo',cls:aforoCls(T.aforo),color:'var(--b1)'})}
         ${kpi('Captura de aforo',T.cumple==null?'—':T.cumple+'%',`${plu(T.sinCaptura,'clase','clases')} ${anHoyDia()?'por capturar o iniciar':'sin captura'}`,{k:'captura',cls:T.cumple==null?'':T.cumple>=90?'ok':T.cumple>=70?'warn':'bad',color:'var(--b4)'})}
-        ${kpi('Incidencias abiertas',inc,inc?'Requieren seguimiento':'Todo en orden',{k:'incid',cls:inc?'bad':'',color:'var(--bad)'})}
         ${kpi('Reportes semanales',rp.esperados?`${rp.entregados}/${rp.esperados}`:`${entregSem}/${stG.length}`,rp.esperados?'entregados a tiempo':'entregados esta semana',{k:'reportes',cls:rp.esperados?(rp.entregados===rp.esperados?'ok':''):(entregSem===stG.length&&stG.length?'ok':''),color:'var(--warn)'})}
-        ${svKpisResumen()}
-      `)}
+      </div>
+      ${gAtencion(as)}
     </div>
 
     ${gChart(P,as)}
 
     <div class="d-areas">
       <div class="h2">Áreas y efectividad <button class="btn sm" data-act="gTab" data-tab="comite">Ver informe del comité</button></div>
-      ${as.length?`<div class="aminis">${as.slice().sort((x,y)=>((P.por[y.id].aforo==null?-1:P.por[y.id].aforo)-(P.por[x.id].aforo==null?-1:P.por[x.id].aforo))).map(a=>areaMini(a,P.por[a.id])).join('')}</div>`:empty('No hay áreas. Agrégalas en Ajustes.')}
+      ${(()=>{ const con=as.filter(a=>P.por[a.id].aforo!=null||(P.por[a.id].sv&&P.por[a.id].sv.n)), sin=as.filter(a=>!con.includes(a));
+        return as.length?`${con.length?`<div class="aminis">${con.sort((x,y)=>(P.por[y.id].aforo==null?-1:P.por[y.id].aforo)-(P.por[x.id].aforo==null?-1:P.por[x.id].aforo)).map(a=>areaMini(a,P.por[a.id])).join('')}</div>`:''}
+          ${sin.length?`<div class="an-cs gx-sin">Sin datos en el período: ${sin.map(a=>`<button class="linkbtn" data-act="openArea" data-id="${esc(a.id)}">${esc(a.nombre)}</button>`).join(' ')}</div>`:''}`:empty('No hay áreas. Agrégalas en Ajustes.'); })()}
     </div>
 
     <div class="d-att">
-      <div class="h2">Notificaciones de atención requerida</div>
-      ${(atn.length||apoyos.length||svAt)?`
-        ${svAt}
-        ${atn.slice(0,6).map(x=>`<button class="line" style="--ac:${x.a.color}" data-act="openIncFrom" data-aid="${x.a.id}" data-id="${x.i.id}">
+      ${atn.length?`<details class="g-inc"><summary>Todas las incidencias abiertas (${atn.length})</summary>
+        ${atn.map(x=>`<button class="line" style="--ac:${x.a.color}" data-act="openIncFrom" data-aid="${x.a.id}" data-id="${x.i.id}">
           <div class="t">${areaIco(x.a,{tile:true,size:20})}</div>
           <div class="b"><b>${esc(x.i.tipo||'Incidencia')} · ${esc(x.a.nombre)}</b><small>${esc((x.i.desc||'').slice(0,90))}</small></div>
-          <div class="r">${pill(x.i.grav||'media',GRAV_CLS[x.i.grav]||'warn')}</div></button>`).join('')}
-        ${apoyos.map(x=>`<button class="line" style="--ac:${x.a.color}" data-act="openArea" data-id="${x.a.id}" data-tab="reporte">
-          <div class="t">${areaIco(x.a,{tile:true,size:20})}</div>
-          <div class="b"><b>Apoyo solicitado · ${esc(x.a.nombre)}</b><small>${esc(String(x.r.apoyo).slice(0,100))}</small></div>
-          <div class="r">${pill('gerencia','info')}</div></button>`).join('')}
-        ${atn.length>6?`<div class="sub">y ${atn.length-6} incidencias abiertas más, en cada área.</div>`:''}
-      `:empty('Nada pendiente: sin incidencias abiertas ni solicitudes a gerencia.')}
+          <div class="r">${pill(x.i.grav||'media',GRAV_CLS[x.i.grav]||'warn')}</div></button>`).join('')}</details>`:''}
       ${mSum}
     </div>
 
@@ -185,6 +205,43 @@ function gResumen(){
 function pendRow(tono,titulo,sub,btn){
   return `<div class="pend-row ${tono}"><i></i><div><b>${titulo}</b>${sub?`<small>${sub}</small>`:''}</div>${btn||''}</div>`;
 }
+/* Pendientes de la dirección: lo que hay que hacer hoy, primero. Sin pendientes: “Todo al día”. */
+function dirPendientes(aid){
+  const t=todayStr(), ayer=addDays(t,-1), ro=isRO(), s=areaStats(aid), rows=[], d=new Date(), nowM=d.getHours()*60+d.getMinutes();
+  const ir=(tab,txt,fecha)=>ro?'':`<button class="btn sm" data-act="pendIr" data-tab="${tab}"${fecha?` data-f="${fecha}"`:''}>${txt}</button>`;
+  const nomG=g=>`${g.hi?g.hi+' ':''}${g.nombre}${(g.profId&&getProf(aid,g.profId))?' ('+getProf(aid,g.profId).nombre.split(' ')[0]+')':g.prof?' ('+String(g.prof).split(' ')[0]+')':''}`;
+  const lista=(L,n)=>esc(L.slice(0,n).join(' · '))+(L.length>n?` y ${L.length-n} más`:'');
+  if(esGim(aid)){
+    const hAct=d.getHours(), cap=new Set(gimSerie(aid,t).map(x=>x.h)), falt=gimHoras(aid,t).filter(h=>h<hAct&&!cap.has(h));
+    if(falt.length) rows.push(pendRow('warn',`${plu(falt.length,'hora','horas')} de hoy sin conteo de aforo`,lista(falt.map(hh),5),ir('gimaforo','Capturar')));
+    if(typeof gimAtencion==='function'){
+      const A=gimAtencion(aid);
+      if(A.sinReg.length) rows.push(pendRow('bad',`${plu(A.sinReg.length,'sesión de personalizado','sesiones de personalizado')} sin registrar`,lista([...new Set(A.sinReg.map(y=>(getProf(aid,y.pk.profId)||{}).nombre).filter(Boolean))],3),ir('gimpt','Ver')));
+      if(A.sinVer.length) rows.push(pendRow('info',`${plu(A.sinVer.length,'aviso','avisos')} sin ver por los instructores`,'Cambios de recepción que el instructor no ha marcado como enterado',ir('gimpt','Ver')));
+      if(A.sinAg.length) rows.push(pendRow('bad',`${plu(A.sinAg.length,'personalizado','personalizados')} con sesiones sin fecha`,lista(A.sinAg.map(y=>y.x.cliente||'Cliente'),3),ir('gimpt','Ver')));
+    }
+  } else if(!esVinculada(aid)&&!esServ(aid)){
+    const sinLista=(f,soloEmpezadas)=>{ const hay=new Set(coll(aid,'asistencia').filter(r=>r.fecha===f).map(r=>r.grupoId));
+      return gruposDelDia(aid,f).filter(g=>!hay.has(g.id)&&(!soloEmpezadas||(minutos(g.hi)!=null&&minutos(g.hi)+15<=nowM))).sort(byHora); };
+    const A=sinLista(ayer,false), H=sinLista(t,true);
+    if(A.length) rows.push(pendRow('bad',`${plu(A.length,'clase','clases')} de ayer sin lista`,lista(A.map(nomG),3),ir('aforos','Capturar',ayer)));
+    if(H.length) rows.push(pendRow('warn',`${plu(H.length,'clase','clases')} de hoy ya empezaron y no tienen lista`,lista(H.map(nomG),3),ir('aforos','Capturar',t)));
+  }
+  if(!esServ(aid)){
+    const reps=areaData(aid).reportes||{}, wk=mondayOf(t), pas=reps[addDays(wk,-7)];
+    if(!(pas&&pas.entregado)) rows.push(pendRow('bad','Reporte de la semana pasada sin entregar',`Semana del ${esc(fmtCorta(addDays(wk,-7)))} · los números ya están, solo falta tu parte`,ro?'':`<button class="btn sm" data-act="pendRep" data-w="${addDays(wk,-7)}">Abrir</button>`));
+    else if(s.reporte!=='entregado'&&wdIdx(t)>=4) rows.push(pendRow(s.reporte==='borrador'?'info':'warn',`Reporte de esta semana ${s.reporte==='borrador'?'en borrador':'sin capturar'}`,`Semana del ${esc(fmtCorta(wk))}`,ro?'':`<button class="btn sm" data-act="pendRep" data-w="${wk}">Abrir</button>`));
+  }
+  if(s.incAbiertas){ const alt=coll(aid,'incidencias').filter(i=>i.estado!=='resuelta'&&i.grav==='alta').length;
+    rows.push(pendRow(alt?'bad':'warn',`${plu(s.incAbiertas,'incidencia abierta','incidencias abiertas')}`,alt?`${alt} de gravedad alta`:'Dales seguimiento o ciérralas',ro?'':`<button class="btn sm" data-act="pendInc">Ver</button>`)); }
+  return `<div class="d-pend"><div class="h2">Pendientes de hoy${rows.length?` <span class="pill warn">${rows.length}</span>`:''}</div>
+    <div class="card pend">${rows.length?rows.join(''):`<div class="pend-ok">✓ Todo al día: listas, reporte e incidencias sin pendientes.</div>`}</div></div>`;
+}
+Object.assign(actions,{
+  pendIr(d){ if(d.f){ ui.afFecha=d.f; } ui.aTab=d.tab; render(); top0(); },
+  pendRep(d){ ui.aTab='reporte'; ui.repTab='semanal'; ui.repWeek=d.w; render(); top0(); },
+  pendInc(){ ui.aTab='reporte'; ui.repTab='incidencias'; ui.incFil='abiertas'; render(); top0(); }
+});
 function vInicio(aid){
   const s=areaStats(aid), t=todayStr(), ro=isRO();
   const recs=coll(aid,'asistencia').filter(r=>r.fecha===t&&!r.omitida);
@@ -197,9 +254,8 @@ function vInicio(aid){
     ? `<button class="kpi kpi-btn" data-act="aTab" data-tab="aforos" style="--kc:var(--b2)" aria-label="Clases capturadas hoy: ir a capturar aforos"><span class="k-l">Clases capturadas</span><b class="${capCls}">${capVal}</b><em class="k-c">${capCap}</em><span class="k-go" aria-hidden="true">${ic('next')}</span></button>`
     : kpi('Clases capturadas',capVal,capCap,{cls:capCls,color:'var(--b2)'});
   const pend=[];
-  if(s.reporte!=='entregado') pend.push(pendRow(s.reporte==='borrador'?'info':'warn',`Reporte semanal ${s.reporte==='borrador'?'en borrador':'sin capturar'}`,`Semana del ${esc(fmtCorta(mondayOf(t)))}`,ro?'':`<button class="btn sm" data-act="aTab" data-tab="reporte">Abrir</button>`));
   return `<div class="dash limpio">
-    <div class="d-chart"><div class="h2">Análisis de aforo <button class="btn sm${ui.chRev?'':' primary'}" data-act="chRev" aria-expanded="${!!ui.chRev}">${ui.chRev?'Ocultar':'Revisar'}</button></div>${chCard(aid,true)}</div>
+    ${dirPendientes(aid)}
 
     <div class="d-kpis">
       <div class="kpis k3">
@@ -210,6 +266,8 @@ function vInicio(aid){
     </div>
 
     <div class="d-avisos">${vinculoBanner(aid)}${typeof infBannerPend==='function'?infBannerPend(aid):''}</div>
+
+    <div class="d-chart" style="margin-top:18px"><div class="h2">Análisis de aforo <button class="btn sm${ui.chRev?'':' primary'}" data-act="chRev" aria-expanded="${!!ui.chRev}">${ui.chRev?'Ocultar':'Revisar'}</button></div>${chCard(aid,true)}</div>
 
     ${(pend.length||s.proxEvento)?`<div class="d-side">
       ${pend.length?`<div class="d-blk"><div class="h2">Para atender</div><div class="card pend">${pend.join('')}</div></div>`:''}
