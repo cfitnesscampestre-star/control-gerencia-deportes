@@ -132,7 +132,6 @@ function vGimInicio(aid){
         <div><span class="gi-l">Horas saturadas</span><b class="${S30.saturadas?'warn':'ok'}">${S30.saturadas}</b><small>de ${S30.recs.toLocaleString('es-MX')} horas contadas, desde ${GIM_SAT}%</small></div>
       </div>
     </div>
-    ${chSeccion(aid)}
     <div class="d-side">
       <div class="h2">Personalizados por instructor</div>
       ${filas.length?filas.map(x=>ptCard(x)).join(''):empty('Todavía no hay personalizados contratados.')}
@@ -182,7 +181,8 @@ function vGimAforo(aid){
     ${esHoy&&!ui.gaTodas&&horas.length?`<div class="sub ga-cur">Hora en curso: <b>${hh(hCur)}</b>. Cuando cambie la hora, pasa sola a la siguiente.</div>`:''}
     ${body}
     ${verTodas}
-    ${vGimHorario(aid,true)}`;
+    ${vGimHorario(aid,true)}
+    ${session&&session.rol!=='rec'?chSeccion(aid):''}`;
 }
 function gaResumen(aid,fecha){
   const S=gimStats(aid,fecha,fecha);
@@ -270,6 +270,7 @@ function ptDetalle(pid){
 }
 function openPT(id,profPre,slotPre){
   const aid=curArea(), x=id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{}, ps=profesores(aid).filter(p=>p.activo!==false), t=todayStr(), cur=x.profId||profPre||'';
+  const ini0=x.inicio||(slotPre&&slotPre.f)||t;
   ptSlotsTmp={}; ghSlots(x).forEach(s=>{ ptSlotsTmp[ghKey(s.d,s.h)]={d:+s.d,h:+s.h}; }); if(slotPre) ptSlotsTmp[ghKey(slotPre.d,slotPre.h)]={d:slotPre.d,h:slotPre.h};
   if(!ps.length){ toast('Primero da de alta a los instructores'); return; }
   openModal(`${mHead(id?'Editar personalizado':'Nuevo personalizado')}
@@ -277,12 +278,13 @@ function openPT(id,profPre,slotPre){
     <label class="f"><span>Cliente</span><input id="pt_cli" value="${esc(x.cliente)}" placeholder="Nombre o iniciales"></label>
     <div class="two"><label class="f"><span>Sesiones contratadas</span><input id="pt_tot" type="number" inputmode="numeric" min="1" value="${esc(x.total||12)}"></label>
       <label class="f"><span>Monto (opcional)</span><input id="pt_monto" type="number" inputmode="numeric" min="0" value="${esc(x.monto)}" placeholder="$"></label></div>
-    <div class="two"><label class="f"><span>Inicio</span><input id="pt_ini" type="date" value="${esc(x.inicio||t)}"></label>
-      <label class="f"><span>Vence</span><input id="pt_fin" type="date" value="${esc(x.fin||addDays(t,60))}"></label></div>
-    ${ghSlotsCampo()}
+    <div class="two"><label class="f"><span>Inicio</span><input id="pt_ini" type="date" value="${esc(ini0)}"></label>
+      <label class="f"><span>Vence</span><input id="pt_fin" type="date" value="${esc(x.fin||addDays(ini0,60))}"></label></div>
+    ${ghSlotsCampo(id)}
     <label class="f"><span>Notas (opcional)</span><textarea id="pt_notas">${esc(x.notas)}</textarea></label>
     <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="savePT" data-id="${esc(id||'')}">Guardar</button></div>
     ${(id&&(!isRec()||!ptSes(x).length))?`<div class="btns"><button class="btn danger" data-act="delPT" data-id="${esc(id)}">Eliminar personalizado</button></div>`:''}`);
+  ghFillSel(); ghPreview();
 }
 function openSesion(pkId){
   const aid=curArea(), x=getPath(`data/${aid}/paquetes/${pkId}`); if(!x) return;
@@ -311,7 +313,7 @@ Object.assign(actions,{
     if(tot<1){ toast('Indica cuántas sesiones se contrataron'); return; }
     if(!ini||!fin||fin<ini){ toast('Revisa las fechas de inicio y vencimiento'); return; }
     const id=d.id||('pt'+uid()), prev=d.id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{};
-    const choque=ghSlotsConflicto(aid,$('#pt_prof').value,id); if(choque){ toast(choque); return; }
+    const choque=ghValidarSlots(aid,id,$('#pt_prof').value,tot,ini); if(choque){ toast(choque); return; }
     setPath(`data/${aid}/paquetes/${id}`,{...prev,id,slots:{...ptSlotsTmp},profId:$('#pt_prof').value,cliente:cli,total:tot,monto:+$('#pt_monto').value||0,inicio:ini,fin,notas:$('#pt_notas').value.trim(),por:prev.por||gimPor(),alta:prev.alta||Date.now()});
     closeModal(); render(); toast('Personalizado guardado');
   },

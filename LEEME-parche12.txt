@@ -1,0 +1,25 @@
+PARCHE 12 - Control Gerencia: personalizados ligados al horario autorizado, sesiones por fecha y gráfica dentro de Aforo
+========================================================================================================================
+Requiere el parche 11. Deja el service worker en gd-v82.
+Sube (reemplazando): index.html, sw.js, css/gimnasio.css, js/gimnasio.js, js/gimhorario.js
+
+1) HORARIO DEL CLIENTE LIGADO A LO AUTORIZADO
+   Al dar de alta un personalizado, los días y horas que se pueden elegir salen SOLO del horario de personalizados que la dirección autorizó
+   al instructor (arriba se lee, p. ej., "Autorizado para Fulano: Lun–Vie 15:00–20:00"). Una hora que ya está ocupada por otro cliente sale
+   como "ocupado" y no se puede elegir. Si el instructor no tiene horario autorizado, el botón queda bloqueado y avisa.
+   Si se cambia de instructor, se quitan los horarios que ese instructor no tiene autorizados. Al guardar se vuelve a validar todo.
+
+2) CUÁNTOS HORARIOS Y CUÁNTAS SESIONES
+   - Máximo de horarios por semana = sesiones contratadas (3 sesiones = máximo 3 horarios).
+   - El horario se repite cada semana desde la fecha de inicio hasta completar las sesiones: 20 sesiones con 1 horario = 20 semanas seguidas
+     el mismo día y hora. Se muestra "N de N sesiones apartadas, del X al Y". Si la última cae después del vencimiento avisa y ofrece
+     un botón para mover el vencimiento.
+
+3) HORARIO SEMANAL CON FECHAS Y SEMANAS
+   La cuadrícula ahora muestra las fechas reales y tiene flechas para avanzar o regresar de semana y botón "Esta semana". Lo ocupado
+   sale según las sesiones de cada paquete en esa fecha. Al tocar una hora de una fecha, "Asignar personalizado" abre el alta con esa
+   fecha como inicio. Los días ya pasados no se pueden asignar.
+
+4) GRÁFICA "AFORO POR PERÍODO" (la de días, semanas, meses, hora…)
+   Salió del Inicio del director del gimnasio y ahora está en la pestaña Aforo por hora, debajo del horario de personalizados.
+   (Recepción no la ve.) El Inicio queda más limpio.

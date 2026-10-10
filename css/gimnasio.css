@@ -111,7 +111,7 @@
 .gi-h2 .gi-lbl{font-size:11.5px;letter-spacing:.04em}
 
 /* ===== Horarios de instructores, horario semanal de personalizados y rutinas genéricas ===== */
-.ga-todas{margin:10px 0}.ga-cur{margin:6px 0}
+.gh-chips+.two{margin-top:4px}.ga-todas{margin:10px 0}.ga-cur{margin:6px 0}
 .gh-box{display:flex;flex-direction:column;gap:10px;margin:6px 0 8px}
 .gh-row{border:1.5px solid var(--line);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;background:#fff}
 .gh-d{font-size:14px}
@@ -125,6 +125,8 @@
 .gh-tb{width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed;min-width:340px}
 .gh-tb th{font-size:12px;font-weight:700;color:var(--ink-2);padding:4px 0;text-align:center}
 .gh-tb thead th.hoy{color:var(--b2)}
+.gh-tb thead th small{display:block;font-size:11px;font-weight:600;color:var(--mut)}
+.gh-prev{display:flex;flex-direction:column;gap:4px;margin:6px 0}.gh-prev .bad{color:var(--bad)}
 .gh-tb tbody th{width:46px;text-align:right;padding-right:4px;white-space:nowrap}
 .gh-c{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:46px;border-radius:10px;border:0;font:inherit;line-height:1.05;padding:0}
 .gh-c b{font-size:14px}.gh-c small{font-size:10px;font-weight:600}
