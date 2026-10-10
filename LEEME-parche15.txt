@@ -1,0 +1,12 @@
+PARCHE 15 - Control Gerencia: pantalla del profesor más rápida
+==============================================================
+Requiere el parche 14. Deja el service worker en gd-v85.
+Sube (reemplazando): index.html, sw.js, css/main.css, js/portal.js, js/recepcion.js, js/reportes-met.js, js/gimagenda.js
+
+1) LISTAS ATRASADAS: arriba del día aparece "Te faltan N listas" con las clases de los últimos 7 días sin lista
+   (ni "no hubo clase"). Un toque en "Pasar" abre la lista de esa clase y esa fecha.
+2) LISTA RÁPIDA COMO BOTÓN PRINCIPAL: en "Ahora", el botón grande "Pasar lista" abre la lista rápida (tarjeta por alumno);
+   "Lista completa" queda como segunda opción.
+3) AVISO DE FORMACIÓN MÁS CORTO: con botón "Más tarde", que lo oculta una semana en ese equipo.
+4) GIMNASIO: la sesión en curso (o de hoy sin registrar) sale arriba con "✓ Realizada", "No asistió" y "Otro…":
+   se registra en un toque.

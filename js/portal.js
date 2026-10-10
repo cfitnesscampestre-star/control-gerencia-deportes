@@ -42,10 +42,15 @@ function vProfHoy(){
     hero=`<div class="hero">
       <div class="hero-t"><span>${act.estado==='curso'?'Clase en curso':'Próxima clase'}</span><b>${esc(g.nombre)}</b>
         <span>${esc(horaTxt(g))}${g.lugar?' · '+esc(g.lugar):''} · ${tipoGrupoDe(g)==='servicio'?'Servicio':plu(n,'alumno','alumnos')}</span></div>
-      <div class="hero-bs"><button class="hero-b" data-act="openLista" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">${tipoGrupoDe(g)==='servicio'?'Registrar asistentes':'Pasar lista'}</button>
-        ${n&&!esVinculada(aid)&&!fcId(g.id)?`<button class="hero-b2" data-act="openListaRapida" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">${ic('bolt')} Lista rápida</button>`:''}</div></div>`;
+      <div class="hero-bs">${n&&!esVinculada(aid)&&!fcId(g.id)
+        ?`<button class="hero-b" data-act="openListaRapida" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">${ic('bolt')} Pasar lista</button><button class="hero-b2" data-act="openLista" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">Lista completa</button>`
+        :`<button class="hero-b" data-act="openLista" data-gid="${esc(g.id)}" data-fecha="${esc(fecha)}">${tipoGrupoDe(g)==='servicio'?'Registrar asistentes':'Pasar lista'}</button>`}</div></div>`;
   }
+  const atr=hoy?listasAtrasadas(aid,pid):[];
   return `
+    ${atr.length?`<div class="card pf-atr"><div class="pf-atr-h"><b>${atr.length===1?'Te falta 1 lista':`Te faltan ${atr.length} listas`}</b><small>de los últimos días. Pásalas para que tu asistencia cuente.</small></div>
+      ${atr.slice(0,5).map(x=>`<button class="pf-atr-r" data-act="${rosterOf(x.g).length?'openListaRapida':'openLista'}" data-gid="${esc(x.g.id)}" data-fecha="${esc(x.f)}"><span>${esc(fmtFecha(x.f))} · ${esc(x.g.hi||'')}</span><b>${esc(x.g.nombre)}</b><em>Pasar ${ic('next')}</em></button>`).join('')}
+      ${atr.length>5?`<small class="mut">y ${atr.length-5} más: usa las flechas de fecha para llegar a ellas.</small>`:''}</div>`:''}
     <div class="sub">${hoy?'Estas son tus clases de hoy. La que va según el horario aparece arriba.':'Estás viendo otro día.'}</div>
     ${nav}
     <div class="kpis k3" style="grid-template-columns:repeat(2,1fr)">
@@ -65,6 +70,15 @@ function vProfHoy(){
     }).join(''):empty('No tienes clases programadas este día.')}`;
 }
 
+/* clases del profesor de los últimos 7 días (sin hoy) que no tienen lista ni “no hubo clase” */
+function listasAtrasadas(aid,pid){
+  const t=todayStr(), hay=new Set(coll(aid,'asistencia').filter(r=>r.fecha>=addDays(t,-7)).map(r=>r.grupoId+'|'+r.fecha)), out=[];
+  for(let k=7;k>=1;k--){
+    const f=addDays(t,-k);
+    clasesDe(aid,pid).filter(g=>progEn(g,f)&&daClase(g,pid,f)&&!(g.creado&&g.creado>f)&&!hay.has(g.id+'|'+f)).map(g=>gDia(g,f)).sort(byHora).forEach(g=>out.push({g,f}));
+  }
+  return out.reverse();                                    // la más reciente primero
+}
 function vProfHorario(){
   const aid=session.area, gs=clasesDe(aid,session.profId), hoy=wdIdx(todayStr());
   const dias=[0,1,2,3,4,5,6].map(i=>({i,gs:gs.filter(g=>diasArr(g).includes(i)&&profsDeDia(g,i).includes(session.profId)).map(g=>gDiaWd(g,i)).sort(byHora)}));

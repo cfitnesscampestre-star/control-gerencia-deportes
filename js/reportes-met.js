@@ -35,9 +35,11 @@ function fzLinea(aid){                         // aviso para la dirección en su
 function fzBanner(){                           // el profesor completa su ficha una sola vez
   if(!session||session.rol!=='prof'||esServ(session.area)||ui.rufier||ui.fzOculto) return '';
   if(fzCompleta(getFz(session.profId))) return '';
-  return `<div class="mt-aviso"><div><b>Completa tu formación y experiencia</b><small>Una sola vez: estudios, certificaciones y desde cuándo das clases. Metodología la usa para sus reportes y ya no tendrás que entregarla aparte.</small></div>
-    <button class="btn primary" data-act="fzAbrir" data-aid="${esc(session.area)}" data-id="${esc(session.profId)}">Completar</button></div>`;
+  try{ if(+localStorage.getItem('gd_fz_tarde_'+session.profId)>Date.now()) return ''; }catch(e){}
+  return `<div class="mt-aviso"><div><b>Completa tu formación y experiencia</b><small>Una sola vez, 2 minutos. Metodología la usa para sus reportes.</small></div>
+    <div class="fz-bs"><button class="btn primary" data-act="fzAbrir" data-aid="${esc(session.area)}" data-id="${esc(session.profId)}">Completar</button><button class="btn sm" data-act="fzTarde">Más tarde</button></div></div>`;
 }
+Object.assign(actions,{ fzTarde(){ try{ localStorage.setItem('gd_fz_tarde_'+session.profId,String(Date.now()+7*864e5)); }catch(e){} ui.fzOculto=true; render(); toast('Te lo recordamos en una semana'); } });
 function fzBtn(aid,pid){                       // botón dentro de la ficha del profesor (dirección)
   if(!session||session.rol!=='dir'||esServ(aid)||!pid) return '';
   const f=getFz(pid);

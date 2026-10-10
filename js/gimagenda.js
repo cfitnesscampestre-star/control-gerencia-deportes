@@ -299,7 +299,7 @@ Object.assign(actions,{
   ctRegistrar(d){
     const aid=curArea(), pk=getPath(`data/${aid}/paquetes/${d.pk}`); if(!pk||roDatos(aid)||isRec()) return;
     if(isProf()&&pk.profId!==session.profId) return;                    // el instructor solo registra sus personalizados
-    const c=ptMapa(pk).ag.find(x=>x.id===d.c), e=($('#ct_e')||{}).value;
+    const c=ptMapa(pk).ag.find(x=>x.id===d.c), e=d.e||($('#ct_e')||{}).value;            // d.e: botón rápido de la pantalla del instructor
     if(!c){ toast('Esa sesión ya no está en la agenda'); return; }
     if(c.reg){ toast('Esa sesión ya está registrada'); return; }
     if(ctKey(c.f,c.h)>ahoraKey()){ toast('Todavía no es la hora de esta sesión'); return; }

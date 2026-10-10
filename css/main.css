@@ -570,3 +570,16 @@ button.cloud{background:none;border:0;padding:0;font:inherit;color:inherit;curso
 .rp-seg{margin-top:4px}
 .rp-mas{margin:6px 0 4px}.rp-mas>summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--ink-2);padding:8px 0}
 .fgrid label.f[hidden]{display:none}
+
+/* ---------- profesor: listas atrasadas, aviso de formación ---------- */
+.pf-atr{border-left:5px solid #e5372a;margin-bottom:12px}
+.pf-atr-h b{display:block;font-size:16px;color:#b3281e}
+.pf-atr-h small{display:block;color:var(--ink-2);font-size:13px;margin:2px 0 6px}
+.pf-atr-r{display:flex;align-items:center;gap:10px;width:100%;padding:10px 4px;border-top:1px solid var(--line);text-align:left;background:none}
+.pf-atr-r span{flex:none;font-size:12.5px;color:var(--mut);min-width:96px}
+.pf-atr-r b{flex:1;min-width:0;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pf-atr-r em{flex:none;display:inline-flex;align-items:center;gap:2px;font-style:normal;font-weight:700;font-size:13px;color:var(--g-d)}
+.pf-atr-r em .ic{width:15px;height:15px}
+.fz-bs{display:flex;flex-direction:column;gap:6px;flex:none}
+.gpf-ahora .hero-bs{flex-wrap:wrap}
+.hero-b .ic{width:17px;height:17px;vertical-align:-3px;margin-right:2px}
