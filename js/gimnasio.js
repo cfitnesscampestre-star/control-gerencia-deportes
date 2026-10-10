@@ -57,7 +57,7 @@ function gimStats(aid,desde,hasta){
     saturadas:recs.filter(r=>gimTot(r)/capR(r)*100>=GIM_SAT).length, bajas:recs.filter(r=>gimTot(r)/capR(r)*100<20).length, dias:new Set(recs.map(r=>r.fecha)).size};
 }
 const ptSes = p => Object.values(p.sesiones||{});
-const ptReal = p => ptSes(p).filter(s=>s.e==='realizada').length;
+const ptReal = p => ptSes(p).filter(s=>PT_DESC.includes(s.e)).length;             // sesiones que ya se descontaron (realizadas + no asistió)
 function ptEstado(p){
   const t=todayStr(), real=ptReal(p);
   if(real>=(+p.total||0)) return 'completado';
@@ -133,6 +133,8 @@ function vGimInicio(aid){
       </div>
     </div>
     <div class="d-side">
+      <div class="h2">Personalizados hoy</div>
+      ${gimPtHoyResumen(aid)}
       <div class="h2">Personalizados por instructor</div>
       ${filas.length?filas.map(x=>ptCard(x)).join(''):empty('Todavía no hay personalizados contratados.')}
       ${ro?'':`<div class="btns"><button class="btn" data-act="aTab" data-tab="gimpt">Ver personalizados</button></div>`}
@@ -238,7 +240,7 @@ function ptCard(x){
 function vGimPT(aid){
   const ro=roDatos(aid), T=ptTotales(aid), filas=ptResumen(aid), conP=filas.filter(x=>x.mios.length), sinP=filas.filter(x=>!x.mios.length);
   return `<div class="h2">Personalizados <button class="btn sm" data-act="ptPrint">Imprimir / PDF</button>${ro?'':`<button class="btn sm primary" data-act="openPT" style="margin-left:8px">+ Personalizado</button>`}</div>
-    <div class="sub">Entrenamientos personalizados que tiene contratados cada instructor: sesiones contratadas, realizadas y por entregar.</div>
+    <div class="sub">Entrenamientos personalizados que tiene contratados cada instructor: sesiones contratadas, realizadas y por entregar. Toca una sesión para registrarla, reagendarla o cancelarla.</div>
     <div class="kpis an-kpis">
       ${kpi('Paquetes activos',T.paquetes,`de ${plu(T.instructores,'instructor','instructores')}`,{color:'var(--b2)'})}
       ${kpi('Contratadas',T.contratadas,'sesiones en paquetes activos',{color:'var(--b3)'})}
@@ -247,38 +249,36 @@ function vGimPT(aid){
       ${kpi('Por vencer',T.porVencer,'en los próximos 7 días',{cls:T.porVencer?'warn':'ok',color:'var(--bad)'})}
       ${kpi('Vencidos con saldo',T.vencidos,'sesiones sin usar a tiempo',{cls:T.vencidos?'bad':'ok',color:'var(--bad)'})}
     </div>
+    ${isRec()?'':gimAtencionHTML(aid)}
+    ${gimHoyHTML(aid)}
     <div class="h2 sm">Por instructor</div>
     ${conP.length?`<div class="ptlist">${conP.map(ptCard).join('')}</div>`:empty(ro?'Todavía no hay personalizados contratados.':'Todavía no hay personalizados. Registra el primero con “+ Personalizado”.')}
-    ${sinP.length?`<div class="an-cs" style="margin-top:12px">Sin personalizados: ${esc(sinP.map(x=>x.p.nombre).join(', '))}.</div>`:''}`;
+    ${sinP.length?`<div class="an-cs" style="margin-top:12px">Sin personalizados: ${esc(sinP.map(x=>x.p.nombre).join(', '))}.</div>`:''}
+    ${isRec()?'':gimLogHTML(aid)}`;
 }
 function ptDetalle(pid){
   const aid=curArea(), p=getProf(aid,pid); if(!p) return;
   const pk=coll(aid,'paquetes').filter(x=>x.profId===pid).sort((a,b)=>(ptVigente(b)-ptVigente(a))||String(b.fin).localeCompare(String(a.fin)));
-  const ro=roDatos(aid), rec=isRec();
+  const ro=roDatos(aid);
   openModal(`${mHead(esc(p.nombre))}
-    <div class="sub">${esc(p.tipo||'Instructor')} · ${plu(pk.filter(ptVigente).length,'paquete activo','paquetes activos')}</div>
-    ${pk.length?pk.map(x=>{
-      const real=ptReal(x), tot=+x.total||0, est=ptEstado(x), sim=fcId(x.id), ses=ptSes(x).sort((a,b)=>(b.f+(b.h||'')).localeCompare(a.f+(a.h||''))).slice(0,4);
-      return `<div class="card ptp"><div class="row"><div><b>${esc(x.cliente||'Cliente')}</b><small>${esc(fmtCorta(x.inicio))} al ${esc(fmtCorta(x.fin))}${x.monto?' · '+esc(mxn(+x.monto)):''}</small></div>${pill(est,PT_CLS[est])}</div>
-        <div class="ptp-b"><div class="bar"><i class="${real>=tot?'info':aforoCls(tot?Math.round(real/tot*100):0)}" style="width:${tot?Math.min(100,Math.round(real/tot*100)):0}%"></i></div><b>${real}/${tot}</b></div>
-        ${ses.length?`<div class="ptp-s">${ses.map(s=>`<span class="${s.e==='realizada'?'ok':'mut'}">${esc(fmtFecha(s.f))}${s.h?' '+esc(s.h):''} · ${esc(s.e==='realizada'?'realizada':s.e)}</span>${(ro||sim||rec)?'':`<button class="ptp-x" data-act="delSesion" data-pk="${esc(x.id)}" data-id="${esc(s.id)}" aria-label="Borrar sesión">${ic('x')}</button>`}`).join('')}</div>`:''}
-        ${ghSlots(x).length?`<small class="mut">Horario fijo: ${esc(ghSlots(x).sort((a,b)=>(a.d-b.d)||(a.h-b.h)).map(s=>DIAS[s.d]+' '+hh(s.h)).join(' · '))}</small>`:''}
-        ${x.notas?`<small class="mut">${esc(x.notas)}</small>`:''}
-        ${x.por?`<small class="mut">Dado de alta por ${esc(x.por)}</small>`:''}
-        ${(ro||sim)?'':`<div class="btns">${rec?'':`<button class="btn sm primary" data-act="openSesion" data-id="${esc(x.id)}">+ Sesión</button>`}<button class="btn sm" data-act="openPT" data-id="${esc(x.id)}">Editar</button></div>`}</div>`; }).join(''):empty('Este instructor todavía no tiene personalizados.')}
+    <div class="sub">${esc(p.tipo||'Instructor')} · ${plu(pk.filter(ptVigente).length,'paquete activo','paquetes activos')}${ghHorTxt(p,'horPt')?` · personalizados ${esc(ghHorTxt(p,'horPt'))}`:''}</div>
+    ${pk.length?pk.map(x=>ptPaqHTML(aid,x,{from:'det:'+pid})).join(''):empty('Este instructor todavía no tiene personalizados.')}
     ${ro?`<div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`:`<div class="btns"><button class="btn primary" data-act="openPT" data-prof="${esc(pid)}">+ Personalizado para ${esc(p.nombre.split(' ')[0])}</button></div>`}`);
 }
 function openPT(id,profPre,slotPre){
   const aid=curArea(), x=id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{}, ps=profesores(aid).filter(p=>p.activo!==false), t=todayStr(), cur=x.profId||profPre||'';
-  const ini0=x.inicio||(slotPre&&slotPre.f)||t;
+  const ini0=x.inicio||(slotPre&&slotPre.f&&slotPre.f>=t?slotPre.f:t), usadas=ptReal(x), frec0=+x.frec||ghSlots(x).length||2;
+  const iniFijo=!!id&&(usadas>0||ptSes(x).length>0);                    // ya empezó: el inicio no se mueve
   ptSlotsTmp={}; ghSlots(x).forEach(s=>{ ptSlotsTmp[ghKey(s.d,s.h)]={d:+s.d,h:+s.h}; }); if(slotPre) ptSlotsTmp[ghKey(slotPre.d,slotPre.h)]={d:slotPre.d,h:slotPre.h};
   if(!ps.length){ toast('Primero da de alta a los instructores'); return; }
   openModal(`${mHead(id?'Editar personalizado':'Nuevo personalizado')}
     <label class="f"><span>Asignar al instructor</span><select id="pt_prof">${ps.map(p=>`<option value="${esc(p.id)}"${cur===p.id?' selected':''}>${esc(p.nombre)}${p.pin?'':' (sin PIN: aún no puede entrar)'}</option>`).join('')}</select></label>
     <label class="f"><span>Cliente</span><input id="pt_cli" value="${esc(x.cliente)}" placeholder="Nombre o iniciales"></label>
-    <div class="two"><label class="f"><span>Sesiones contratadas</span><input id="pt_tot" type="number" inputmode="numeric" min="1" value="${esc(x.total||12)}"></label>
-      <label class="f"><span>Monto (opcional)</span><input id="pt_monto" type="number" inputmode="numeric" min="0" value="${esc(x.monto)}" placeholder="$"></label></div>
-    <div class="two"><label class="f"><span>Inicio</span><input id="pt_ini" type="date" value="${esc(ini0)}"></label>
+    <div class="two"><label class="f"><span>Sesiones contratadas</span><input id="pt_tot" type="number" inputmode="numeric" min="${Math.max(1,usadas)}" value="${esc(x.total||12)}"></label>
+      <label class="f"><span>Sesiones por semana</span><select id="pt_frec">${[1,2,3,4,5,6].map(n=>`<option value="${n}"${n===frec0?' selected':''}>${n} por semana</option>`).join('')}</select></label></div>
+    ${usadas?`<small class="mut">Ya se usaron ${usadas} sesiones de este paquete: no se puede contratar menos.</small>`:''}
+    <label class="f"><span>Monto (opcional)</span><input id="pt_monto" type="number" inputmode="numeric" min="0" value="${esc(x.monto)}" placeholder="$"></label>
+    <div class="two"><label class="f"><span>Inicio</span><input id="pt_ini" type="date"${iniFijo?' disabled':` min="${t}"`} value="${esc(ini0)}"></label>
       <label class="f"><span>Vence</span><input id="pt_fin" type="date" value="${esc(x.fin||addDays(ini0,60))}"></label></div>
     ${ghSlotsCampo(id)}
     <label class="f"><span>Notas (opcional)</span><textarea id="pt_notas">${esc(x.notas)}</textarea></label>
@@ -290,8 +290,9 @@ function openSesion(pkId){
   const aid=curArea(), x=getPath(`data/${aid}/paquetes/${pkId}`); if(!x) return;
   openModal(`${mHead('Registrar sesión')}
     <div class="sub">${esc(x.cliente||'Cliente')} · lleva ${ptReal(x)} de ${+x.total||0}</div>
-    <div class="two"><label class="f"><span>Fecha</span><input id="ss_f" type="date" max="${todayStr()}" value="${todayStr()}"></label><label class="f"><span>Hora</span><input id="ss_h" type="time" value="${pad(new Date().getHours())}:00"></label></div>
-    <label class="f"><span>Resultado</span><select id="ss_e"><option value="realizada">Realizada</option><option value="cancelada por el cliente">Cancelada por el cliente</option><option value="cancelada por el instructor">Cancelada por el instructor</option></select></label>
+    <div class="two"><label class="f"><span>Fecha</span><input id="ss_f" type="date"${x.inicio?` min="${esc(x.inicio)}"`:''} max="${todayStr()}" value="${todayStr()}"></label><label class="f"><span>Hora</span><input id="ss_h" type="time" step="1800" value="${pad(new Date().getHours())}:00"></label></div>
+    <label class="f"><span>Resultado</span><select id="ss_e">${Object.entries(PT_E).map(([k,l])=>`<option value="${esc(k)}">${esc(l)}</option>`).join('')}</select></label>
+    <small class="mut">Este personalizado no tiene horario fijo, por eso la sesión se registra a mano. Para que tenga agenda, recepción debe elegir su horario fijo en “Editar”.</small>
     <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="saveSesion" data-id="${esc(pkId)}">Guardar sesión</button></div>`);
 }
 
@@ -308,29 +309,73 @@ Object.assign(actions,{
   ptDetalle(d){ ptDetalle(d.id); },
   openPT(d){ if(roDatos(curArea())) return; closeModal(); openPT(d.id||'',d.prof||''); },
   savePT(d){
-    const aid=curArea(), cli=$('#pt_cli').value.trim(), tot=parseInt($('#pt_tot').value)||0, ini=$('#pt_ini').value, fin=$('#pt_fin').value;
+    const aid=curArea(); if(roDatos(aid)) return;
+    const cli=$('#pt_cli').value.trim(), tot=parseInt($('#pt_tot').value)||0, ini=$('#pt_ini').value, fin=$('#pt_fin').value, prof=$('#pt_prof').value, frec=parseInt(($('#pt_frec')||{}).value)||0, t=todayStr();
+    const id=d.id||('pt'+uid()), prev=d.id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{}, nuevo=!d.id, usadas=ptReal(prev), S=Object.values(ptSlotsTmp);
     if(!cli){ toast('Escribe el nombre del cliente'); return; }
     if(tot<1){ toast('Indica cuántas sesiones se contrataron'); return; }
+    if(tot<usadas){ toast(`Ya se usaron ${usadas} sesiones: no se puede contratar menos`); return; }
     if(!ini||!fin||fin<ini){ toast('Revisa las fechas de inicio y vencimiento'); return; }
-    const id=d.id||('pt'+uid()), prev=d.id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{};
-    const choque=ghValidarSlots(aid,id,$('#pt_prof').value,tot,ini); if(choque){ toast(choque); return; }
-    setPath(`data/${aid}/paquetes/${id}`,{...prev,id,slots:{...ptSlotsTmp},profId:$('#pt_prof').value,cliente:cli,total:tot,monto:+$('#pt_monto').value||0,inicio:ini,fin,notas:$('#pt_notas').value.trim(),por:prev.por||gimPor(),alta:prev.alta||Date.now()});
-    closeModal(); render(); toast('Personalizado guardado');
+    if((nuevo||ini!==prev.inicio)&&ini<t){ toast('El inicio no puede ser una fecha que ya pasó'); return; }
+    if(fin<t&&tot>usadas){ toast('El vencimiento ya pasó: amplíalo para poder agendar las sesiones pendientes'); return; }
+    if(frec>tot){ toast(`No puede haber más sesiones por semana (${frec}) que sesiones contratadas (${tot})`); return; }
+    if(new Set(S.map(x=>x.d)).size<S.length){ toast('Cada horario fijo debe ir en un día distinto'); return; }
+    if(tot>usadas){                                                      // hay sesiones por agendar: el horario fijo debe estar completo
+      if(!S.length){ toast(`Elige el horario fijo del cliente: ${plu(frec,'día','días')} con su hora`); return; }
+      if(S.length!==frec){ toast(S.length<frec?`El cliente contrató ${frec} por semana: falta elegir ${plu(frec-S.length,'horario','horarios')}`:`Elegiste ${S.length} horarios pero el cliente contrató ${frec} por semana`); return; }
+    }
+    const choque=ghValidarSlots(aid,id,prof,tot,ini); if(choque){ toast(choque); return; }
+    const slots={...ptSlotsTmp}, profCambia=!nuevo&&prof!==prev.profId;
+    const cambia=nuevo||profCambia||tot!==(+prev.total||0)||ini!==prev.inicio||ghSlotsKey(slots)!==ghSlotsKey(prev.slots);
+    let citas=prev.citas||null, R=null;
+    if(cambia&&(tot>usadas||prev.citas)){
+      const tmp={...prev,id,profId:prof,total:tot,inicio:ini,slots};
+      R=ptLlenar(aid,tmp,nuevo?[]:ptBase(prev,profCambia));
+      if(R.faltan>0){ toast(`No hubo lugar para agendar ${plu(R.faltan,'sesión','sesiones')}: elige otros horarios`); return; }
+      const ult=R.nuevas.length?R.nuevas[R.nuevas.length-1].f:null;
+      if(ult&&ult>fin){ toast(`La última sesión queda el ${fmtCorta(ult)}, después del vencimiento (${fmtCorta(fin)}). Usa “Vencer el ${fmtCorta(ult)}” o agrega horarios`); return; }
+      citas=ptCitasMap(R.citas);
+    }
+    const o={...prev,id,slots,frec,profId:prof,cliente:cli,total:tot,monto:+$('#pt_monto').value||0,inicio:ini,fin,notas:$('#pt_notas').value.trim(),por:prev.por||gimPor(),alta:prev.alta||Date.now()};
+    if(citas) o.citas=citas;
+    setPath(`data/${aid}/paquetes/${id}`,o);
+    /* bitácora y avisos al instructor */
+    const hor=Object.values(slots).sort((a,b)=>(a.d-b.d)||(a.h-b.h)).map(x=>DIAS[x.d]+' '+hh(x.h)).join(', ');
+    const rango=R&&R.nuevas.length?` · del ${ctTxt(R.nuevas[0])} al ${fmtFecha(R.nuevas[R.nuevas.length-1].f)}`:'';
+    const brinco=R&&R.saltadas.length?` · se brincaron ${plu(R.saltadas.length,'fecha ocupada','fechas ocupadas')}`:'';
+    const pnom=id2=>(getProf(aid,id2)||{}).nombre||'otro instructor';
+    if(nuevo) gimLog(aid,{tipo:'alta',txt:`${cli}: ${tot} sesiones, ${frec} por semana (${hor||'sin horario'})${rango}${brinco}`,pk:id,prof,aviso:true});
+    else if(profCambia){
+      gimLog(aid,{tipo:'reasigna',txt:`${cli}: se te asignó (antes con ${pnom(prev.profId)}) · ${hor}${rango}`,pk:id,prof,aviso:true});
+      gimLog(aid,{tipo:'reasigna',txt:`${cli}: pasó a ${pnom(prof)}. Ya no está en tu agenda`,pk:id,prof:prev.profId,aviso:true});
+    } else if(cambia) gimLog(aid,{tipo:'cambio',txt:`${cli}: ${tot} sesiones, ${frec} por semana (${hor})${rango}${brinco}`,pk:id,prof,aviso:true});
+    else if(cli!==prev.cliente||fin!==prev.fin||o.notas!==(prev.notas||'')||o.monto!==(+prev.monto||0)||frec!==(+prev.frec||0)) gimLog(aid,{tipo:'edicion',txt:`${cli}: ${[cli!==prev.cliente?`antes “${prev.cliente}”`:'',fin!==prev.fin?`vence el ${fmtCorta(fin)}`:'',o.notas!==(prev.notas||'')?'notas':'',o.monto!==(+prev.monto||0)?'monto':''].filter(Boolean).join(' · ')||'datos actualizados'}`,pk:id,prof,aviso:fin!==prev.fin||cli!==prev.cliente});
+    closeModal(); render(); toast(nuevo?`Personalizado guardado${R&&R.nuevas.length?`: primera sesión el ${ctTxt(R.nuevas[0])}`:''}`:'Personalizado guardado');
   },
-  delPT(d){ if(isRec()&&ptSes(getPath(`data/${curArea()}/paquetes/${d.id}`)||{}).length){ toast('Ya tiene sesiones registradas: solo la dirección puede eliminarlo'); return; } if(!confirm('¿Eliminar este personalizado y sus sesiones?')) return; setPath(`data/${curArea()}/paquetes/${d.id}`,undefined); closeModal(); render(); toast('Personalizado eliminado'); },
+  delPT(d){ if(isRec()&&ptSes(getPath(`data/${curArea()}/paquetes/${d.id}`)||{}).length){ toast('Ya tiene sesiones registradas: solo la dirección puede eliminarlo'); return; } if(!confirm('¿Eliminar este personalizado y sus sesiones?')) return; const pkx=getPath(`data/${curArea()}/paquetes/${d.id}`)||{}; setPath(`data/${curArea()}/paquetes/${d.id}`,undefined);
+    if(pkx.profId) gimLog(curArea(),{tipo:'baja',txt:`${pkx.cliente||'Cliente'}: se eliminó el personalizado (${ptReal(pkx)} de ${+pkx.total||0} sesiones usadas). Sus horarios quedan libres`,prof:pkx.profId,aviso:true}); closeModal(); render(); toast('Personalizado eliminado'); },
   openSesion(d){ closeModal(); openSesion(d.id); },
   saveSesion(d){
     const aid=curArea(), f=$('#ss_f').value, pk=getPath(`data/${aid}/paquetes/${d.id}`); if(!pk||isRec()) return;
     if(isProf()&&pk.profId!==session.profId) return;                                 // el instructor solo registra sesiones de sus personalizados
-    if(!f){ toast('Elige la fecha'); return; }
-    if(f>todayStr()){ toast('La sesión no puede ser de una fecha futura'); return; }
-    const sid='s'+uid(); setPath(`data/${aid}/paquetes/${d.id}/sesiones/${sid}`,{id:sid,f,h:$('#ss_h').value,e:$('#ss_e').value,ts:Date.now(),por:isProf()?session.profId:'dir'});
+    const h=$('#ss_h').value, e=$('#ss_e').value, hi=parseInt(h,10);
+    if(!f||!h){ toast('Elige la fecha y la hora'); return; }
+    if(f>todayStr()||(f===todayStr()&&hi>new Date().getHours())){ toast('No se puede registrar una sesión que todavía no ocurre'); return; }
+    if(pk.inicio&&f<pk.inicio){ toast(`El personalizado empieza el ${fmtCorta(pk.inicio)}`); return; }
+    if(PT_DESC.includes(e)&&ptReal(pk)>=(+pk.total||0)){ toast('Ya se usaron todas las sesiones contratadas'); return; }
+    const choque=coll(aid,'paquetes').find(x=>x.profId===pk.profId&&ptSes(x).some(s=>s.f===f&&parseInt(s.h,10)===hi&&!ptRepone(s.e)));
+    if(choque){ toast(`Ya hay una sesión registrada a esa hora (${choque.cliente||'otro cliente'})`); return; }
+    const sid='s'+uid(); setPath(`data/${aid}/paquetes/${d.id}/sesiones/${sid}`,{id:sid,f,h,e,ts:Date.now(),por:isProf()?session.profId:'dir',porNom:gimQuien()});
+    gimLog(aid,{tipo:'sesion',txt:`${pk.cliente||'Cliente'} · ${fmtFecha(f)} ${h}: ${PT_ECORTO[e]||e} (fuera de agenda)`,pk:d.id,prof:pk.profId});
     closeModal(); render(); toast('Sesión registrada');
   },
   delSesion(d){
     const p=getPath(`data/${curArea()}/paquetes/${d.pk}`); if(isRec()||(isProf()&&(!p||p.profId!==session.profId))) return;
     if(isProf()&&!confirm('¿Borrar esta sesión?')) return;
-    setPath(`data/${curArea()}/paquetes/${d.pk}/sesiones/${d.id}`,undefined); render(); if(p&&!isProf()) ptDetalle(p.profId);
+    const s0=p&&p.sesiones&&p.sesiones[d.id];
+    setPath(`data/${curArea()}/paquetes/${d.pk}/sesiones/${d.id}`,undefined);
+    if(p&&s0) gimLog(curArea(),{tipo:'borrado',txt:`${p.cliente||'Cliente'} · ${fmtFecha(s0.f)}${s0.h?' '+s0.h:''}: se borró “${PT_ECORTO[s0.e]||s0.e}”`,pk:d.pk,prof:p.profId});
+    render(); if(p&&!isProf()) ptDetalle(p.profId);
   }
 });
 document.addEventListener('input',e=>{

@@ -153,3 +153,31 @@
 .gh-rp{border-left:4px solid var(--warn);margin-bottom:10px}
 .gh-rp .row small{display:block;color:var(--ink-2)}
 .gh-rp .btns .btn{flex:1}
+
+/* ===== Agenda de personalizados: citas, avisos y bitácora ===== */
+.line.ct{padding:10px 12px;margin-bottom:8px}
+.line.ct .t{min-width:48px}
+.line.ct .b b{font-size:15px}
+.line.ct .b small{white-space:normal}
+.ct-list{margin-top:10px}
+.ct-dia{font-size:12.5px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 6px}
+.ptp-n{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 0 4px;font-size:13px;color:var(--ink-2)}
+.ptp-n b{color:var(--ink);font-size:15px}
+.ptp-n .bad,.ptp-n .bad b{color:var(--bad)}
+.ptp>small{display:block;margin-top:4px}
+.ptp small.bad,.gh-prev small.bad,.sub .bad,#rg_av .bad{color:var(--bad)}
+.ptp small.warn,.gh-prev small.warn,.sub .warn{color:#a86a00}
+.gh-cnt{font-size:13px;margin:4px 0}.gh-cnt .ok{color:#0a7f63}.gh-cnt .bad{color:var(--bad)}
+.lg{display:flex;flex-direction:column;gap:3px}
+.lg-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lg-h small{color:var(--mut);font-size:12px}
+.lg-t{font-size:14px;color:var(--ink)}
+.lg small.ok{color:#0a7f63}.lg small.warn{color:#a86a00}
+.card.lg-c{padding:10px 12px;margin-bottom:8px}
+.card.lg-av{border-left:4px solid var(--warn);margin-bottom:10px}
+.ptp-s+.lg,.btns+.lg{margin-top:8px}
+.sheet>.lg{padding:8px 0;border-bottom:1px solid var(--line)}
+.gi-pth{margin-bottom:10px}
+.gi-pth-n{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--ink-2);margin-bottom:6px}
+.gi-pth-n b{font-size:17px;color:var(--ink)}
+.gi-pth-n .bad b{color:var(--bad)}.gi-pth-n .warn b{color:#a86a00}

@@ -8,7 +8,8 @@
    · data/<área>/profesores/<id>.horPt   {d0:{i:'15:00',f:'20:00'}, … d6}   horas en que da personalizados
      (un día sin renglón = no trabaja / no da personalizados)
    · data/<área>/profesores/<id>.rutinas  false = no entra en la fila de rutinas genéricas
-   · data/<área>/paquetes/<id>.slots     {d1_16:{d:1,h:16}, …}               horario fijo semanal del cliente (ocupa esa hora)
+   · data/<área>/paquetes/<id>.slots     {d1_16:{d:1,h:16}, …}               horario fijo semanal del cliente (un horario por día)
+   · data/<área>/paquetes/<id>.citas     las sesiones con fecha y hora que salen de ese horario (ver gimagenda.js)
    · data/<área>/rutinas/<id>            {id,nombre,tel,obj,profId,profNom,asig:'auto'|'manual',estado:'pendiente'|'enviada',ts,por}
    ===================================================================== */
 const ghMin = t => { const m=String(t||'').match(/^(\d{1,2}):(\d{2})/); return m?(+m[1])*60+(+m[2]):null; };
@@ -19,6 +20,7 @@ function ghDia(p,k,d){                                   // renglón válido del
 const ghCubre = (x,h) => !!x && ghMin(x.i)<=h*60 && ghMin(x.f)>=(h+1)*60;     // la hora h:00–h+1:00 cabe completa en el rango
 const ghSlots = x => Object.values((x&&x.slots)||{}).filter(s=>s&&s.d!=null&&s.h!=null);
 const ghKey = (d,h) => `d${d}_${h}`;
+const ghSlotsKey = sl => ghSlots({slots:sl}).map(s=>ghKey(+s.d,+s.h)).sort().join(',');
 function ghHorTxt(p,k){                                  // “Lun–Vie 6:00–14:00 · Sáb 8:00–12:00”
   const runs=[]; for(let d=0;d<7;d++){ const x=ghDia(p,k,d); if(!x) continue; const key=x.i+'-'+x.f, l=runs[runs.length-1];
     if(l&&l.key===key&&l.b===d-1) l.b=d; else runs.push({a:d,b:d,key,x}); }
@@ -67,8 +69,8 @@ function gimProfError(aid){
 }
 
 /* ---------- Horario semanal de personalizados (dirección y recepción) ---------- */
-/* Las sesiones reales de un paquete: desde su inicio, cada semana en los días/horas del horario fijo, hasta completar las contratadas.
-   Ej.: 20 sesiones con 1 horario fijo = 20 semanas seguidas en ese mismo día y hora. */
+/* Paquetes ANTERIORES (sin citas guardadas): desde su inicio, cada semana en los días/horas del horario fijo, hasta completar las contratadas.
+   Ej.: 20 sesiones con 1 horario fijo = 20 semanas seguidas en ese mismo día y hora. Los paquetes nuevos guardan sus citas (gimagenda.js). */
 function ghSesiones(pk){
   const S=ghSlots(pk).map(s=>({d:+s.d,h:+s.h})).sort((x,y)=>(x.d-y.d)||(x.h-y.h)), n=Math.max(0,+pk.total||0), out=[];
   if(!S.length||!n||!pk.inicio) return out;
@@ -78,7 +80,7 @@ function ghSesiones(pk){
 }
 function ghCtx(aid,excluir){                             // instructores activos y qué fecha+hora tiene ocupada cada uno
   const ps=profesores(aid).filter(p=>p.activo!==false), pk=coll(aid,'paquetes').filter(x=>ptVigente(x)&&x.id!==excluir), occ={};
-  pk.forEach(x=>ghSesiones(x).forEach(s=>{ occ[`${x.profId}|${s.f}|${s.h}`]=x; }));
+  pk.forEach(x=>ptMapa(x).ag.forEach(c=>{ if(ctCuenta(c)) occ[`${x.profId}|${c.f}|${c.h}`]=x; }));     // las canceladas liberan la hora
   return {ps,pk,occ};
 }
 function ghOferta(ctx,f,h){                              // instructores AUTORIZADOS a esa hora (en ese día de la semana) y si ya están ocupados
@@ -98,23 +100,23 @@ function vGimHorario(aid,embed){
   const filas=[]; for(let h=h0;h<h1;h++){
     filas.push(`<tr><th>${hh(h)}</th>${fechas.map((f,d)=>{
       const of=ghOferta(ctx,f,h), lib=of.filter(x=>!x.oc).length;
-      if(!of.length||f<hoy) return `<td><span class="gh-c off" aria-label="Sin instructor"></span></td>`;
+      if(!of.length||!ctLibre(f,h)) return `<td><span class="gh-c off" aria-label="${of.length?'Ya pasó':'Sin instructor'}"></span></td>`;
       lib?libres++:llenas++;
       return `<td><button class="gh-c ${lib?'ok':'bad'}" data-act="ghCelda" data-f="${f}" data-h="${h}" aria-label="${DIAS_L[d]} ${esc(fmtCorta(f))} ${hh(h)}: ${lib?plu(lib,'instructor libre','instructores libres'):'todo ocupado'}">${lib?`<b>${lib}</b><small>${lib===1?'libre':'libres'}</small>`:'<b>Lleno</b>'}</button></td>`;
     }).join('')}</tr>`);
   }
   const nav=`<div class="calnav"><button class="ibtn" data-act="ghSem" data-n="-1" aria-label="Semana anterior">${ic('back')}</button><b>${esc(fmtCorta(sem))} – ${esc(fmtCorta(addDays(sem,6)))}</b><button class="ibtn" data-act="ghSem" data-n="1" aria-label="Semana siguiente">${ic('next')}</button><button class="btn sm" data-act="ghSemHoy">Esta semana</button></div>`;
   return `${head}
-    <div class="sub">${ro?'Horas de personalizados de los entrenadores.':'Toca una hora para ver qué instructores tienen libre y asignarle el personalizado al socio.'} Verde = hay al menos un instructor libre · Rojo = todos ocupados · Gris = nadie autorizado a esa hora. Avanza de semana para ver lo que ya apartaron los paquetes contratados.</div>
+    <div class="sub">${ro?'Horas de personalizados de los entrenadores.':'Toca una hora para ver qué instructores tienen libre y asignarle el personalizado al socio.'} Verde = hay al menos un instructor libre · Rojo = todos ocupados · Gris = nadie autorizado o la hora ya pasó. Avanza de semana para ver lo que ya apartaron los paquetes contratados.</div>
     ${nav}
     ${embed?'':`<div class="kpis k3">${kpi('Horas con lugar',libres,'verdes en la semana',{cls:'ok',color:'var(--b1)'})}${kpi('Horas llenas',llenas,'rojas en la semana',{cls:llenas?'bad':'',color:'var(--bad)'})}${kpi('Instructores',ctx.ps.filter(p=>Object.keys(p.horPt||{}).length).length,'con horario de personalizados',{color:'var(--b3)'})}</div>`}
     <div class="gh-wrap"><table class="gh-tb"><thead><tr><th></th>${fechas.map((f,i)=>`<th class="${f===hoy?'hoy':''}">${DIAS[i]}<small>${+f.slice(8,10)}</small></th>`).join('')}</tr></thead><tbody>${filas.join('')}</tbody></table></div>
-    <div class="gh-leg"><span><i class="ok"></i>Libre</span><span><i class="bad"></i>Ocupado</span><span><i class="off"></i>Sin instructor autorizado</span></div>`;
+    <div class="gh-leg"><span><i class="ok"></i>Libre</span><span><i class="bad"></i>Ocupado</span><span><i class="off"></i>Sin instructor o ya pasó</span></div>`;
 }
 function ghCelda(f,h){
-  const aid=curArea(), ro=roDatos(aid), ctx=ghCtx(aid), of=ghOferta(ctx,f,+h), wd=wdIdx(f);
+  const aid=curArea(), ctx=ghCtx(aid), of=ghOferta(ctx,f,+h), wd=wdIdx(f), ro=roDatos(aid)||!ctLibre(f,+h);
   openModal(`${mHead(`${DIAS_L[wd]} ${esc(fmtCorta(f))} · ${hh(+h)}`)}
-    <div class="sub">Instructores autorizados para personalizados a esta hora.</div>
+    <div class="sub">${ctLibre(f,+h)?'Instructores autorizados para personalizados a esta hora.':'Esta hora ya pasó: no se puede agendar.'}</div>
     ${of.length?of.map(({p,oc})=>`<div class="card gh-ins"><div class="row">${avatarHTML(p.nombre,p.foto,40)}<div><b>${esc(p.nombre)}</b><small>${oc?`Ocupado con ${esc(oc.cliente||'un cliente')}`:'Libre'}</small></div>${pill(oc?'Ocupado':'Libre',oc?'bad':'ok')}</div>
       ${(oc||ro)?'':`<div class="btns"><button class="btn primary block" data-act="ghAsignar" data-prof="${esc(p.id)}" data-d="${wd}" data-h="${h}" data-f="${f}">Asignar personalizado a ${esc(p.nombre.split(' ')[0])}</button></div>`}</div>`).join(''):empty('Nadie está autorizado para personalizados a esta hora.')}
     <div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`);
@@ -130,21 +132,23 @@ function ghSlotsCampo(id){
   return `<div class="f"><span class="lb">Horario fijo del cliente (cada semana)</span>
     <input type="hidden" id="pt_pkid" value="${esc(id||'')}">
     <div id="pt_aviso"></div>
+    <div id="pt_cnt" class="gh-cnt"></div>
     <div id="pt_slots" class="gh-chips">${ghSlotsHTML()}</div>
     <div class="two"><select id="pt_sd" aria-label="Día"></select><select id="pt_sh" aria-label="Hora"></select></div>
     <button type="button" class="btn sm" data-act="ptSlotAdd">+ Agregar este día y hora</button>
     <div id="pt_prev" class="gh-prev"></div>
-    <small class="mut">Elige un horario por cada sesión de la semana (máximo tantos como sesiones contratadas). Ese horario se repite cada semana hasta completar las sesiones. Solo salen las horas que la dirección autorizó a este instructor.</small></div>`;
+    <small class="mut">Elige un día con su hora por cada sesión de la semana (si el cliente va 3 veces por semana, 3 días distintos). Ese horario se repite cada semana hasta completar las sesiones, empezando en la primera hora que todavía no pasa. Solo salen las horas que la dirección autorizó a este instructor y que tiene libres.</small></div>`;
 }
 function ghFillHoras(){
   const aid=curArea(), sd=$('#pt_sd'), sh=$('#pt_sh'), pr=$('#pt_prof'); if(!sd||!sh||!pr) return;
   const p=getProf(aid,pr.value), d=sd.value===''?NaN:+sd.value, x=p&&!isNaN(d)?ghDia(p,'horPt',d):null;
   if(!x){ sh.innerHTML=''; return; }
-  const ini=($('#pt_ini')||{}).value||todayStr(), ctx=ghCtx(aid,($('#pt_pkid')||{}).value);
-  let f0=ini; for(let i=0;i<7&&wdIdx(f0)!==d;i++) f0=addDays(f0,1);                 // primera fecha en que cae ese día
+  const t=todayStr(), i0=($('#pt_ini')||{}).value||t, ini=i0<t?t:i0, ctx=ghCtx(aid,($('#pt_pkid')||{}).value);
+  let f1=ini; for(let i=0;i<7&&wdIdx(f1)!==d;i++) f1=addDays(f1,1);                 // primera fecha en que cae ese día
   const keep=sh.value; let html='', first='';
   for(let h=Math.floor(ghMin(x.i)/60);h<Math.ceil(ghMin(x.f)/60);h++){
     if(!ghCubre(x,h)) continue;
+    const f0=ctLibre(f1,h)?f1:addDays(f1,7);                                          // si hoy ya pasó esa hora, empieza la otra semana
     const oc=ctx.occ[`${p.id}|${f0}|${h}`], ya=!!ptSlotsTmp[ghKey(d,h)], dis=!!oc||ya;
     if(!dis&&first==='') first=String(h);
     html+=`<option value="${h}"${dis?' disabled':''}>${hh(h)}${oc?' · ocupado':ya?' · ya elegido':''}</option>`;
@@ -154,8 +158,10 @@ function ghFillHoras(){
 function ghFillSel(){
   const aid=curArea(), sd=$('#pt_sd'), pr=$('#pt_prof'); if(!sd||!pr) return;
   const p=getProf(aid,pr.value), dias=p?[0,1,2,3,4,5,6].filter(d=>ghDia(p,'horPt',d)):[], keep=sd.value;
-  sd.innerHTML=dias.length?dias.map(d=>`<option value="${d}">${DIAS_L[d]}</option>`).join(''):'<option value="">Sin horario autorizado</option>';
-  if(keep!==''&&dias.includes(+keep)) sd.value=keep;
+  const usados=new Set(Object.values(ptSlotsTmp).map(s=>+s.d));
+  sd.innerHTML=dias.length?dias.map(d=>`<option value="${d}"${usados.has(d)?' disabled':''}>${DIAS_L[d]}${usados.has(d)?' · ya elegido':''}</option>`).join(''):'<option value="">Sin horario autorizado</option>';
+  const libre=dias.find(d=>!usados.has(d));
+  if(keep!==''&&dias.includes(+keep)&&!usados.has(+keep)) sd.value=keep; else if(libre!=null) sd.value=String(libre);
   ghFillHoras();
   const add=document.querySelector('[data-act=ptSlotAdd]'); if(add) add.disabled=!dias.length;
   const av=$('#pt_aviso'); if(av) av.innerHTML=dias.length?`<small class="mut">Autorizado para ${esc(p.nombre)}: ${esc(ghHorTxt(p,'horPt'))}.</small>`
@@ -164,20 +170,33 @@ function ghFillSel(){
 function ghRefrescar(){ const el=$('#pt_slots'); if(el) el.innerHTML=ghSlotsHTML(); ghFillHoras(); ghPreview(); }
 function ghPreview(){
   const el=$('#pt_prev'); if(!el) return;
-  const tot=parseInt(($('#pt_tot')||{}).value)||0, ini=($('#pt_ini')||{}).value, fin=($('#pt_fin')||{}).value;
-  const ses=ghSesiones({total:tot,inicio:ini,slots:ptSlotsTmp});
-  if(!ses.length){ el.innerHTML=''; return; }
-  const ult=ses[ses.length-1].f, tarde=!!fin&&ult>fin;
-  el.innerHTML=`<small><b>${ses.length}</b> de ${tot} sesiones apartadas, del ${esc(fmtCorta(ses[0].f))} al ${esc(fmtCorta(ult))}.</small>${tarde?`<small class="bad">La última sesión cae después del vencimiento (${esc(fmtCorta(fin))}). <button type="button" class="btn sm" data-act="ptAjustaFin" data-f="${ult}">Vencer el ${esc(fmtCorta(ult))}</button></small>`:''}`;
+  const aid=curArea(), id=($('#pt_pkid')||{}).value, prev=id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{}, prof=($('#pt_prof')||{}).value;
+  const tot=parseInt(($('#pt_tot')||{}).value)||0, ini=($('#pt_ini')||{}).value, fin=($('#pt_fin')||{}).value, frec=parseInt(($('#pt_frec')||{}).value)||0;
+  const nS=Object.keys(ptSlotsTmp).length, usadas=ptReal(prev), out=[];
+  const cnt=$('#pt_cnt'); if(cnt) cnt.innerHTML=`<b class="${nS===frec?'ok':'bad'}">${nS} de ${frec}</b> horarios por semana elegidos`;
+  if(tot>usadas&&nS<frec) out.push(`<small class="bad">Falta elegir ${plu(frec-nS,'horario','horarios')}: el cliente contrató ${frec} por semana. Sin horario completo no se puede guardar.</small>`);
+  if(nS>frec) out.push(`<small class="bad">Sobran ${plu(nS-frec,'horario','horarios')}: el cliente contrató ${frec} por semana.</small>`);
+  if(nS&&tot&&ini&&prof){
+    const profCambia=!!id&&prof!==prev.profId, tmp={...prev,id:id||'nuevo',profId:prof,total:tot,inicio:ini,slots:ptSlotsTmp};
+    const base=id?ptBase(prev,profCambia):[], R=ptLlenar(aid,tmp,base), ses=R.nuevas;
+    if(base.length) out.push(`<small class="mut">Se conservan ${plu(base.length,'sesión que ya pasó o está registrada','sesiones que ya pasaron o están registradas')}.</small>`);
+    if(ses.length){
+      const ult=ses[ses.length-1].f;
+      out.push(`<small><b>${ses.length}</b> ${ses.length===1?'sesión se agenda':'sesiones se agendan'}: la primera el <b>${esc(ctTxt(ses[0]))}</b> y la última el <b>${esc(fmtFecha(ult))}</b>.</small>`);
+      if(!id&&ini===todayStr()&&ses[0].f!==ini) out.push(`<small class="mut">Hoy ya no queda ninguna de esas horas: empieza en la siguiente fecha libre.</small>`);
+      if(fin&&ult>fin) out.push(`<small class="bad">La última sesión cae después del vencimiento (${esc(fmtCorta(fin))}). <button type="button" class="btn sm" data-act="ptAjustaFin" data-f="${ult}">Vencer el ${esc(fmtCorta(ult))}</button></small>`);
+    }
+    if(R.saltadas.length) out.push(`<small class="warn">Se brincan ${plu(R.saltadas.length,'fecha','fechas')} en que el instructor ya está ocupado: ${esc(R.saltadas.slice(0,3).map(x=>`${ctTxt(x)} (${x.quien})`).join(', '))}${R.saltadas.length>3?'…':''}.</small>`);
+    if(R.faltan>0) out.push(`<small class="bad">No hay lugar para ${plu(R.faltan,'sesión','sesiones')}.</small>`);
+  }
+  el.innerHTML=out.join('');
 }
 function ghValidarSlots(aid,pkId,profId,tot,ini){        // '' si está bien; si no, el motivo
   const S=Object.values(ptSlotsTmp); if(!S.length) return '';
   if(S.length>tot) return `Con ${tot} ${tot===1?'sesión':'sesiones'} solo puedes elegir ${tot} ${tot===1?'horario':'horarios'} por semana`;
   const p=getProf(aid,profId); if(!p) return 'Elige al instructor';
   for(const s of S) if(!ghCubre(ghDia(p,'horPt',+s.d),+s.h)) return `${p.nombre} no tiene autorizado dar personalizados el ${DIAS_L[s.d]} a las ${hh(s.h)}. Quita ese horario o pide a la dirección que lo autorice`;
-  const ctx=ghCtx(aid,pkId);
-  for(const s of ghSesiones({total:tot,inicio:ini,slots:ptSlotsTmp})){ const c=ctx.occ[`${profId}|${s.f}|${s.h}`]; if(c) return `El ${DIAS[wdIdx(s.f)]} ${fmtCorta(s.f)} a las ${hh(s.h)} ya está ocupado por ${c.cliente||'otro cliente'}`; }
-  return '';
+  return '';                                                             // lo ocupado en una fecha se brinca al armar las citas (ptLlenar)
 }
 
 /* ---------- Rutinas genéricas ---------- */
@@ -253,13 +272,15 @@ Object.assign(actions,{
   ghSemHoy(){ ui.ghSem=mondayOf(todayStr()); render(); },
   ghAsignar(d){ closeModal(); openPT('',d.prof,{d:+d.d,h:+d.h,f:d.f}); },
   ptSlotAdd(){
-    const d=$('#pt_sd').value, h=$('#pt_sh').value, tot=parseInt($('#pt_tot').value)||0;
+    const d=$('#pt_sd').value, h=$('#pt_sh').value, tot=parseInt($('#pt_tot').value)||0, frec=parseInt(($('#pt_frec')||{}).value)||tot;
     if(d===''||h===''){ toast('Elige un día y una hora autorizados'); return; }
     if(tot<1){ toast('Primero indica cuántas sesiones se contrataron'); return; }
-    if(Object.keys(ptSlotsTmp).length>=tot){ toast(`Con ${tot} ${tot===1?'sesión':'sesiones'} solo puedes elegir ${tot} ${tot===1?'horario':'horarios'} por semana`); return; }
-    ptSlotsTmp[ghKey(+d,+h)]={d:+d,h:+h}; ghRefrescar();
+    if(Object.values(ptSlotsTmp).some(s=>s.d===+d)){ toast(`Ya elegiste un horario el ${DIAS_L[+d].toLowerCase()}: cada sesión de la semana va en un día distinto`); return; }
+    const lim=Math.min(tot,frec);
+    if(Object.keys(ptSlotsTmp).length>=lim){ toast(`El cliente contrató ${frec} por semana: ya tienes ${plu(lim,'horario','horarios')}. Quita uno o cambia las sesiones por semana`); return; }
+    ptSlotsTmp[ghKey(+d,+h)]={d:+d,h:+h}; ghFillSel(); ghRefrescar();
   },
-  ptSlotDel(d){ delete ptSlotsTmp[d.k]; ghRefrescar(); },
+  ptSlotDel(d){ delete ptSlotsTmp[d.k]; ghFillSel(); ghRefrescar(); },
   ptAjustaFin(d){ const f=$('#pt_fin'); if(f){ f.value=d.f; ghPreview(); } },
   rutFil(d){ ui.rutFil=d.f; render(); },
   rutNueva(){ if(roDatos(curArea())) return; rutNueva(); },
@@ -297,6 +318,6 @@ document.addEventListener('change',e=>{
     ghFillSel(); ghRefrescar();
   } else if(id==='pt_sd') ghFillHoras();
   else if(id==='pt_ini'){ ghFillHoras(); ghPreview(); }
-  else if(id==='pt_fin'||id==='pt_tot') ghPreview();
+  else if(id==='pt_fin'||id==='pt_tot'||id==='pt_frec') ghPreview();
 });
 document.addEventListener('input',e=>{ const id=e.target&&e.target.id; if((id==='pt_tot'||id==='pt_fin'||id==='pt_ini')&&$('#pt_slots')) ghPreview(); });
