@@ -1,0 +1,38 @@
+PARCHE 13 - Control Gerencia: agenda real de personalizados del Gimnasio (sin fechas pasadas, reagendar, avisos y bitácora)
+=========================================================================================================================
+Requiere el parche 12. Deja el service worker en gd-v83.
+Sube (reemplazando): index.html, sw.js, css/gimnasio.css, js/gimnasio.js, js/gimhorario.js, js/recepcion.js, js/sincronizacion.js
+Sube (NUEVO): js/gimagenda.js
+
+1) NADA SE AGENDA EN EL PASADO
+   - El inicio de un personalizado nuevo no puede ser una fecha pasada.
+   - Las sesiones se arman desde la primera hora que todavía no pasa: si hoy ya pasó la hora elegida, empieza la otra semana.
+   - En el horario semanal, las horas de hoy que ya pasaron salen en gris y no se pueden asignar.
+   - Reagendar solo deja elegir fechas y horas que no han pasado.
+
+2) HORARIO COMPLETO OBLIGATORIO ("¿qué pasa si no se eligen todos los días?")
+   - Nuevo campo "Sesiones por semana". Hay que elegir exactamente ese número de horarios, cada uno en un día distinto.
+   - Si faltan horarios, se avisa ("falta elegir 2 horarios") y NO se puede guardar.
+   - Si la última sesión cae después del vencimiento, no se guarda hasta mover el vencimiento (botón "Vencer el …").
+   - Si en alguna fecha el instructor ya está ocupado, esa fecha se brinca y se avisa cuáles fueron.
+
+3) CITAS CON FECHA Y HORA (se guardan en el personalizado)
+   - Cada sesión queda como cita: programada, hoy, sin registrar, realizada, no asistió o cancelada.
+   - El instructor solo puede registrar una sesión cuando ya empezó su hora. Una sesión no se registra dos veces.
+   - "Realizada" y "No asistió" descuentan. "Cancelada" no descuenta y se repone sola al final en el horario fijo.
+   - Ya no se puede registrar más sesiones de las contratadas, ni bajar las contratadas por debajo de las usadas.
+
+4) RECEPCIÓN REAGENDA O CANCELA
+   - Toca una sesión (en Personalizados → instructor) y elige "Reagendar" (solo horas autorizadas y libres del instructor)
+     o "Cancelar (el cliente avisó)", que la repone al final.
+   - El instructor recibe un aviso en su pantalla y marca "Enterado".
+
+5) PANTALLA DEL ENTRENADOR
+   - Avisos, sesiones sin registrar, agenda de hoy, próximos 7 días y, por paquete: pendientes, agendadas y la próxima sesión.
+
+6) DIRECCIÓN DEL GIMNASIO
+   - Personalizados: "Requiere atención" (sesiones pasadas sin registro, avisos que el instructor no ha visto, paquetes sin fecha),
+     "Personalizados de hoy" y "Bitácora del área" con todo lo que pasa, quién lo hizo y si el instructor ya lo vio.
+   - Inicio: resumen de personalizados de hoy.
+   Datos nuevos: data/<área>/gimlog (bitácora) y en cada personalizado .frec y .citas.
+   Personalizados anteriores siguen funcionando: su agenda se calcula como antes y se guarda la primera vez que se edita o reagenda.

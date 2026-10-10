@@ -13,7 +13,7 @@ function syRutaTxt(p){
   const k=String(p).split('/');
   if(k[0]==='data'&&k[1]){
     const a=(getArea(k[1])||{}).nombre||k[1];
-    const col={asistencia:'Asistencia',grupos:'Grupo',profesores:'Profesor',eventos:'Evento',incidencias:'Incidencia',accesos:'Aforo del gimnasio',bitacora:'Servicio',reportes:'Reporte semanal',recepcion:'Recepción',paquetes:'Personalizado',rutinas:'Rutina genérica'}[k[2]]||k[2]||'';
+    const col={asistencia:'Asistencia',grupos:'Grupo',profesores:'Profesor',eventos:'Evento',incidencias:'Incidencia',accesos:'Aforo del gimnasio',bitacora:'Servicio',reportes:'Reporte semanal',recepcion:'Recepción',paquetes:'Personalizado',rutinas:'Rutina genérica',gimlog:'Bitácora del gimnasio'}[k[2]]||k[2]||'';
     const id=k[3]||''; let det=id;
     if(k[2]==='asistencia'&&id){ const gid=id.split('_')[0], g=getPath(`data/${k[1]}/grupos/${gid}`)||{}; det=`${g.nombre||'clase'} · ${id.split('_').slice(1).join(' ')}`; }
     else if(['grupos','profesores','eventos'].includes(k[2])&&id){ const o=getPath(`data/${k[1]}/${k[2]}/${id}`)||{}; det=o.nombre||id; }

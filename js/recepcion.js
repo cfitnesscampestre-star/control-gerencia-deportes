@@ -7,12 +7,13 @@
      uno con su PIN.
    · RECEPCIÓN (entra con su PIN): solo estas cosas
        1) captura el aforo por hora (junto con la dirección)
-       2) da de alta los personalizados y se los asigna a un instructor
+       2) da de alta los personalizados y se los asigna a un instructor (con sus citas por fecha y hora)
        3) consulta el horario semanal de personalizados (horas libres u ocupadas)
+       3b) reagenda o cancela una sesión cuando el cliente avisa: el instructor recibe el aviso
        4) solicita rutinas genéricas, que llegan al entrenador que sigue en la fila
      No ve instructores, eventos, reportes ni otras áreas.
-   · INSTRUCTOR / ENTRENADOR (entra con su PIN): solo ve los personalizados
-     que le asignaron y registra cada sesión que da de ellos.
+   · INSTRUCTOR / ENTRENADOR (entra con su PIN): ve su agenda (hoy, sin registrar, próximos
+     días), los avisos de cambios (marca “Enterado”) y registra cada sesión cuando ya pasó su hora.
 
    Datos: data/<área>/recepcion/<id>  {id, nombre, pin, activo}
    Sesión: {rol:'rec', area, recId}
@@ -52,30 +53,28 @@ function viewRecepcion(){
   return shell({title:esc(r.nombre||'Recepción'),sub:`Recepción · ${areaIco(a,{size:14})} ${esc(a.nombre)}`,body});
 }
 
-/* ---------- pantalla del instructor: solo sus personalizados ---------- */
-function gpfCard(aid,x){
-  const real=ptReal(x), tot=+x.total||0, est=ptEstado(x), ses=ptSes(x).sort((a,b)=>(b.f+(b.h||'')).localeCompare(a.f+(a.h||''))).slice(0,4), pct=tot?Math.min(100,Math.round(real/tot*100)):0;
-  return `<div class="card ptp"><div class="row"><div><b>${esc(x.cliente||'Cliente')}</b><small>${esc(fmtCorta(x.inicio))} al ${esc(fmtCorta(x.fin))}</small></div>${pill(est,PT_CLS[est])}</div>
-    <div class="ptp-b"><div class="bar"><i class="${real>=tot?'info':aforoCls(pct)}" style="width:${pct}%"></i></div><b>${real}/${tot}</b></div>
-    <small class="mut">${tot-real>0?plu(tot-real,'sesión pendiente','sesiones pendientes'):'Todas las sesiones entregadas'}</small>
-    ${ses.length?`<div class="ptp-s">${ses.map(s=>`<span class="${s.e==='realizada'?'ok':'mut'}">${esc(fmtFecha(s.f))}${s.h?' '+esc(s.h):''} · ${esc(s.e==='realizada'?'realizada':s.e)}</span><button class="ptp-x" data-act="delSesion" data-pk="${esc(x.id)}" data-id="${esc(s.id)}" aria-label="Borrar sesión">${ic('x')}</button>`).join('')}</div>`:''}
-    ${x.notas?`<small class="mut">${esc(x.notas)}</small>`:''}
-    ${ptVigente(x)?`<div class="btns"><button class="btn primary block" data-act="openSesion" data-id="${esc(x.id)}">+ Registrar sesión</button></div>`:`<small class="mut">${est==='vencido'?'Este personalizado ya venció: consulta con recepción.':'Personalizado completado.'}</small>`}</div>`;
-}
+/* ---------- pantalla del instructor: su agenda y sus personalizados ---------- */
 function vGimProf(){
-  const aid=session.area, pid=session.profId, t=todayStr(), mes=t.slice(0,7);
+  const aid=session.area, pid=session.profId, t=todayStr(), mes=t.slice(0,7), en7=addDays(t,7);
   const pk=coll(aid,'paquetes').filter(x=>x.profId===pid).sort((a,b)=>(ptVigente(b)-ptVigente(a))||String(b.fin).localeCompare(String(a.fin)));
-  const act=pk.filter(ptVigente), ant=pk.filter(x=>!ptVigente(x)).slice(0,6);
+  const act=pk.filter(ptVigente), ant=pk.filter(x=>!ptVigente(x)).slice(0,6), C=gimCitas(aid,pid);
   const saldo=act.reduce((n,x)=>n+Math.max(0,(+x.total||0)-ptReal(x)),0);
+  const sinReg=C.filter(y=>y.c.st==='sin registrar').reverse(), hoy=C.filter(y=>y.c.f===t), prox=C.filter(y=>y.c.f>t&&y.c.f<=en7&&!y.c.reg);
   const sesMes=pk.reduce((n,x)=>n+ptSes(x).filter(s=>s.e==='realizada'&&String(s.f).startsWith(mes)).length,0);
-  const sesHoy=pk.reduce((n,x)=>n+ptSes(x).filter(s=>s.e==='realizada'&&s.f===t).length,0);
+  const dias=[...new Set(prox.map(y=>y.c.f))];
   return `<div class="gpf">
+    ${gimAvisosProf(aid,pid)}
     ${gimRutProf()}
-    <div class="sub">Aquí ves los personalizados que recepción te asignó. Registra cada sesión que des.</div>
-    <div class="kpis k3">${kpi('Por entregar',saldo,plu(act.length,'paquete activo','paquetes activos'),{cls:saldo?'warn':'ok',color:'var(--warn)'})}${kpi('Hoy',sesHoy,'sesiones realizadas',{color:'var(--b2)'})}${kpi('Este mes',sesMes,'sesiones realizadas',{color:'var(--b1)'})}</div>
+    <div class="sub">Tu agenda de personalizados. Cuando pase la hora de cada sesión, regístrala: realizada, no asistió o cancelada.</div>
+    <div class="kpis k3">${kpi('Hoy',hoy.length,plu(hoy.filter(y=>y.c.reg).length,'registrada','registradas'),{color:'var(--b2)'})}${kpi('Por entregar',saldo,plu(act.length,'paquete activo','paquetes activos'),{cls:saldo?'warn':'ok',color:'var(--warn)'})}${kpi('Sin registrar',sinReg.length,`${sesMes} realizadas este mes`,{cls:sinReg.length?'bad':'ok',color:'var(--bad)'})}</div>
+    ${sinReg.length?`<div class="h2">Sin registrar <span class="pill bad">${sinReg.length}</span></div><div class="sub">Ya pasaron y no tienen registro. La dirección las ve como pendientes.</div>${sinReg.map(y=>ctFila(aid,y.pk,y.c,{fecha:true})).join('')}`:''}
+    <div class="h2">Hoy · ${esc(fmtLarga(t))}</div>
+    ${hoy.length?hoy.map(y=>ctFila(aid,y.pk,y.c)).join(''):empty('Hoy no tienes sesiones agendadas.')}
+    <div class="h2">Próximos 7 días</div>
+    ${dias.length?dias.map(f=>`<div class="ct-dia">${esc(fmtLarga(f))}</div>${prox.filter(y=>y.c.f===f).map(y=>ctFila(aid,y.pk,y.c)).join('')}`).join(''):empty('No tienes sesiones agendadas en los próximos 7 días.')}
     <div class="h2">Mis personalizados</div>
-    ${act.length?act.map(x=>gpfCard(aid,x)).join(''):empty('Todavía no tienes personalizados asignados. Recepción los da de alta y te los asigna.')}
-    ${ant.length?`<div class="h2 sm">Anteriores</div>${ant.map(x=>gpfCard(aid,x)).join('')}`:''}
+    ${act.length?act.map(x=>ptPaqHTML(aid,x,{prof:true})).join(''):empty('Todavía no tienes personalizados asignados. Recepción los da de alta y te los asigna.')}
+    ${ant.length?`<div class="h2 sm">Anteriores</div>${ant.map(x=>ptPaqHTML(aid,x,{prof:true})).join('')}`:''}
   </div>`;
 }
 
