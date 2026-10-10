@@ -256,3 +256,27 @@
   .car-track>.kpi{flex-basis:calc((100% - 48px)/4)}
 }
 @media (prefers-reduced-motion:reduce){ .car-track{scroll-behavior:auto} }
+
+/* ---------- Resumen de gerencia por excepciones ---------- */
+.kpis.g-kpis{margin-top:10px}
+.g-kpis .kpi:last-child:nth-child(odd){grid-column:1/-1}
+@media (min-width:900px){ .kpis.g-kpis{grid-template-columns:repeat(5,1fr)} .kpis.g-kpis .kpi:last-child:nth-child(odd){grid-column:auto} }
+.g-atn{margin-top:6px}
+.gx-list{display:flex;flex-direction:column;gap:10px}
+.gx-it{background:#fff;border:1px solid var(--line);border-left:5px solid var(--warn);border-radius:16px;padding:12px 14px;box-shadow:0 1px 2px rgba(16,26,51,.04)}
+.gx-it.bad{border-left-color:#e5372a}.gx-it.info{border-left-color:var(--b3)}.gx-it.mut{border-left-color:var(--line-2)}
+.gx-h{display:flex;align-items:center;gap:8px}
+.gx-h i{display:none}
+.gx-h b{flex:1;font-size:15px}
+.gx-h b small{font-weight:500;color:var(--mut);font-size:12.5px}
+.gx-ar{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.g-atn .gx-c{display:inline-flex;flex-direction:row;flex-wrap:nowrap;white-space:nowrap;line-height:1.2;width:auto;min-height:0;align-items:center;gap:5px;padding:6px 11px;border-radius:99px;border:1.5px solid var(--line-2);background:#fff;font-weight:600;font-size:13px;color:var(--ink)}
+.g-atn .gx-c .ic{flex:none;width:15px;height:15px;color:var(--ac)}
+.g-atn .gx-c b{display:inline-block;width:auto;height:auto;flex:none;background:var(--ac);color:#fff;border-radius:99px;padding:0 7px;font-size:12px}
+.gx-ap{display:block;width:100%;text-align:left;margin-top:8px;padding:8px 10px;border-radius:12px;background:#f4f7fb;border:0;font-size:13.5px;color:var(--ink-2);line-height:1.35}
+.gx-ap .ic{width:15px;height:15px;color:var(--ac);vertical-align:-2px}
+.gx-ap b{color:var(--ink)}
+.gx-it .line{margin:8px 0 0}
+.gx-sin{margin-top:8px}.gx-sin .linkbtn{font-size:13px;padding:2px 4px}
+.g-inc{margin-top:6px}.g-inc>summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--ink-2);padding:8px 0}
+.d-pend .h2{margin-top:4px}

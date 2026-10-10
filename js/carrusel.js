@@ -11,7 +11,7 @@
    · La tarjeta en la que estás se conserva aunque la pantalla se actualice.
    ===================================================================== */
 ui.car = ui.car || {i:0,pausa:0};
-const CAR_MS = 3500, CAR_PAUSA = 9000;
+const CAR_MS = 3500, CAR_PAUSA = 9000, CAR_AUTO = false;            // sin avance automático: se lee mejor (flechas y dedo siguen)
 let carHover = false;
 const carReducido = () => !!(typeof window!=='undefined'&&window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 const carHTML = (id,tarjetas) => `<div class="car" data-car="${esc(id)}">
@@ -59,7 +59,7 @@ if(typeof document!=='undefined'){
   document.addEventListener('mouseover',e=>{ carHover=!!(e.target.closest&&e.target.closest('.car')); });
   window.addEventListener('resize',()=>{ const tr=document.querySelector('.car-track'); if(tr) carPuntos(tr); });
   setInterval(()=>{
-    if(document.hidden||carHover||carReducido()||Date.now()<ui.car.pausa) return;
+    if(!CAR_AUTO||document.hidden||carHover||carReducido()||Date.now()<ui.car.pausa) return;
     const m=document.getElementById('modal'); if((m&&!m.hidden)||document.getElementById('confirmDlg')) return;
     carMueve(1);
   },CAR_MS);
