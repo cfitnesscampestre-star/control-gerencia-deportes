@@ -23,7 +23,7 @@ function gAjustes(){
       <div class="card">
         <div class="row"><div><b>Gerencia</b><small>Acceso a todas las áreas</small></div><button class="btn sm" data-act="pwGer">Cambiar</button></div>
         <div class="row"><div><b>Metodología deportiva</b><small>Aforos, eventos y pruebas de todas las áreas</small></div><button class="btn sm" data-act="pwMet">Cambiar</button></div>
-        ${as.map(a=>`<div class="row"><div><b>${areaIco(a,{size:18})} ${esc(a.nombre)}</b><small>Dirección del área</small></div><button class="btn sm" data-act="pwDir" data-id="${esc(a.id)}">Cambiar</button></div>`).join('')}
+        ${areasVista().map(a=>`<div class="row"><div><b>${areaIco(a,{size:18})} ${esc(a.nombre)}</b><small>${a._grupo?'Dirección de Nutrición y Fisioterapia (una sola contraseña)':'Dirección del área'}</small></div><button class="btn sm" data-act="pwDir" data-id="${esc(a.id)}"${a._grupo?' data-grupo="1"':''}>Cambiar</button></div>`).join('')}
       </div>
     </div>
     <div class="d-ev">
@@ -42,16 +42,16 @@ function gAjustes(){
   </div>`;
 }
 
-function openPw(kind,aid){
+function openPw(kind,aid,grupo){
   const self=kind==='self';
-  const label=kind==='ger'?'Gerencia':kind==='met'?'Metodología deportiva':`Dirección · ${esc((getArea(aid)||{}).nombre||'')}`;
+  const label=kind==='ger'?'Gerencia':kind==='met'?'Metodología deportiva':`Dirección · ${esc(grupo?SV_GRUPO_NOM:(getArea(aid)||{}).nombre||'')}`;
   openModal(`${mHead('Cambiar contraseña')}
     <div class="sub">${label}</div>
     ${self?`<label class="f"><span>Contraseña actual</span><input id="pw_cur" type="password" autocomplete="current-password"></label>`:''}
     <label class="f"><span>Nueva contraseña (mínimo 4 caracteres)</span><input id="pw_new" type="password" autocomplete="new-password"></label>
     <label class="f"><span>Confirmar nueva contraseña</span><input id="pw_new2" type="password" autocomplete="new-password"></label>
     <div class="err" id="pw_err"></div>
-    <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="savePw" data-kind="${kind}" data-id="${esc(aid||'')}">Guardar contraseña</button></div>`);
+    <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="savePw" data-kind="${kind}" data-id="${esc(aid||'')}"${grupo?' data-grupo="1"':''}>Guardar contraseña</button></div>`);
 }
 function openAreaForm(id){
   const a=id?getArea(id):{nombre:'',icono:'trofeo',color:COLORS[areasList().length%COLORS.length]};
@@ -98,12 +98,12 @@ Object.assign(actions,{
   tema(d){ try{ localStorage.setItem('gd_tema',d.t); }catch(e){} aplicarTema(); render(); },
   pwGer(){ openPw('ger'); },
   pwMet(){ openPw('met'); },
-  pwDir(d){ openPw('dir',d.id); },
+  pwDir(d){ openPw('dir',d.id,!!d.grupo); },
   pwSelf(){ openPw('self',session.area); },
   savePw(d){
     const err=m=>{ $('#pw_err').textContent=m; };
     const n1=$('#pw_new').value, n2=$('#pw_new2').value;
-    const grupo=d.kind==='self'&&session&&Array.isArray(session.grupo)?session.grupo:null;
+    const grupo=d.kind==='self'&&session&&Array.isArray(session.grupo)?session.grupo:(d.kind==='dir'&&d.grupo?svDirGrupo():null);
     if(d.kind==='self' && !(grupo||[d.id]).some(id=>hashPass($('#pw_cur').value)===state.cfg.pass.dir[id])) return err('La contraseña actual no coincide.');
     if(n1.length<4) return err('Usa al menos 4 caracteres.');
     if(n1!==n2) return err('Las dos contraseñas no coinciden.');

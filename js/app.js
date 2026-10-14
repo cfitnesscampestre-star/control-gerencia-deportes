@@ -63,8 +63,8 @@ function viewGerencia(){
   else if(ui.gTab==='mantenimiento'){ body=vMantGerencia(); title='Mantenimiento'; sub='Reportes de equipo · solo lectura'; }
   else if(ui.gTab==='ajustes') body=gAjustes();
   else if(ui.gArea&&getArea(ui.gArea)){
-    const a=getArea(ui.gArea); title=`${areaIco(a,{size:22})} ${esc(a.nombre)}`; sub='Vista de gerencia · solo lectura'; back=ui.lista?'listaBack':'gBack';
-    body=ui.lista?vLista():areaTabs()+areaBody(ui.gArea);
+    const a=getArea(ui.gArea), gs=enGrupoSalud(ui.gArea); title=gs?esc(SV_GRUPO_NOM):`${areaIco(a,{size:22})} ${esc(a.nombre)}`; sub=gs?`${esc(a.nombre)} · vista de gerencia · solo lectura`:'Vista de gerencia · solo lectura'; back=ui.lista?'listaBack':'gBack';
+    body=ui.lista?vLista():gerGrupoSwitch()+areaTabs()+areaBody(ui.gArea);
   } else body=gAreasList();
   return shell({title,sub,body,back,fs:!!ui.lista});
 }
