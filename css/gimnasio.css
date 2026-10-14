@@ -203,3 +203,14 @@
 .gh-rp.atr{border-left-color:var(--bad)}
 .card.pb{margin-bottom:10px}.card.pb>small{display:block;color:var(--ink-2);margin:2px 0 6px}
 .card.pb-atn{border-left:4px solid var(--bad);margin-bottom:10px}.card.pb-atn .row{display:flex;gap:10px;align-items:center;justify-content:space-between}.card.pb-atn small{display:block;color:var(--ink-2)}
+
+/* ---------- entrega 2: sub-menú de secciones, agenda por instructor y bandeja del instructor ---------- */
+.seg.gim-sub{margin:0 0 12px;overflow-x:auto;scrollbar-width:none}
+.seg.gim-sub::-webkit-scrollbar{display:none}
+.seg.gim-sub button{flex:1 0 auto;white-space:nowrap;padding:8px 12px}
+.gh-tb.gad th{white-space:nowrap}
+.gh-tb.gad td{min-width:76px}
+.gh-c.mio small,.gh-c.bad small,.gh-c.ok small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+span.gh-c.mio,span.gh-c.ok{cursor:default}
+.gpf-sr{margin-bottom:12px}
+.gpf .gpf-sr .btns{margin-top:4px;flex-wrap:wrap}

@@ -139,8 +139,9 @@ function vGimInicio(aid){
       ${gimPtHoyResumen(aid)}
       <div class="h2">Personalizados por instructor</div>
       ${filas.length?filas.map(x=>ptCard(x)).join(''):empty('Todavía no hay personalizados contratados.')}
-      ${ro?'':`<div class="btns"><button class="btn" data-act="aTab" data-tab="gimpt">Ver personalizados</button></div>`}
+      ${ro?'':`<div class="btns"><button class="btn" data-act="aTab" data-tab="gimpt">Ver personalizados</button><button class="btn" data-act="aTab" data-tab="gimagenda">Agenda por instructor</button></div>`}
     </div>
+    ${chSeccion(aid)}
   </div>`;
 }
 
@@ -185,7 +186,6 @@ function vGimAforo(aid){
     ${esHoy&&!ui.gaTodas&&horas.length?`<div class="sub ga-cur">Hora en curso: <b>${hh(hCur)}</b>. Cuando cambie la hora, pasa sola a la siguiente.</div>`:''}
     ${body}
     ${verTodas}
-    ${vGimHorario(aid,true)}
     ${session&&session.rol!=='rec'?chSeccion(aid):''}`;
 }
 function gaResumen(aid,fecha){

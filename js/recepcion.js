@@ -48,39 +48,39 @@ function openRec(id){
 /* ---------- pantalla de Recepción ---------- */
 function viewRecepcion(){
   const aid=session.area, a=getArea(aid), r=getRec(aid,session.recId)||{};
-  if(!['gimaforo','gimhorario','gimrutinas'].includes(ui.aTab)) ui.aTab='gimaforo';
-  const body = ui.aTab==='gimhorario' ? vGimHorario(aid) : ui.aTab==='gimrutinas' ? vGimRutinas(aid) : vGimAforo(aid);
+  if(!['gimaforo','gimhorario','gimavisos','gimrutinas'].includes(ui.aTab)) ui.aTab='gimaforo';
+  const body = ui.aTab==='gimhorario' ? vGimHorario(aid) : ui.aTab==='gimavisos' ? vGimAvisosRec(aid) : ui.aTab==='gimrutinas' ? vGimRutinas(aid) : vGimAforo(aid);
   return shell({title:esc(r.nombre||'Recepción'),sub:`Recepción · ${areaIco(a,{size:14})} ${esc(a.nombre)}`,body});
 }
 
-/* ---------- pantalla del instructor: su agenda y sus personalizados ---------- */
+/* ---------- pantalla del instructor: “Por hacer” (su agenda de la semana, socios y horario están en gimvistas.js) ---------- */
 function vGimProf(){
-  const aid=session.area, pid=session.profId, t=todayStr(), mes=t.slice(0,7), en7=addDays(t,7);
-  const pk=coll(aid,'paquetes').filter(x=>x.profId===pid).sort((a,b)=>(ptVigente(b)-ptVigente(a))||String(b.fin).localeCompare(String(a.fin)));
-  const act=pk.filter(ptVigente), ant=pk.filter(x=>!ptVigente(x)).slice(0,6), C=gimCitas(aid,pid);
+  const aid=session.area, pid=session.profId, t=todayStr(), mes=t.slice(0,7);
+  const pk=coll(aid,'paquetes').filter(x=>x.profId===pid), act=pk.filter(ptVigente), C=gimCitas(aid,pid);
   const saldo=act.reduce((n,x)=>n+Math.max(0,(+x.total||0)-ptReal(x)),0);
-  const sinReg=C.filter(y=>y.c.st==='sin registrar').reverse(), hoy=C.filter(y=>y.c.f===t), prox=C.filter(y=>y.c.f>t&&y.c.f<=en7&&!y.c.reg);
+  const sinReg=C.filter(y=>y.c.st==='sin registrar').reverse(), hoy=C.filter(y=>y.c.f===t);
   const sesMes=pk.reduce((n,x)=>n+ptSes(x).filter(s=>s.e==='realizada'&&String(s.f).startsWith(mes)).length,0);
-  const dias=[...new Set(prox.map(y=>y.c.f))];
+  const nSol=solPendientes(aid,pid).length, nRut=rutinas(aid).filter(r=>r.profId===pid&&rutEst(r)==='pendiente').length;
+  const nAv=gimLogs(aid).filter(l=>l.aviso&&l.prof===pid&&!l.visto).length, nTot=nSol+nRut+sinReg.length+nAv;
+  const ahora=hoy.filter(y=>!y.c.reg&&ctKey(y.c.f,y.c.h)<=ahoraKey()).pop();      // la sesión que acaba de empezar: registro en un toque
+  const sinRegL=sinReg.filter(y=>y!==ahora);                  // la de “Ahora” ya tiene sus botones arriba
+  const reg=(y,e,l,c)=>`<button class="btn sm${c?' '+c:''}" data-act="ctRegistrar" data-pk="${esc(y.pk.id)}" data-c="${esc(y.c.id)}" data-e="${e}">${l}</button>`;
   return `<div class="gpf">
-    ${gimSolProf(aid,pid)}
-    ${gimAvisosProf(aid,pid)}
-    ${gimRutProf()}
-    ${(()=>{ const y=hoy.filter(y=>!y.c.reg&&ctKey(y.c.f,y.c.h)<=ahoraKey()).pop(); if(!y) return '';      // la sesión que acaba de empezar: registro en un toque
-      return `<div class="h2">Ahora</div><div class="hero gpf-ahora"><div class="hero-t"><span>${y.c.st==='en curso'?'Sesión en curso':'Sesión de hoy sin registrar'}</span><b>${esc(y.pk.cliente||'Cliente')}</b><span>${hh(y.c.h)} · sesión ${ptReal(y.pk)+1} de ${+y.pk.total||0}</span></div>
-        <div class="hero-bs"><button class="hero-b" data-act="ctRegistrar" data-pk="${esc(y.pk.id)}" data-c="${esc(y.c.id)}" data-e="realizada">✓ Realizada</button>
-        <button class="hero-b2" data-act="ctRegistrar" data-pk="${esc(y.pk.id)}" data-c="${esc(y.c.id)}" data-e="falta">No asistió</button>
-        <button class="hero-b2" data-act="ctVer" data-pk="${esc(y.pk.id)}" data-c="${esc(y.c.id)}" data-from="">Otro…</button></div></div>`; })()}
-    <div class="sub">Tu agenda de personalizados. Cuando pase la hora de cada sesión, regístrala: realizada, no asistió o cancelada.</div>
+    ${ahora?`<div class="h2">Ahora</div><div class="hero gpf-ahora"><div class="hero-t"><span>${ahora.c.st==='en curso'?'Sesión en curso':'Sesión de hoy sin registrar'}</span><b>${esc(ahora.pk.cliente||'Cliente')}</b><span>${hh(ahora.c.h)} · sesión ${ptReal(ahora.pk)+1} de ${+ahora.pk.total||0}</span></div>
+        <div class="hero-bs"><button class="hero-b" data-act="ctRegistrar" data-pk="${esc(ahora.pk.id)}" data-c="${esc(ahora.c.id)}" data-e="realizada">✓ Realizada</button>
+        <button class="hero-b2" data-act="ctRegistrar" data-pk="${esc(ahora.pk.id)}" data-c="${esc(ahora.c.id)}" data-e="falta">No asistió</button>
+        <button class="hero-b2" data-act="ctVer" data-pk="${esc(ahora.pk.id)}" data-c="${esc(ahora.c.id)}" data-from="">Otro…</button></div></div>`:''}
     <div class="kpis k3">${kpi('Hoy',hoy.length,plu(hoy.filter(y=>y.c.reg).length,'registrada','registradas'),{color:'var(--b2)'})}${kpi('Por entregar',saldo,plu(act.length,'paquete activo','paquetes activos'),{cls:saldo?'warn':'ok',color:'var(--warn)'})}${kpi('Sin registrar',sinReg.length,`${sesMes} realizadas este mes`,{cls:sinReg.length?'bad':'ok',color:'var(--bad)'})}</div>
-    ${sinReg.length?`<div class="h2">Sin registrar <span class="pill bad">${sinReg.length}</span></div><div class="sub">Ya pasaron y no tienen registro. La dirección las ve como pendientes.</div>${sinReg.map(y=>ctFila(aid,y.pk,y.c,{fecha:true})).join('')}`:''}
+    <div class="h2">Por hacer ${nTot?`<span class="pill warn">${nTot}</span>`:''}</div>
+    ${nTot?'<div class="sub">Solicitudes de recepción, rutinas, sesiones sin registrar y cambios en tus personalizados. Todo lo pendiente está aquí.</div>':empty('Nada pendiente. Cuando recepción te mande un socio o una rutina, aparece aquí.')}
+    ${gimSolProf(aid,pid)}
+    ${gimRutProf()}
+    ${sinRegL.length?`<div class="h2">Sesiones sin registrar <span class="pill bad">${sinRegL.length}</span></div><div class="sub">Ya pasaron y no tienen registro. La dirección las ve como pendientes.</div>
+      ${sinRegL.map(y=>`<div class="gpf-sr">${ctFila(aid,y.pk,y.c,{fecha:true})}<div class="btns">${reg(y,'realizada','✓ Realizada','primary')}${reg(y,'falta','No asistió')}<button class="btn sm" data-act="ctVer" data-pk="${esc(y.pk.id)}" data-c="${esc(y.c.id)}" data-from="">Otro…</button></div></div>`).join('')}`:''}
+    ${gimAvisosProf(aid,pid)}
     <div class="h2">Hoy · ${esc(fmtLarga(t))}</div>
     ${hoy.length?hoy.map(y=>ctFila(aid,y.pk,y.c)).join(''):empty('Hoy no tienes sesiones agendadas.')}
-    <div class="h2">Próximos 7 días</div>
-    ${dias.length?dias.map(f=>`<div class="ct-dia">${esc(fmtLarga(f))}</div>${prox.filter(y=>y.c.f===f).map(y=>ctFila(aid,y.pk,y.c)).join('')}`).join(''):empty('No tienes sesiones agendadas en los próximos 7 días.')}
-    <div class="h2">Mis personalizados <button class="btn sm primary" data-act="openPT">+ Nuevo personalizado</button></div>
-    ${act.length?act.map(x=>ptPaqHTML(aid,x,{prof:true})).join(''):empty('Todavía no tienes personalizados. Regístralos con “+ Nuevo personalizado”.')}
-    ${ant.length?`<div class="h2 sm">Anteriores</div>${ant.map(x=>ptPaqHTML(aid,x,{prof:true})).join('')}`:''}
+    <div class="btns"><button class="btn" data-act="pTab" data-tab="agenda">Ver mi semana</button><button class="btn primary" data-act="openPT">+ Nuevo personalizado</button></div>
   </div>`;
 }
 

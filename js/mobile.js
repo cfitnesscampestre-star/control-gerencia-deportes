@@ -9,18 +9,8 @@ const NAV_M_DIR = [
   {id:'calendario',label:'Agenda',ic:'cal',tabs:['calendario','eventos']},
   {id:'reporte',label:'Reporte',ic:'doc',tabs:['reporte']}
 ];
-const NAV_M_GIM = [
-  {id:'inicio',label:'Inicio',ic:'home',tabs:['inicio']},
-  {id:'gimaforo',label:'Aforo',ic:'gauge',tabs:['gimaforo']},
-  {id:'gimpt',label:'Personal.',ic:'users',tabs:['gimpt','gimhorario','gimrutinas']},
-  {id:'profesores',label:'Equipo',ic:'clip',tabs:['profesores','recepcion','eventos']},
-  {id:'reporte',label:'Reporte',ic:'doc',tabs:['reporte']}
-];
-const NAV_M_REC = [
-  {id:'gimaforo',label:'Aforo',ic:'gauge',tabs:['gimaforo']},
-  {id:'gimhorario',label:'Horario',ic:'cal',tabs:['gimhorario']},
-  {id:'gimrutinas',label:'Rutinas',ic:'doc',tabs:['gimrutinas']}
-];
+const NAV_M_GIM = NAV_GIM;                            // mismas 4 secciones que en computadora (sidebar.js)
+const NAV_M_REC = NAV_REC;
 const NAV_M_SERV = [
   {id:'inicio',label:'Resumen',ic:'cal',tabs:['inicio']},
   {id:'profesores',label:'Equipo',ic:'clip',tabs:['profesores']},
@@ -30,10 +20,7 @@ const NAV_M_PROF = [
   {id:'hoy',label:'Hoy',ic:'clip',tabs:['hoy']},
   {id:'horario',label:'Horario',ic:'cal',tabs:['horario']}
 ];
-const NAV_M_PROF_GIM = [
-  {id:'hoy',label:'Sesiones',ic:'users',tabs:['hoy']},
-  {id:'horario',label:'Mi horario',ic:'cal',tabs:['horario']}
-];
+const NAV_M_PROF_GIM = NAV_PROF_GIM.map(n=>({...n,tabs:[n.id]}));
 const NAV_M_PROF_SERV = [
   {id:'hoy',label:'Bitácora',ic:'clip',tabs:['hoy']}
 ];
@@ -56,21 +43,14 @@ function viewBottomNav(){
   const ger=session.rol==='ger', prof=session.rol==='prof', rec=session.rol==='rec';
   const mantP = prof && typeof mantProfActivo==='function' && mantProfActivo();
   if(prof&&esServ(session.area)&&!mantP) return '';            // el especialista solo tiene su bitácora: no hace falta barra inferior
-  const items=ger?(typeof navMGer==='function'?navMGer():NAV_M_GER):prof?(typeof navMProfExtra==='function'?navMProfExtra:x=>x)(esServ(session.area)?NAV_M_PROF_SERV:esGim(session.area)?NAV_M_PROF_GIM:NAV_M_PROF):rec?NAV_M_REC:(typeof navMDirExtra==='function'?navMDirExtra:x=>x)(esServ(session.area)?NAV_M_SERV.filter(n=>svTabs(session.area).some(t=>t[0]===n.id)):esGim(session.area)?NAV_M_GIM:NAV_M_DIR), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';
+  const items=ger?(typeof navMGer==='function'?navMGer():NAV_M_GER):prof?(typeof navMProfExtra==='function'?navMProfExtra:x=>x)(esServ(session.area)?NAV_M_PROF_SERV:esGim(session.area)?NAV_M_PROF_GIM:NAV_M_PROF):rec?NAV_M_REC:esGim(session.area)?NAV_M_GIM:(typeof navMDirExtra==='function'?navMDirExtra:x=>x)(esServ(session.area)?NAV_M_SERV.filter(n=>svTabs(session.area).some(t=>t[0]===n.id)):NAV_M_DIR), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';
   return `<nav class="bottomnav" aria-label="Navegación">${items.map(n=>
     `<button class="${n.tabs.includes(cur)?'on':''}" data-act="${act}" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')}</nav>`;
 }
 
 /* En celular, Calendario y Eventos comparten la pestaña "Agenda". */
-function gimSwitch(){                          // gimnasio: Instructores | Recepción | Eventos comparten la pestaña
-  const b=(t,l)=>`<button class="${ui.aTab===t?'on':''}" data-act="aTab" data-tab="${t}">${l}</button>`;
-  return `<div class="seg only-m" style="margin-top:6px">${b('profesores','Instructores')}${b('recepcion','Recepción')}${b('eventos','Eventos')}</div>`;
-}
-function gimPtSwitch(){                        // celular (director): Personalizados | Horario semanal | Rutinas comparten la pestaña
-  if(!session||session.rol!=='dir') return '';
-  const b=(t,l)=>`<button class="${ui.aTab===t?'on':''}" data-act="aTab" data-tab="${t}">${l}</button>`;
-  return `<div class="seg only-m" style="margin-top:6px">${b('gimpt','Personalizados')}${b('gimhorario','Horario')}${b('gimrutinas','Rutinas')}</div>`;
-}
+function gimSwitch(){ return ''; }             // gimnasio: el sub-menú de cada sección es gimSub() (gimvistas.js), en celular y computadora
+function gimPtSwitch(){ return ''; }
 function agendaSwitch(){
   if(session.rol==='dir'&&esServ(curArea())) return servSwitch();
   if(session.rol==='dir'&&esGim(curArea())) return gimSwitch();

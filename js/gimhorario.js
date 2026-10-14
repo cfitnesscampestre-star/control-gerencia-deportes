@@ -118,7 +118,7 @@ function vGimHorario(aid,embed){
   const gc=gimCfg(aid);
   for(let d=0;d<7;d++){ const f=addDays(sem,d); for(let h=gc.abre;h<gc.cierra;h++) if(ghOferta(ctx,f,h).length){ h0=Math.min(h0,h); h1=Math.max(h1,h+1); } }
   const sw=(!embed&&typeof gimPtSwitch==='function')?gimPtSwitch():'';
-  const head=embed?`<div class="h2" style="margin-top:18px">Horario de personalizados <button class="btn sm" data-act="aTab" data-tab="gimhorario">Ver completo</button></div>`:`<div class="h2">Horario semanal de personalizados</div>${sw}`;
+  const head=embed?`<div class="h2" style="margin-top:18px">Horario de personalizados <button class="btn sm" data-act="aTab" data-tab="gimhorario">Ver completo</button></div>`:`<div class="h2">Disponibilidad de personalizados</div>${sw}`;
   if(h1<=h0) return `${head}<div class="sub">Aquí se ve qué horas tienen libres los entrenadores para un personalizado.</div>${empty('Esta semana ningún instructor tiene horario de personalizados. Cada instructor lo define en su pantalla, en “Mi horario”.')}`;
   let libres=0, llenas=0;
   const fechas=[0,1,2,3,4,5,6].map(i=>addDays(sem,i));
@@ -137,7 +137,7 @@ function vGimHorario(aid,embed){
     ${embed?'':`<div class="kpis k3">${kpi('Horas con lugar',libres,'verdes en la semana',{cls:'ok',color:'var(--b1)'})}${kpi('Horas llenas',llenas,'rojas en la semana',{cls:llenas?'bad':'',color:'var(--bad)'})}${kpi('Instructores',ctx.ps.filter(p=>[0,1,2,3,4,5,6].some(d=>ghHorasDia(p,addDays(sem,d)).length)).length,'con horario esta semana',{color:'var(--b3)'})}</div>`}
     <div class="gh-wrap"><table class="gh-tb"><thead><tr><th></th>${fechas.map((f,i)=>`<th class="${f===hoy?'hoy':''}">${DIAS[i]}<small>${+f.slice(8,10)}</small></th>`).join('')}</tr></thead><tbody>${filas.join('')}</tbody></table></div>
     <div class="gh-leg"><span><i class="ok"></i>Libre</span><span><i class="bad"></i>Ocupado</span><span><i class="off"></i>Sin instructor o ya pasó</span></div>
-    ${(!embed&&typeof gimSolRec==='function')?gimSolRec(aid):''}`;
+    ${(!embed&&!isRec()&&typeof gimSolRec==='function')?gimSolRec(aid):''}`;
 }
 function ghCelda(f,h){
   const aid=curArea(), ctx=ghCtx(aid), of=ghOferta(ctx,f,+h), wd=wdIdx(f), ro=roDatos(aid)||!ctLibre(f,+h)||isProf();
