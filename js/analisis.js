@@ -119,7 +119,7 @@ function anReportes(aids,desde,hasta){
   const t=todayStr(), semActual=mondayOf(t), wks=[];
   for(let w=mondayOf(desde); w<=hasta&&w<=semActual; w=addDays(w,7)) wks.push(w);
   const cols=wks.slice(-6);
-  const rows=aids.filter(aid=>!esServ(aid)).map(aid=>{
+  const rows=aids.filter(repAplica).map(aid=>{
     const reps=areaData(aid).reportes||{};
     const cells=cols.map(w=>{ const r=reps[w]; return r?(r.entregado?'ok':'info'):(w===semActual?'mut':'bad'); });
     const esperados=wks.filter(w=>w<semActual).length, entregados=wks.filter(w=>w<semActual&&reps[w]&&reps[w].entregado).length;

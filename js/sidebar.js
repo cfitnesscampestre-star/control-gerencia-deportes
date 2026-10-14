@@ -24,12 +24,12 @@ const NAV_GIM = [
 ];
 const NAV_SERV = [
   {id:'inicio',label:'Resumen',ic:'cal'},
-  {id:'profesores',label:'Especialistas',ic:'clip'}
+  {id:'profesores',label:'Especialistas',ic:'clip'},
+  {id:'reporte',label:'Reporte',ic:'doc'}
 ];
 const NAV_REC = [
   {id:'gimaforo',label:'Aforo por hora',ic:'gauge'},
   {id:'gimhorario',label:'Horario semanal',ic:'cal'},
-  {id:'gimpt',label:'Personalizados',ic:'users'},
   {id:'gimrutinas',label:'Rutinas',ic:'doc'}
 ];
 const NAV_PROF_GIM = [
@@ -79,13 +79,13 @@ function viewSidebar(){
     ? (typeof navGer==='function'?navGer():NAV_GER).map(n=>`<button class="${ui.gTab===n.id&&!(n.id==='areas'&&ui.gArea)?'on':''}" data-act="gTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')
     : rec ? NAV_REC.map(n=>`<button class="${ui.aTab===n.id?'on':''}" data-act="aTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')
     : prof ? (typeof navProfExtra==='function'?navProfExtra:x=>x)(esServ(session.area)?NAV_PROF_SERV:esGim(session.area)?NAV_PROF_GIM:NAV_PROF).map(n=>`<button class="${ui.pTab===n.id?'on':''}" data-act="pTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')
-    : (typeof navDirExtra==='function'?navDirExtra:x=>x)(esServ(session.area)?NAV_SERV:esGim(session.area)?NAV_GIM:NAV_DIR).map(n=>`<button class="${ui.aTab===n.id?'on':''}" data-act="aTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('');
+    : (typeof navDirExtra==='function'?navDirExtra:x=>x)(esServ(session.area)?NAV_SERV.filter(n=>svTabs(session.area).some(t=>t[0]===n.id)):esGim(session.area)?NAV_GIM:NAV_DIR).map(n=>`<button class="${ui.aTab===n.id?'on':''}" data-act="aTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('');
   const areas = ger ? `<div class="sb-sec">Áreas</div><nav class="sb-nav sb-areas">${areasList().map(x=>
     `<button class="${ui.gTab==='areas'&&ui.gArea===x.id?'on':''}" data-act="openArea" data-id="${esc(x.id)}"><i class="sb-dot" style="background:${esc(x.color)}"></i><span>${esc(x.nombre)}</span></button>`).join('')}</nav>` : '';
   return `<aside class="sidebar">
     <div class="sb-brand">
       <div class="sb-logo"><span>C</span><img src="img/logo.png" alt="Club Campestre Aguascalientes" data-fallback></div>
-      <div><b>${ger?'Control Gerencia':esc(a.nombre)}</b>
+      <div><b>${ger?'Control Gerencia':(session.grupo&&session.grupo.length>1)?esc(SV_GRUPO_NOM):esc(a.nombre)}</b>
       <small>${ger?'Gerencia de deportes':rec?'Recepción':prof?(esServ(session.area)?'Portal del especialista':esGim(session.area)?'Portal del instructor':'Portal del profesor'):'Dirección de área'}</small></div>
     </div>
     <nav class="sb-nav">${nav}</nav>

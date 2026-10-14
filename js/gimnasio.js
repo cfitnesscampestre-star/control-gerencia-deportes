@@ -240,8 +240,8 @@ function ptCard(x){
 }
 function vGimPT(aid){
   const ro=roDatos(aid), T=ptTotales(aid), filas=ptResumen(aid), conP=filas.filter(x=>x.mios.length), sinP=filas.filter(x=>!x.mios.length);
-  return `<div class="h2">Personalizados <button class="btn sm" data-act="ptPrint">Imprimir / PDF</button>${ro?'':`<button class="btn sm primary" data-act="openPT" style="margin-left:8px">+ Personalizado</button>`}</div>
-    <div class="sub">Entrenamientos personalizados que tiene contratados cada instructor: sesiones contratadas, realizadas y por entregar. Toca una sesión para registrarla, reagendarla o cancelarla.</div>
+  return `<div class="h2">Personalizados <button class="btn sm" data-act="ptPrint">Imprimir / PDF</button></div>
+    <div class="sub">Entrenamientos personalizados que registra y agenda cada instructor: sesiones contratadas, realizadas y por entregar. Toca una sesión para ver su detalle.</div>
     <div class="kpis an-kpis">
       ${kpi('Paquetes activos',T.paquetes,`de ${plu(T.instructores,'instructor','instructores')}`,{color:'var(--b2)'})}
       ${kpi('Contratadas',T.contratadas,'sesiones en paquetes activos',{color:'var(--b3)'})}
@@ -253,7 +253,7 @@ function vGimPT(aid){
     ${isRec()?'':gimAtencionHTML(aid)}
     ${gimHoyHTML(aid)}
     <div class="h2 sm">Por instructor</div>
-    ${conP.length?`<div class="ptlist">${conP.map(ptCard).join('')}</div>`:empty(ro?'Todavía no hay personalizados contratados.':'Todavía no hay personalizados. Registra el primero con “+ Personalizado”.')}
+    ${conP.length?`<div class="ptlist">${conP.map(ptCard).join('')}</div>`:empty('Todavía no hay personalizados. Los registra cada instructor desde su pantalla.')}
     ${sinP.length?`<div class="an-cs" style="margin-top:12px">Sin personalizados: ${esc(sinP.map(x=>x.p.nombre).join(', '))}.</div>`:''}
     ${isRec()?'':gimLogHTML(aid)}`;
 }
@@ -264,28 +264,7 @@ function ptDetalle(pid){
   openModal(`${mHead(esc(p.nombre))}
     <div class="sub">${esc(p.tipo||'Instructor')} · ${plu(pk.filter(ptVigente).length,'paquete activo','paquetes activos')}${ghHorTxt(p,'horPt')?` · personalizados ${esc(ghHorTxt(p,'horPt'))}`:''}</div>
     ${pk.length?pk.map(x=>ptPaqHTML(aid,x,{from:'det:'+pid})).join(''):empty('Este instructor todavía no tiene personalizados.')}
-    ${ro?`<div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`:`<div class="btns"><button class="btn primary" data-act="openPT" data-prof="${esc(pid)}">+ Personalizado para ${esc(p.nombre.split(' ')[0])}</button></div>`}`);
-}
-function openPT(id,profPre,slotPre){
-  const aid=curArea(), x=id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{}, ps=profesores(aid).filter(p=>p.activo!==false), t=todayStr(), cur=x.profId||profPre||'';
-  const ini0=x.inicio||(slotPre&&slotPre.f&&slotPre.f>=t?slotPre.f:t), usadas=ptReal(x), frec0=+x.frec||ghSlots(x).length||2;
-  const iniFijo=!!id&&(usadas>0||ptSes(x).length>0);                    // ya empezó: el inicio no se mueve
-  ptSlotsTmp={}; ghSlots(x).forEach(s=>{ ptSlotsTmp[ghKey(s.d,s.h)]={d:+s.d,h:+s.h}; }); if(slotPre) ptSlotsTmp[ghKey(slotPre.d,slotPre.h)]={d:slotPre.d,h:slotPre.h};
-  if(!ps.length){ toast('Primero da de alta a los instructores'); return; }
-  openModal(`${mHead(id?'Editar personalizado':'Nuevo personalizado')}
-    <label class="f"><span>Asignar al instructor</span><select id="pt_prof">${ps.map(p=>`<option value="${esc(p.id)}"${cur===p.id?' selected':''}>${esc(p.nombre)}${p.pin?'':' (sin PIN: aún no puede entrar)'}</option>`).join('')}</select></label>
-    <label class="f"><span>Cliente</span><input id="pt_cli" value="${esc(x.cliente)}" placeholder="Nombre o iniciales"></label>
-    <div class="two"><label class="f"><span>Sesiones contratadas</span><input id="pt_tot" type="number" inputmode="numeric" min="${Math.max(1,usadas)}" value="${esc(x.total||12)}"></label>
-      <label class="f"><span>Sesiones por semana</span><select id="pt_frec">${[1,2,3,4,5,6].map(n=>`<option value="${n}"${n===frec0?' selected':''}>${n} por semana</option>`).join('')}</select></label></div>
-    ${usadas?`<small class="mut">Ya se usaron ${usadas} sesiones de este paquete: no se puede contratar menos.</small>`:''}
-    <label class="f"><span>Monto (opcional)</span><input id="pt_monto" type="number" inputmode="numeric" min="0" value="${esc(x.monto)}" placeholder="$"></label>
-    <div class="two"><label class="f"><span>Inicio</span><input id="pt_ini" type="date"${iniFijo?' disabled':` min="${t}"`} value="${esc(ini0)}"></label>
-      <label class="f"><span>Vence</span><input id="pt_fin" type="date" value="${esc(x.fin||addDays(ini0,60))}"></label></div>
-    ${ghSlotsCampo(id)}
-    <label class="f"><span>Notas (opcional)</span><textarea id="pt_notas">${esc(x.notas)}</textarea></label>
-    <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="savePT" data-id="${esc(id||'')}">Guardar</button></div>
-    ${(id&&(!isRec()||!ptSes(x).length))?`<div class="btns"><button class="btn danger" data-act="delPT" data-id="${esc(id)}">Eliminar personalizado</button></div>`:''}`);
-  ghFillSel(); ghPreview();
+    <div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`);
 }
 function openSesion(pkId){
   const aid=curArea(), x=getPath(`data/${aid}/paquetes/${pkId}`); if(!x) return;
@@ -293,7 +272,7 @@ function openSesion(pkId){
     <div class="sub">${esc(x.cliente||'Cliente')} · lleva ${ptReal(x)} de ${+x.total||0}</div>
     <div class="two"><label class="f"><span>Fecha</span><input id="ss_f" type="date"${x.inicio?` min="${esc(x.inicio)}"`:''} max="${todayStr()}" value="${todayStr()}"></label><label class="f"><span>Hora</span><input id="ss_h" type="time" step="1800" value="${pad(new Date().getHours())}:00"></label></div>
     <label class="f"><span>Resultado</span><select id="ss_e">${Object.entries(PT_E).map(([k,l])=>`<option value="${esc(k)}">${esc(l)}</option>`).join('')}</select></label>
-    <small class="mut">Este personalizado no tiene horario fijo, por eso la sesión se registra a mano. Para que tenga agenda, recepción debe elegir su horario fijo en “Editar”.</small>
+    <small class="mut">Este personalizado no tiene sesiones agendadas, por eso se registra a mano. Para tener agenda, usa “Editar” o “+ Agendar sesión”.</small>
     <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="saveSesion" data-id="${esc(pkId)}">Guardar sesión</button></div>`);
 }
 
@@ -308,53 +287,6 @@ Object.assign(actions,{
     gaSet(d.h,'mu',prev.mu,150); gaSet(d.h,'ho',prev.ho,150);
   },
   ptDetalle(d){ ptDetalle(d.id); },
-  openPT(d){ if(roDatos(curArea())) return; closeModal(); openPT(d.id||'',d.prof||''); },
-  savePT(d){
-    const aid=curArea(); if(roDatos(aid)) return;
-    const cli=$('#pt_cli').value.trim(), tot=parseInt($('#pt_tot').value)||0, ini=$('#pt_ini').value, fin=$('#pt_fin').value, prof=$('#pt_prof').value, frec=parseInt(($('#pt_frec')||{}).value)||0, t=todayStr();
-    const id=d.id||('pt'+uid()), prev=d.id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{}, nuevo=!d.id, usadas=ptReal(prev), S=Object.values(ptSlotsTmp);
-    if(!cli){ toast('Escribe el nombre del cliente'); return; }
-    if(tot<1){ toast('Indica cuántas sesiones se contrataron'); return; }
-    if(tot<usadas){ toast(`Ya se usaron ${usadas} sesiones: no se puede contratar menos`); return; }
-    if(!ini||!fin||fin<ini){ toast('Revisa las fechas de inicio y vencimiento'); return; }
-    if((nuevo||ini!==prev.inicio)&&ini<t){ toast('El inicio no puede ser una fecha que ya pasó'); return; }
-    if(fin<t&&tot>usadas){ toast('El vencimiento ya pasó: amplíalo para poder agendar las sesiones pendientes'); return; }
-    if(frec>tot){ toast(`No puede haber más sesiones por semana (${frec}) que sesiones contratadas (${tot})`); return; }
-    if(new Set(S.map(x=>x.d)).size<S.length){ toast('Cada horario fijo debe ir en un día distinto'); return; }
-    if(tot>usadas){                                                      // hay sesiones por agendar: el horario fijo debe estar completo
-      if(!S.length){ toast(`Elige el horario fijo del cliente: ${plu(frec,'día','días')} con su hora`); return; }
-      if(S.length!==frec){ toast(S.length<frec?`El cliente contrató ${frec} por semana: falta elegir ${plu(frec-S.length,'horario','horarios')}`:`Elegiste ${S.length} horarios pero el cliente contrató ${frec} por semana`); return; }
-    }
-    const choque=ghValidarSlots(aid,id,prof,tot,ini); if(choque){ toast(choque); return; }
-    const slots={...ptSlotsTmp}, profCambia=!nuevo&&prof!==prev.profId;
-    const cambia=nuevo||profCambia||tot!==(+prev.total||0)||ini!==prev.inicio||ghSlotsKey(slots)!==ghSlotsKey(prev.slots);
-    let citas=prev.citas||null, R=null;
-    if(cambia&&(tot>usadas||prev.citas)){
-      const tmp={...prev,id,profId:prof,total:tot,inicio:ini,slots};
-      R=ptLlenar(aid,tmp,nuevo?[]:ptBase(prev,profCambia));
-      if(R.faltan>0){ toast(`No hubo lugar para agendar ${plu(R.faltan,'sesión','sesiones')}: elige otros horarios`); return; }
-      const ult=R.nuevas.length?R.nuevas[R.nuevas.length-1].f:null;
-      if(ult&&ult>fin){ toast(`La última sesión queda el ${fmtCorta(ult)}, después del vencimiento (${fmtCorta(fin)}). Usa “Vencer el ${fmtCorta(ult)}” o agrega horarios`); return; }
-      citas=ptCitasMap(R.citas);
-    }
-    const o={...prev,id,slots,frec,profId:prof,cliente:cli,total:tot,monto:+$('#pt_monto').value||0,inicio:ini,fin,notas:$('#pt_notas').value.trim(),por:prev.por||gimPor(),alta:prev.alta||Date.now()};
-    if(citas) o.citas=citas;
-    setPath(`data/${aid}/paquetes/${id}`,o);
-    /* bitácora y avisos al instructor */
-    const hor=Object.values(slots).sort((a,b)=>(a.d-b.d)||(a.h-b.h)).map(x=>DIAS[x.d]+' '+hh(x.h)).join(', ');
-    const rango=R&&R.nuevas.length?` · del ${ctTxt(R.nuevas[0])} al ${fmtFecha(R.nuevas[R.nuevas.length-1].f)}`:'';
-    const brinco=R&&R.saltadas.length?` · se brincaron ${plu(R.saltadas.length,'fecha ocupada','fechas ocupadas')}`:'';
-    const pnom=id2=>(getProf(aid,id2)||{}).nombre||'otro instructor';
-    if(nuevo) gimLog(aid,{tipo:'alta',txt:`${cli}: ${tot} sesiones, ${frec} por semana (${hor||'sin horario'})${rango}${brinco}`,pk:id,prof,aviso:true});
-    else if(profCambia){
-      gimLog(aid,{tipo:'reasigna',txt:`${cli}: se te asignó (antes con ${pnom(prev.profId)}) · ${hor}${rango}`,pk:id,prof,aviso:true});
-      gimLog(aid,{tipo:'reasigna',txt:`${cli}: pasó a ${pnom(prof)}. Ya no está en tu agenda`,pk:id,prof:prev.profId,aviso:true});
-    } else if(cambia) gimLog(aid,{tipo:'cambio',txt:`${cli}: ${tot} sesiones, ${frec} por semana (${hor})${rango}${brinco}`,pk:id,prof,aviso:true});
-    else if(cli!==prev.cliente||fin!==prev.fin||o.notas!==(prev.notas||'')||o.monto!==(+prev.monto||0)||frec!==(+prev.frec||0)) gimLog(aid,{tipo:'edicion',txt:`${cli}: ${[cli!==prev.cliente?`antes “${prev.cliente}”`:'',fin!==prev.fin?`vence el ${fmtCorta(fin)}`:'',o.notas!==(prev.notas||'')?'notas':'',o.monto!==(+prev.monto||0)?'monto':''].filter(Boolean).join(' · ')||'datos actualizados'}`,pk:id,prof,aviso:fin!==prev.fin||cli!==prev.cliente});
-    closeModal(); render(); toast(nuevo?`Personalizado guardado${R&&R.nuevas.length?`: primera sesión el ${ctTxt(R.nuevas[0])}`:''}`:'Personalizado guardado');
-  },
-  delPT(d){ if(isRec()&&ptSes(getPath(`data/${curArea()}/paquetes/${d.id}`)||{}).length){ toast('Ya tiene sesiones registradas: solo la dirección puede eliminarlo'); return; } if(!confirm('¿Eliminar este personalizado y sus sesiones?')) return; const pkx=getPath(`data/${curArea()}/paquetes/${d.id}`)||{}; setPath(`data/${curArea()}/paquetes/${d.id}`,undefined);
-    if(pkx.profId) gimLog(curArea(),{tipo:'baja',txt:`${pkx.cliente||'Cliente'}: se eliminó el personalizado (${ptReal(pkx)} de ${+pkx.total||0} sesiones usadas). Sus horarios quedan libres`,prof:pkx.profId,aviso:true}); closeModal(); render(); toast('Personalizado eliminado'); },
   openSesion(d){ closeModal(); openSesion(d.id); },
   saveSesion(d){
     const aid=curArea(), f=$('#ss_f').value, pk=getPath(`data/${aid}/paquetes/${d.id}`); if(!pk||isRec()) return;

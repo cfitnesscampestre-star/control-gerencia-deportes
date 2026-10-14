@@ -19,12 +19,12 @@ const NAV_M_GIM = [
 const NAV_M_REC = [
   {id:'gimaforo',label:'Aforo',ic:'gauge',tabs:['gimaforo']},
   {id:'gimhorario',label:'Horario',ic:'cal',tabs:['gimhorario']},
-  {id:'gimpt',label:'Personal.',ic:'users',tabs:['gimpt']},
   {id:'gimrutinas',label:'Rutinas',ic:'doc',tabs:['gimrutinas']}
 ];
 const NAV_M_SERV = [
   {id:'inicio',label:'Resumen',ic:'cal',tabs:['inicio']},
-  {id:'profesores',label:'Equipo',ic:'clip',tabs:['profesores']}
+  {id:'profesores',label:'Equipo',ic:'clip',tabs:['profesores']},
+  {id:'reporte',label:'Reporte',ic:'doc',tabs:['reporte']}
 ];
 const NAV_M_PROF = [
   {id:'hoy',label:'Hoy',ic:'clip',tabs:['hoy']},
@@ -55,7 +55,7 @@ function viewBottomNav(){
   const ger=session.rol==='ger', prof=session.rol==='prof', rec=session.rol==='rec';
   const mantP = prof && typeof mantProfActivo==='function' && mantProfActivo();
   if(prof&&(esServ(session.area)||esGim(session.area))&&!mantP) return '';            // el especialista solo tiene su bitácora: no hace falta barra inferior
-  const items=ger?(typeof navMGer==='function'?navMGer():NAV_M_GER):prof?(typeof navMProfExtra==='function'?navMProfExtra:x=>x)(esServ(session.area)?NAV_M_PROF_SERV:esGim(session.area)?NAV_M_PROF_GIM:NAV_M_PROF):rec?NAV_M_REC:(typeof navMDirExtra==='function'?navMDirExtra:x=>x)(esServ(session.area)?NAV_M_SERV:esGim(session.area)?NAV_M_GIM:NAV_M_DIR), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';
+  const items=ger?(typeof navMGer==='function'?navMGer():NAV_M_GER):prof?(typeof navMProfExtra==='function'?navMProfExtra:x=>x)(esServ(session.area)?NAV_M_PROF_SERV:esGim(session.area)?NAV_M_PROF_GIM:NAV_M_PROF):rec?NAV_M_REC:(typeof navMDirExtra==='function'?navMDirExtra:x=>x)(esServ(session.area)?NAV_M_SERV.filter(n=>svTabs(session.area).some(t=>t[0]===n.id)):esGim(session.area)?NAV_M_GIM:NAV_M_DIR), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';
   return `<nav class="bottomnav" aria-label="Navegación">${items.map(n=>
     `<button class="${n.tabs.includes(cur)?'on':''}" data-act="${act}" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')}</nav>`;
 }

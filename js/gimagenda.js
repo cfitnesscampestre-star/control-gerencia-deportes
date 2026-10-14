@@ -28,7 +28,7 @@ const ctOrd = (a,b) => ctKey(a.f,a.h).localeCompare(ctKey(b.f,b.h));
 const ctLibre = (f,h) => ctKey(f,h) > ahoraKey();                       // se puede agendar: esa hora todavía no empieza
 const ctTxt = c => `${DIAS[wdIdx(c.f)]} ${fmtCorta(c.f)} · ${hh(+c.h)}`;
 const fmtTs = ts => { const d=new Date(ts||0); return `${fmtCorta(ymd(d))} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-function ptLimpia(c){ const o={id:c.id,f:c.f,h:+c.h}; ['orig','reag','repo','por','ts'].forEach(k=>{ if(c[k]!=null&&c[k]!=='') o[k]=c[k]; }); return o; }
+function ptLimpia(c){ const o={id:c.id,f:c.f,h:+c.h}; ['orig','reag','repo','suelta','por','ts'].forEach(k=>{ if(c[k]!=null&&c[k]!=='') o[k]=c[k]; }); return o; }
 const ptCitasMap = L => Object.fromEntries(L.map(c=>[c.id,ptLimpia(c)]));
 
 /* ---------- agenda de un paquete ---------- */
@@ -77,10 +77,10 @@ function ptLlenar(aid,pk,base){
   }
   return {citas:base.concat(nuevas).sort(ctOrd),nuevas,saltadas,faltan};
 }
-/* citas que se conservan al cambiar el horario: las que ya empezaron o tienen registro, y las reagendadas a mano (si sigue el mismo instructor) */
+/* citas que se conservan al cambiar el horario: las que ya empezaron o tienen registro, y las reagendadas o agendadas a mano (si sigue el mismo instructor) */
 function ptBase(pk,profCambia){
   const now=ahoraKey();
-  return ptMapa(pk).ag.filter(c=>c.reg||ctKey(c.f,c.h)<=now||(c.orig&&!profCambia)).map(ptLimpia);
+  return ptMapa(pk).ag.filter(c=>c.reg||ctKey(c.f,c.h)<=now||((c.orig||c.suelta)&&!profCambia)).map(ptLimpia);
 }
 /* después de una cancelación: agrega la reposición al final. Devuelve las citas nuevas. */
 function ptReponer(aid,pkId){
@@ -144,11 +144,12 @@ function ptPaqHTML(aid,x,o){
   const fut=M.ag.filter(c=>!c.reg&&c.st!=='sin registrar'), sinReg=M.ag.filter(c=>c.st==='sin registrar'), prox=fut[0];
   const tarde=x.fin?fut.filter(c=>c.f>x.fin).length:0, lista=sinReg.concat(fut).slice(0,o.prof?3:4);
   const libre=!M.ag.length&&vig&&!ro;                      // sin agenda (paquete anterior sin horario fijo): registro libre
+  const mio=isProf()&&x.profId===session.profId, edita=!ro&&(mio||session.rol==='dir');     // lo maneja el instructor (y la dirección para corregir)
   return `<div class="card ptp"><div class="row"><div><b>${esc(x.cliente||'Cliente')}</b><small>${esc(fmtCorta(x.inicio))} al ${esc(fmtCorta(x.fin))}${(x.monto&&!o.prof)?' · '+esc(mxn(+x.monto)):''}${x.frec?` · ${x.frec} por semana`:''}</small></div>${pill(est,PT_CLS[est])}</div>
     <div class="ptp-b"><div class="bar"><i class="${real>=tot?'info':aforoCls(pct)}" style="width:${pct}%"></i></div><b>${real}/${tot}</b></div>
     <div class="ptp-n"><span><b>${Math.max(0,tot-real)}</b> pendientes</span><span><b>${fut.length}</b> agendadas</span>${sinReg.length?`<span class="bad"><b>${sinReg.length}</b> sin registrar</span>`:''}</div>
     ${prox?`<small>Próxima: <b>${esc(ctTxt(prox))}</b></small>`:''}
-    ${(M.sinAgendar&&vig)?`<small class="bad">${plu(M.sinAgendar,'sesión sin fecha','sesiones sin fecha')}: ${o.prof?'pide a recepción que la agende.':'edita el personalizado y elige su horario fijo.'}</small>`:''}
+    ${(M.sinAgendar&&vig)?`<small class="warn">${plu(M.sinAgendar,'sesión sin fecha','sesiones sin fecha')}: ${o.prof?'agéndalas con “+ Agendar sesión”.':'el instructor las agenda.'}</small>`:''}
     ${tarde?`<small class="warn">${plu(tarde,'cita queda','citas quedan')} después del vencimiento (${esc(fmtCorta(x.fin))}).</small>`:''}
     ${lista.length?`<div class="ct-list">${lista.map(c=>ctFila(aid,x,c,{from,titulo:fmtFecha(c.f)})).join('')}</div>`:''}
     ${ghSlots(x).length?`<small class="mut">Horario fijo: ${esc(ghSlots(x).sort((a,b)=>(a.d-b.d)||(a.h-b.h)).map(s=>DIAS[s.d]+' '+hh(s.h)).join(' · '))}</small>`:''}
@@ -156,7 +157,8 @@ function ptPaqHTML(aid,x,o){
     ${(x.por&&!o.prof)?`<small class="mut">Dado de alta por ${esc(x.por)}</small>`:''}
     <div class="btns"><button class="btn sm" data-act="ptAgenda" data-id="${esc(x.id)}" data-from="${esc(from)}">Ver agenda</button>
       ${(libre&&(o.prof||(!rec&&!isProf())))?`<button class="btn sm primary" data-act="openSesion" data-id="${esc(x.id)}">+ Registrar sesión</button>`:''}
-      ${(!ro&&!o.prof)?`<button class="btn sm" data-act="openPT" data-id="${esc(x.id)}">Editar</button>`:''}</div></div>`;
+      ${(edita&&vig&&M.sinAgendar)?`<button class="btn sm primary" data-act="ctNueva" data-pk="${esc(x.id)}">+ Agendar sesión</button>`:''}
+      ${edita?`<button class="btn sm" data-act="openPT" data-id="${esc(x.id)}">Editar</button>`:''}</div></div>`;
 }
 
 /* ---------- ventana de una cita ---------- */
@@ -171,7 +173,7 @@ function ctVer(pkId,cid,from){
   const p=getProf(aid,pk.profId)||{}, ro=roDatos(aid)||fcId(pk.id), rec=isRec(), mio=isProf()&&pk.profId===session.profId;
   const empezo=ctKey(c.f,c.h)<=ahoraKey(), n=M.ag.filter(ctCuenta).findIndex(x=>x.id===c.id)+1;
   const puedeReg=!ro&&!c.reg&&empezo&&(mio||(!isProf()&&!rec));
-  const puedeMover=!ro&&!c.reg&&!isProf();
+  const puedeMover=!ro&&!c.reg&&(mio||session.rol==='dir');
   const quien=c.reg?(c.reg.porNom||(c.reg.por==='dir'?'Dirección':((getProf(aid,c.reg.por)||{}).nombre||''))):'';
   openModal(`${mHead(esc(ctTxt(c)))}
     <div class="card">
@@ -185,12 +187,16 @@ function ctVer(pkId,cid,from){
       <div class="btns"><button class="btn primary block" data-act="ctRegistrar" data-pk="${esc(pkId)}" data-c="${esc(cid)}" data-from="${esc(from||'')}">Registrar sesión</button></div>`:''}
     ${(!c.reg&&!empezo&&(mio||(!isProf()&&!rec)))?`<small class="mut">Se podrá registrar a partir de las ${hh(c.h)} del ${esc(fmtFecha(c.f))}.</small>`:''}
     ${puedeMover?`<div class="btns"><button class="btn" data-act="ctReagendar" data-pk="${esc(pkId)}" data-c="${esc(cid)}" data-from="${esc(from||'')}">Reagendar</button><button class="btn" data-act="ctCancelar" data-pk="${esc(pkId)}" data-c="${esc(cid)}" data-from="${esc(from||'')}">Cancelar (el cliente avisó)</button></div>
-      <small class="mut">Reagendar mueve esta sesión a otra fecha y hora libre del instructor. Cancelar no descuenta la sesión: se repone al final, en el horario fijo del cliente. En los dos casos el instructor recibe el aviso.</small>`:''}
+      <small class="mut">Reagendar mueve esta sesión a otra fecha y hora. Cancelar no descuenta la sesión: se repone al final, en el horario que se repite, o queda sin fecha para agendarla después.</small>`:''}
     ${(c.reg&&!ro&&(mio||(!isProf()&&!rec)))?`<div class="btns"><button class="btn danger" data-act="ctBorrarReg" data-pk="${esc(pkId)}" data-c="${esc(cid)}" data-from="${esc(from||'')}">Borrar el registro</button></div>`:''}
     <div class="btns">${ctVolverBtn(from)}</div>`);
 }
 
 /* ---------- reagendar ---------- */
+function ptPuedeMover(pkId){                               // el instructor dueño del personalizado, o la dirección
+  const aid=curArea(), pk=getPath(`data/${aid}/paquetes/${pkId}`); if(!pk||roDatos(aid)||fcId(pkId)) return false;
+  return isProf()?pk.profId===session.profId:!!session&&session.rol==='dir';
+}
 let rgCtx = null;
 function ctReagendar(pkId,cid,from){
   const aid=curArea(), pk=getPath(`data/${aid}/paquetes/${pkId}`); if(!pk) return;
@@ -204,19 +210,18 @@ function ctReagendar(pkId,cid,from){
       <label class="f"><span>Hora</span><select id="rg_h"></select></label></div>
     <div id="rg_av"></div>
     <label class="f"><span>Motivo (opcional)</span><input id="rg_mot" autocomplete="off" placeholder="Ej. el cliente sale de viaje"></label>
-    <small class="mut">Solo salen las horas autorizadas a ${esc(p.nombre)} para personalizados que no tiene ocupadas, y nunca horas que ya pasaron. Al guardar, ${esc(p.nombre.split(' ')[0])} recibe el aviso en su pantalla.</small>
+    <small class="mut">Puedes elegir cualquier hora en que abre el gimnasio. Solo se bloquean las horas que ya pasaron y las que ${isProf()?'ya tienes':`${esc(p.nombre.split(' ')[0])} ya tiene`} con otro cliente.</small>
     <div class="btns">${ctVolverBtn(from)}<button class="btn primary" data-act="rgGuardar">Guardar nueva fecha</button></div>`);
   rgFillHoras();
 }
-function rgOpciones(aid,pk,cid,f){                         // horas para reagendar ese día: {h, ok, por}
-  const p=getProf(aid,pk.profId), x=(p&&f)?ghDia(p,'horPt',wdIdx(f)):null; if(!x) return [];
-  const ctx=ghCtx(aid,pk.id), propias=new Set(ptMapa(pk).ag.filter(c=>c.id!==cid&&ctCuenta(c)).map(c=>ctKey(c.f,c.h))), out=[];
-  for(let h=Math.floor(ghMin(x.i)/60);h<Math.ceil(ghMin(x.f)/60);h++){
-    if(!ghCubre(x,h)) continue;
-    const oc=ctx.occ[`${pk.profId}|${f}|${h}`];
-    out.push({h,ok:ctLibre(f,h)&&!oc&&!propias.has(ctKey(f,h)),por:!ctLibre(f,h)?'ya pasó':oc?`ocupado con ${oc.cliente||'otro cliente'}`:propias.has(ctKey(f,h))?'ya tiene sesión':''});
-  }
-  return out;
+/* horas en que se puede poner una sesión: cualquier hora en que abre el gimnasio ese día (o de 5 a 23 si no hay horario),
+   sin horas pasadas y sin chocar con otra sesión del mismo instructor. {h, ok, por} */
+function gimHorasDia(aid,f){ const d=f?gimDia(aid,wdIdx(f)):null, a=d?d.abre:5, c=d?d.cierra:23, out=[]; for(let h=a;h<c;h++) out.push(h); return out; }
+function rgOpciones(aid,pk,cid,f){
+  if(!f) return [];
+  const ctx=ghCtx(aid,pk.id), propias=new Set(ptMapa(pk).ag.filter(c=>c.id!==cid&&ctCuenta(c)).map(c=>ctKey(c.f,c.h)));
+  return gimHorasDia(aid,f).map(h=>{ const oc=ctx.occ[`${pk.profId}|${f}|${h}`], ya=propias.has(ctKey(f,h)), pasada=!ctLibre(f,h);
+    return {h,ok:!pasada&&!oc&&!ya,por:pasada?'ya pasó':oc?`ocupado con ${oc.cliente||'otro cliente'}`:ya?'ya tiene sesión':''}; });
 }
 function rgFillHoras(){
   if(!rgCtx) return;
@@ -227,7 +232,7 @@ function rgFillHoras(){
   let msg='';
   if(!f) msg='<small class="bad">Elige la nueva fecha.</small>';
   else if(f<todayStr()) msg='<small class="bad">No se puede reagendar a una fecha que ya pasó.</small>';
-  else if(!O.length) msg=`<small class="bad">${esc(p.nombre||'El instructor')} no tiene autorizados personalizados los ${esc(DIAS_L[wdIdx(f)].toLowerCase())}.</small>`;
+  else if(!O.length) msg='<small class="bad">El gimnasio no abre ese día.</small>';
   else if(!first) msg='<small class="bad">Ese día ya no hay horas libres. Elige otra fecha.</small>';
   else if(pk.fin&&f>pk.fin) msg=`<small class="bad">Queda después del vencimiento (${esc(fmtCorta(pk.fin))}). Amplía el vencimiento en “Editar” o elige otra fecha.</small>`;
   if(av) av.innerHTML=msg;
@@ -262,15 +267,17 @@ function gimAtencion(aid){
   const sinReg=C.filter(y=>y.c.st==='sin registrar'&&y.c.f>=desde).reverse();
   const sinVer=gimLogs(aid).filter(l=>l.aviso&&!l.visto);
   const sinAg=coll(aid,'paquetes').filter(x=>ptVigente(x)&&!fcId(x.id)).map(x=>({x,n:ptMapa(x).sinAgendar})).filter(y=>y.n>0);
-  return {sinReg,sinVer,sinAg};
+  const sinAt=typeof solPendientes==='function'?solPendientes(aid).filter(s=>Date.now()-(s.ts||0)>864e5):[];     // solicitudes de recepción de más de un día sin atender
+  return {sinReg,sinVer,sinAg,sinAt};
 }
 function gimAtencionHTML(aid){
   const A=gimAtencion(aid);
-  if(!A.sinReg.length&&!A.sinVer.length&&!A.sinAg.length) return `<div class="an-cs" style="margin:6px 0 10px">✓ Sin pendientes: todas las sesiones pasadas están registradas y los instructores ya vieron los avisos.</div>`;
+  if(!A.sinReg.length&&!A.sinVer.length&&!A.sinAg.length&&!A.sinAt.length) return `<div class="an-cs" style="margin:6px 0 10px">✓ Sin pendientes: todas las sesiones pasadas están registradas y los instructores ya vieron los avisos.</div>`;
   return `<div class="h2 sm">Requiere atención</div>
     ${A.sinReg.length?`<div class="sub"><b class="bad">${plu(A.sinReg.length,'sesión ya pasó','sesiones ya pasaron')} sin registro</b> (últimos 30 días). El instructor debe indicar si se dio, si el cliente no asistió o si se canceló.</div>${A.sinReg.slice(0,8).map(y=>ctFila(aid,y.pk,y.c,{prof:true,fecha:true})).join('')}${A.sinReg.length>8?`<small class="mut">y ${A.sinReg.length-8} más…</small>`:''}`:''}
     ${A.sinVer.length?`<div class="sub"><b class="warn">${plu(A.sinVer.length,'aviso','avisos')} sin ver por el instructor:</b> ${esc([...new Set(A.sinVer.map(l=>(getProf(aid,l.prof)||{}).nombre).filter(Boolean))].join(', '))}.</div>`:''}
-    ${A.sinAg.length?`<div class="sub"><b class="bad">Sesiones sin fecha:</b> ${A.sinAg.map(y=>`${esc(y.x.cliente||'Cliente')} (${y.n})`).join(', ')}. Edita el personalizado y elige el horario fijo del cliente.</div>`:''}`;
+    ${A.sinAg.length?`<div class="sub"><b class="warn">Sesiones sin fecha:</b> ${A.sinAg.map(y=>`${esc(y.x.cliente||'Cliente')} (${y.n})`).join(', ')}. El instructor las agenda.</div>`:''}
+    ${A.sinAt.length?`<div class="sub"><b class="warn">${plu(A.sinAt.length,'solicitud de recepción','solicitudes de recepción')} de más de un día sin atender:</b> ${esc([...new Set(A.sinAt.map(s=>(getProf(aid,s.profId)||{}).nombre).filter(Boolean))].join(', '))}.</div>`:''}`;
 }
 const LG_FIL = {todo:['Todo',null],agenda:['Agenda',['alta','cambio','reasigna','reagenda','cancelacion','reposicion','baja','edicion']],sesiones:['Sesiones',['sesion','borrado']],sinver:['Sin ver por el instructor',null]};
 function gimLogHTML(aid){
@@ -321,9 +328,9 @@ Object.assign(actions,{
     gimLog(aid,{tipo:'borrado',txt:`${pk.cliente||'Cliente'} · ${ctTxt(c)}: se borró “${PT_ECORTO[c.reg.e]||c.reg.e}”`,pk:d.pk,prof:pk.profId});
     toast('Registro borrado'); ctVolver(d.from); render();
   },
-  ctReagendar(d){ if(roDatos(curArea())||isProf()) return; ctReagendar(d.pk,d.c,d.from); },
+  ctReagendar(d){ if(!ptPuedeMover(d.pk)) return; ctReagendar(d.pk,d.c,d.from); },
   rgGuardar(){
-    const aid=curArea(); if(!rgCtx||roDatos(aid)||isProf()) return;
+    const aid=curArea(); if(!rgCtx||!ptPuedeMover(rgCtx.pkId)) return;
     const {pkId,cid,from}=rgCtx, pk=getPath(`data/${aid}/paquetes/${pkId}`); if(!pk) return;
     const f=$('#rg_f').value, h=parseInt($('#rg_h').value,10), mot=$('#rg_mot').value.trim();
     const L=ptCitas(pk).map(ptLimpia), c=ptMapa(pk).ag.find(x=>x.id===cid), i=L.findIndex(x=>x.id===cid);
@@ -333,25 +340,25 @@ Object.assign(actions,{
     if(!ctLibre(f,h)){ toast('No se puede agendar en una fecha u hora que ya pasó'); return; }
     if(pk.fin&&f>pk.fin){ toast(`Queda después del vencimiento (${fmtCorta(pk.fin)}). Amplía el vencimiento en “Editar”`); return; }
     const o=rgOpciones(aid,pk,cid,f).find(x=>x.h===h);
-    if(!o){ toast('Esa hora no está autorizada para personalizados del instructor'); return; }
+    if(!o){ toast('El gimnasio no abre a esa hora'); return; }
     if(!o.ok){ toast(`Esa hora no está libre: ${o.por}`); return; }
     if(c.f===f&&+c.h===h){ toast('Es la misma fecha y hora'); return; }
     L[i]={...L[i],f,h,orig:L[i].orig||{f:c.f,h:+c.h},reag:(+L[i].reag||0)+1,por:gimQuien(),ts:Date.now()};
     setPath(`data/${aid}/paquetes/${pkId}/citas`,ptCitasMap(L));
-    gimLog(aid,{tipo:'reagenda',txt:`${pk.cliente||'Cliente'}: ${ctTxt(c)} → ${ctTxt({f,h})}${mot?' · '+mot:''}`,pk:pkId,prof:pk.profId,aviso:true});
-    rgCtx=null; toast('Sesión reagendada. El instructor recibe el aviso'); ctVolver(from); render();
+    gimLog(aid,{tipo:'reagenda',txt:`${pk.cliente||'Cliente'}: ${ctTxt(c)} → ${ctTxt({f,h})}${mot?' · '+mot:''}`,pk:pkId,prof:pk.profId,aviso:!isProf()});
+    rgCtx=null; toast(isProf()?'Sesión reagendada':'Sesión reagendada. El instructor recibe el aviso'); ctVolver(from); render();
   },
   ctCancelar(d){
-    const aid=curArea(), pk=getPath(`data/${aid}/paquetes/${d.pk}`); if(!pk||roDatos(aid)||isProf()) return;
+    const aid=curArea(), pk=getPath(`data/${aid}/paquetes/${d.pk}`); if(!pk||!ptPuedeMover(d.pk)) return;
     const c=ptMapa(pk).ag.find(x=>x.id===d.c); if(!c) return;
     if(c.reg){ toast('Esa sesión ya tiene registro'); return; }
-    if(!confirm(`¿Cancelar la sesión del ${ctTxt(c)}? No se descuenta: se repone al final, en el horario fijo del cliente.`)) return;
+    if(!confirm(`¿Cancelar la sesión del ${ctTxt(c)}? No se descuenta: se repone al final o queda sin fecha para agendarla después.`)) return;
     if(!pk.citas) setPath(`data/${aid}/paquetes/${d.pk}/citas`,ptCitasMap(ptCitas(pk)));   // paquete anterior: se guarda su agenda
     const sid='s'+uid();
-    setPath(`data/${aid}/paquetes/${d.pk}/sesiones/${sid}`,{id:sid,cita:c.id,f:c.f,h:hh(c.h),e:'cancelada por el cliente',ts:Date.now(),por:'dir',porNom:gimQuien()});
+    setPath(`data/${aid}/paquetes/${d.pk}/sesiones/${sid}`,{id:sid,cita:c.id,f:c.f,h:hh(c.h),e:'cancelada por el cliente',ts:Date.now(),por:isProf()?session.profId:'dir',porNom:gimQuien()});
     const N=ptReponer(aid,d.pk);
-    gimLog(aid,{tipo:'cancelacion',txt:`${pk.cliente||'Cliente'}: canceló el ${ctTxt(c)}${N.length?` · se repone el ${ctTxt(N[0])}`:' · no hubo lugar para reponerla: agéndala a mano'}`,pk:d.pk,prof:pk.profId,aviso:true});
-    toast(N.length?`Cancelada. Se repone el ${ctTxt(N[0])}`:'Cancelada. No hubo lugar para reponerla'); ctVolver(d.from); render();
+    gimLog(aid,{tipo:'cancelacion',txt:`${pk.cliente||'Cliente'}: canceló el ${ctTxt(c)}${N.length?` · se repone el ${ctTxt(N[0])}`:' · queda sin fecha: agéndala con “+ Agendar sesión”'}`,pk:d.pk,prof:pk.profId,aviso:!isProf()});
+    toast(N.length?`Cancelada. Se repone el ${ctTxt(N[0])}`:'Cancelada. Queda sin fecha para agendarla después'); ctVolver(d.from); render();
   },
   lgVisto(d){
     const aid=curArea(), l=getPath(`data/${aid}/gimlog/${d.id}`); if(!l||!isProf()||l.prof!==session.profId) return;

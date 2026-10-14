@@ -15,7 +15,7 @@
 const EQ_KEY = 'gd_equipo_v1';
 const ROLES_LOGIN = [['ger','shield','Gerencia','Todas las áreas'],['dir','user','Dirección','Mi disciplina'],['prof','clip','Profesor','Pasar lista'],['rec','users','Recepción','Gimnasio'],['met','chart','Metodología','Aforos, eventos y pruebas']];
 const ROL_NOMBRE = {ger:'Gerencia',dir:'Dirección',prof:'Profesor',rec:'Recepción',met:'Metodología'};
-const loginUI = { rol:'', area:'', prof:'', err:'', paso:'rol', fijo:false, cfg:null, otra:false };
+const loginUI = { rol:'', area:'', prof:'', err:'', paso:'rol', fijo:false, cfg:null, otra:false, grupo:false };
 let loginIniciado = false, lgPress = null;
 
 const equipoCfg = () => {                                 // configuración guardada en este equipo (o el último acceso de versiones anteriores)
@@ -27,7 +27,7 @@ const personasGuardadas = c => (c&&(c.personas&&c.personas.length?c.personas:(c.
 function loginArranque(){
   loginIniciado=true; const c=equipoCfg(); loginUI.cfg=c; loginUI.fijo=!!c; loginUI.err='';
   if(!c){ Object.assign(loginUI,{rol:'',area:'',prof:'',paso:'rol'}); return; }
-  loginUI.rol=c.rol; loginUI.area=c.area||''; loginUI.prof=c.prof||''; loginUI.otra=false;
+  loginUI.rol=c.rol; loginUI.area=c.area||''; loginUI.prof=c.prof||''; loginUI.otra=false; loginUI.grupo=!!c.grupo&&c.rol==='dir'&&!!svDirGrupo();
   if(['prof','rec'].includes(c.rol)){ const ps=personasGuardadas(c); loginUI.prof=ps.length===1?ps[0]:(ps.length>1?'':(c.prof||'')); }   // varias personas en el equipo: se elige quién es
   if(!['dir','prof','rec'].includes(c.rol)){ loginUI.area='all'; loginUI.paso='clave'; }
   else loginUI.paso=c.area?'clave':'area';
@@ -63,10 +63,15 @@ function pasoRol(){
     <div class="lg-roles">${ROLES_LOGIN.map(([id,ico,n,s])=>`<button class="lg-role" data-act="loginRol" data-rol="${id}">${ic(ico)}<b>${n}</b><small>${s}</small></button>`).join('')}</div>`;
 }
 function pasoArea(){
-  const as=loginAreasPara(loginUI.rol);
+  let as=loginAreasPara(loginUI.rol);
+  const G=loginUI.rol==='dir'?svDirGrupo():null;
+  if(G){                                                  // Nutrición y Fisioterapia: una sola dirección
+    const i=as.findIndex(a=>G.includes(a.id)), g=as[i];
+    as=as.filter(a=>!G.includes(a.id)); as.splice(i,0,{...g,id:G[0],nombre:SV_GRUPO_NOM,_grupo:true});
+  }
   return `<div class="lg-ruta"><b>${ROL_NOMBRE[loginUI.rol]||''}</b></div>
     <p class="lg-q">Selecciona tu disciplina:</p>
-    ${as.length?`<div class="lg-list">${as.map(a=>`<button class="lg-area" data-act="loginArea" data-id="${esc(a.id)}" style="--ac:${esc(a.color)}">${areaIco(a,{tile:true,size:22})}<b>${esc(a.nombre)}</b>${ic('next')}</button>`).join('')}</div>`
+    ${as.length?`<div class="lg-list">${as.map(a=>`<button class="lg-area" data-act="loginArea" data-id="${esc(a.id)}"${a._grupo?' data-grupo="1"':''} style="--ac:${esc(a.color)}">${areaIco(a,{tile:true,size:22})}<b>${esc(a.nombre)}</b>${ic('next')}</button>`).join('')}</div>`
       :`<div class="lg-note">${loginUI.rol==='prof'?'Todavía no hay profesores con PIN. La dirección de cada disciplina debe darlos de alta.':'No hay disciplinas disponibles.'}</div>`}`;
 }
 function pasoClave(){
@@ -91,7 +96,7 @@ function pasoClave(){
       quien=`<p class="lg-q">Selecciona tu nombre:</p><div class="lg-select"><select id="loginProf" aria-label="Nombre">${'<option value="">Elige tu nombre…</option>'}${gente.map(x=>`<option value="${esc(x.id)}"${loginUI.prof===x.id?' selected':''}>${esc(x.nombre)}</option>`).join('')}</select>${ic('chev')}</div>`;
     }
   }
-  const ruta=`<div class="lg-ruta"><b>${ROL_NOMBRE[rol]||''}</b>${a?`<span class="lg-sep">·</span><span class="lg-disc">${areaIco(a,{size:18})} ${esc(a.nombre)}</span>`:''}</div>`;
+  const ruta=`<div class="lg-ruta"><b>${ROL_NOMBRE[rol]||''}</b>${a?`<span class="lg-sep">·</span><span class="lg-disc">${areaIco(a,{size:18})} ${esc(rol==='dir'&&loginUI.grupo?SV_GRUPO_NOM:a.nombre)}</span>`:''}</div>`;
   if(elige) return ruta+quien+(loginUI.fijo?'<p class="lg-help">Este equipo lo usan varias personas. Elige tu nombre y escribe tu PIN.</p>':'');
   return `${ruta}
     ${quien}
@@ -138,8 +143,15 @@ function doLogin(){
     session={rol:'met',area:null}; ui.mt.tab='aforos'; ui.mt.aArea=null; ui.mt.eArea=null; ui.mt.pSel=null; ui.mt.nuevo=null;
   } else if(loginUI.rol==='dir'){
     if(loginUI.area==='all'||!getArea(loginUI.area)) return fail('Elige la disciplina a la que entras como dirección.');
-    if(hashPass(pw)!==state.cfg.pass.dir[loginUI.area]) return fail('Contraseña de dirección incorrecta.');
-    session={rol:'dir',area:loginUI.area}; ui.aTab='inicio';
+    const G=loginUI.grupo?svDirGrupo():null;
+    if(G){                                                // dirección de Nutrición y Fisioterapia: vale la contraseña de cualquiera de las dos
+      if(!G.some(id=>hashPass(pw)===state.cfg.pass.dir[id])) return fail('Contraseña de dirección incorrecta.');
+      session={rol:'dir',area:G.includes(loginUI.area)?loginUI.area:G[0],grupo:G};
+    } else {
+      if(hashPass(pw)!==state.cfg.pass.dir[loginUI.area]) return fail('Contraseña de dirección incorrecta.');
+      session={rol:'dir',area:loginUI.area};
+    }
+    ui.aTab='inicio';
   } else if(loginUI.rol==='rec'){
     if(loginUI.area==='all'||!getArea(loginUI.area)||!esGim(loginUI.area)) return fail('Elige el área del gimnasio.');
     const r=getRec(loginUI.area,loginUI.prof);
@@ -159,7 +171,7 @@ function doLogin(){
       const mismo=!!prev&&prev.rol===loginUI.rol&&prev.area===loginUI.area;
       personas=[...new Set([...(mismo?personasGuardadas(prev):[]),loginUI.prof])];
     }
-    const c={rol:loginUI.rol,area:loginUI.area,prof:loginUI.prof,personas};
+    const c={rol:loginUI.rol,area:loginUI.area,prof:loginUI.prof,personas,grupo:loginUI.rol==='dir'&&!!loginUI.grupo};
     localStorage.setItem(EQ_KEY,JSON.stringify(c)); localStorage.setItem(LAST_KEY,JSON.stringify(c));
     loginUI.cfg=c; loginUI.fijo=true; loginUI.otra=false;
   }catch(e){}
@@ -169,7 +181,7 @@ function doLogin(){
 
 Object.assign(actions,{
   loginRol(d){
-    loginUI.rol=d.rol; loginUI.err=''; loginUI.prof='';
+    loginUI.rol=d.rol; loginUI.err=''; loginUI.prof=''; loginUI.grupo=false;
     if(['ger','met'].includes(d.rol)){ loginUI.area='all'; loginUI.paso='clave'; }
     else if(d.rol==='rec'){ const g=loginAreasPara('rec'); loginUI.area=g.length===1?g[0].id:''; loginUI.paso=g.length===1?'clave':'area'; }
     else { loginUI.area=''; loginUI.paso='area'; }
@@ -177,7 +189,7 @@ Object.assign(actions,{
   },
   loginPersona(d){ loginUI.prof=d.id; loginUI.otra=false; loginUI.err=''; render(); loginFoco(); },
   loginOtra(){ loginUI.prof=''; loginUI.otra=true; loginUI.err=''; render(); },
-  loginArea(d){ loginUI.area=d.id; loginUI.prof=''; loginUI.err=''; loginUI.paso='clave'; render(); loginFoco(); },
+  loginArea(d){ loginUI.area=d.id; loginUI.grupo=!!d.grupo; loginUI.prof=''; loginUI.err=''; loginUI.paso='clave'; render(); loginFoco(); },
   loginAtras(){
     const p=loginUI.paso; if(!loginPuedeAtras(p)) return; loginUI.err='';
     if(p==='clave') loginUI.paso=(['dir','prof'].includes(loginUI.rol)||(loginUI.rol==='rec'&&loginAreasPara('rec').length>1))?'area':'rol';
@@ -210,13 +222,13 @@ Object.assign(actions,{
   dirProf(d){
     if(!dirPuedeEntrenar()) return;
     const p=getProf(session.area,d.id); if(!p||p.activo===false) return;
-    session={rol:'prof',area:session.area,profId:p.id,dirOrigen:{area:session.area}}; ui.pTab='hoy'; ui.pFecha=todayStr(); ui.lista=null;
+    session={rol:'prof',area:session.area,profId:p.id,dirOrigen:{area:session.area,grupo:session.grupo}}; ui.pTab='hoy'; ui.pFecha=todayStr(); ui.lista=null;
     closeModal(); saveSession(); render(); top0();
   },
   volverDir(){
     if(!session||!session.dirOrigen) return;
-    const area=session.dirOrigen.area; if(typeof rfLimpiar==='function') rfLimpiar();
-    session={rol:'dir',area}; ui.aTab='inicio'; ui.lista=null; saveSession(); render(); top0();
+    const area=session.dirOrigen.area, grupo=session.dirOrigen.grupo; if(typeof rfLimpiar==='function') rfLimpiar();
+    session={rol:'dir',area}; if(grupo) session.grupo=grupo; ui.aTab='inicio'; ui.lista=null; saveSession(); render(); top0();
   },
   eqReset(){                                             // desde Ajustes de Gerencia: ya hay sesión, no se pide la contraseña otra vez
     if(!session||session.rol!=='ger') return;
