@@ -1,0 +1,18 @@
+PARCHE 19 - Gimnasio, tercera entrega: calendario por semanas al registrar un personalizado
+==========================================================================================
+Requiere el parche 18. Deja el service worker en gd-v92. No cambia colores ni fondos.
+Sube (reemplazando): index.html, sw.js, css/gimnasio.css, js/gimpersonal.js
+
+FORMULARIO "NUEVO PERSONALIZADO" (mismo formato: cliente, sesiones, monto opcional, inicio, vence, notas)
+- "Horario que se repite" y "Fechas sueltas" se cambian por un calendario de la semana, en la sección "Días y horas":
+  · Toca las horas para elegirlas (✓) o quitarlas. Con › pasas a la semana siguiente; se puede agendar hasta 26 semanas adelante.
+    Ejemplo: 10 sesiones a 3 por semana -> eliges 3 horas esta semana, › y 3 la siguiente, etc.
+  · Arriba se ve cuántas llevas: "6 de 10 sesiones elegidas · 3 en esta semana". No deja elegir más de las contratadas.
+  · Verde (+) = tu horario. Punteado = fuera de tu horario (también se puede elegir). Azul = otro socio. Mío = hora bloqueada.
+  · Muestra solo las horas de tu horario; "Ver todas las horas del gimnasio" enseña el día completo.
+  · "Repetir estas horas cada semana hasta completar las sesiones": las que falten se acomodan solas en las mismas horas,
+    después de la última que elegiste (brinca las horas ocupadas y avisa).
+  · Las que no se agenden quedan sin fecha y se agendan después con "+ Agendar sesión", igual que antes.
+- Al editar, el calendario abre en la semana de la próxima sesión y se pueden mover las sesiones futuras.
+  Las sesiones ya registradas o pasadas no se tocan.
+- Si la dirección cambia el instructor, se revisa que las horas elegidas estén libres para el nuevo.
