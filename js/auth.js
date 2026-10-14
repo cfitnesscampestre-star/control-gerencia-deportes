@@ -222,13 +222,13 @@ Object.assign(actions,{
   dirProf(d){
     if(!dirPuedeEntrenar()) return;
     const p=getProf(session.area,d.id); if(!p||p.activo===false) return;
-    session={rol:'prof',area:session.area,profId:p.id,dirOrigen:{area:session.area,grupo:session.grupo}}; ui.pTab='hoy'; ui.pFecha=todayStr(); ui.lista=null;
+    session={rol:'prof',area:session.area,profId:p.id,dirOrigen:{area:session.area,grupo:session.grupo},gerOrigen:session.gerOrigen}; ui.pTab='hoy'; ui.pFecha=todayStr(); ui.lista=null;
     closeModal(); saveSession(); render(); top0();
   },
   volverDir(){
     if(!session||!session.dirOrigen) return;
     const area=session.dirOrigen.area, grupo=session.dirOrigen.grupo; if(typeof rfLimpiar==='function') rfLimpiar();
-    session={rol:'dir',area}; if(grupo) session.grupo=grupo; ui.aTab='inicio'; ui.lista=null; saveSession(); render(); top0();
+    const gerOrigen=session.gerOrigen; session={rol:'dir',area}; if(grupo) session.grupo=grupo; if(gerOrigen) session.gerOrigen=gerOrigen; ui.aTab='inicio'; ui.lista=null; saveSession(); render(); top0();
   },
   eqReset(){                                             // desde Ajustes de Gerencia: ya hay sesión, no se pide la contraseña otra vez
     if(!session||session.rol!=='ger') return;
