@@ -11,16 +11,11 @@ const NAV_DIR = [
   {id:'eventos',label:'Eventos',ic:'flag'},
   {id:'reporte',label:'Reporte',ic:'doc'}
 ];
-const NAV_GIM = [
-  {id:'inicio',label:'Inicio',ic:'home'},
-  {id:'gimaforo',label:'Aforo por hora',ic:'gauge'},
-  {id:'gimpt',label:'Personalizados',ic:'users'},
-  {id:'gimhorario',label:'Horario semanal',ic:'cal'},
-  {id:'gimrutinas',label:'Rutinas',ic:'doc'},
-  {id:'profesores',label:'Instructores',ic:'clip'},
-  {id:'recepcion',label:'Recepción',ic:'user'},
-  {id:'eventos',label:'Eventos',ic:'flag'},
-  {id:'reporte',label:'Reporte',ic:'doc'}
+const NAV_GIM = [                                     // gimnasio (dirección): 4 secciones; cada una abre un sub-menú (gimSub, en gimvistas.js)
+  {id:'inicio',label:'Hoy',ic:'home',tabs:['inicio']},
+  {id:'gimagenda',label:'Agenda',ic:'cal',tabs:['gimagenda','gimpt','gimhorario','gimrutinas','gimaforo']},
+  {id:'profesores',label:'Equipo',ic:'clip',tabs:['profesores','recepcion']},
+  {id:'reporte',label:'Reportes',ic:'doc',tabs:['reporte','eventos','mantenimiento']}
 ];
 const NAV_SERV = [
   {id:'inicio',label:'Resumen',ic:'cal'},
@@ -28,13 +23,15 @@ const NAV_SERV = [
   {id:'reporte',label:'Reporte',ic:'doc'}
 ];
 const NAV_REC = [
-  {id:'gimaforo',label:'Aforo por hora',ic:'gauge'},
-  {id:'gimhorario',label:'Horario semanal',ic:'cal'},
-  {id:'gimrutinas',label:'Rutinas',ic:'doc'}
+  {id:'gimaforo',label:'Aforo',ic:'gauge',tabs:['gimaforo']},
+  {id:'gimhorario',label:'Disponibilidad',ic:'cal',tabs:['gimhorario']},
+  {id:'gimavisos',label:'Avisos',ic:'flag',tabs:['gimavisos','gimrutinas']}
 ];
 const NAV_PROF_GIM = [
-  {id:'hoy',label:'Mis personalizados',ic:'users'},
-  {id:'horario',label:'Mi horario',ic:'cal'}
+  {id:'hoy',label:'Por hacer',ic:'clip'},
+  {id:'agenda',label:'Agenda',ic:'cal'},
+  {id:'socios',label:'Socios',ic:'users'},
+  {id:'horario',label:'Mi horario',ic:'reloj'}
 ];
 const NAV_PROF_SERV = [
   {id:'hoy',label:'Mi bitácora',ic:'clip'}
@@ -78,9 +75,9 @@ function viewSidebar(){
   const pr=prof?getProf(session.area,session.profId):(rec?getRec(session.area,session.recId):null);
   const nav = ger
     ? (typeof navGer==='function'?navGer():NAV_GER).map(n=>`<button class="${ui.gTab===n.id&&!(n.id==='areas'&&ui.gArea)?'on':''}" data-act="gTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')
-    : rec ? NAV_REC.map(n=>`<button class="${ui.aTab===n.id?'on':''}" data-act="aTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')
+    : rec ? NAV_REC.map(n=>`<button class="${n.tabs.includes(ui.aTab)?'on':''}" data-act="aTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')
     : prof ? (typeof navProfExtra==='function'?navProfExtra:x=>x)(esServ(session.area)?NAV_PROF_SERV:esGim(session.area)?NAV_PROF_GIM:NAV_PROF).map(n=>`<button class="${ui.pTab===n.id?'on':''}" data-act="pTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')
-    : (typeof navDirExtra==='function'?navDirExtra:x=>x)(esServ(session.area)?NAV_SERV.filter(n=>svTabs(session.area).some(t=>t[0]===n.id)):esGim(session.area)?NAV_GIM:NAV_DIR).map(n=>`<button class="${ui.aTab===n.id?'on':''}" data-act="aTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('');
+    : (esGim(session.area)?NAV_GIM:(typeof navDirExtra==='function'?navDirExtra:x=>x)(esServ(session.area)?NAV_SERV.filter(n=>svTabs(session.area).some(t=>t[0]===n.id)):NAV_DIR)).map(n=>`<button class="${(n.tabs||[n.id]).includes(ui.aTab)?'on':''}" data-act="aTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('');
   const areas = ger ? `<div class="sb-sec">Áreas</div><nav class="sb-nav sb-areas">${areasVista().map(x=>
     `<button class="${ui.gTab==='areas'&&(ui.gArea===x.id||(x._grupo&&enGrupoSalud(ui.gArea)))?'on':''}" data-act="openArea" data-id="${esc(x.id)}"><i class="sb-dot" style="background:${esc(x.color)}"></i><span>${esc(x.nombre)}</span></button>`).join('')}</nav>` : '';
   return `<aside class="sidebar">

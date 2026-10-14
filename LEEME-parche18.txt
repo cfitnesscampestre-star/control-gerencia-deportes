@@ -1,0 +1,25 @@
+PARCHE 18 - Gimnasio, segunda entrega: menús por rol (Dirección, Recepción e Instructor)
+=========================================================================================
+Requiere el parche 17. Deja el service worker en gd-v91. No cambia colores, fondos, la captura de aforo ni el reporte semanal a Gerencia.
+Sube (reemplazando): index.html, sw.js, css/gimnasio.css, js/app.js, js/sidebar.js, js/mobile.js, js/gimnasio.js,
+  js/gimhorario.js, js/recepcion.js, js/portal.js
+Sube (NUEVO): js/gimvistas.js
+
+1) DIRECCIÓN DEL GIMNASIO: Hoy · Agenda · Equipo · Reportes
+   - Hoy: pendientes, aforo de hoy, personalizados y, abajo, la gráfica "Aforo por período" con sus filtros (día, semana, mes...).
+   - Agenda: sub-menú Por instructor · Personalizados · Disponibilidad · Rutinas · Aforo por hora.
+     "Por instructor" es nueva: semana con flechas, un botón por día y una columna por instructor
+     (con socio, sin registrar, "Mío" = hora bloqueada con su motivo, libre). Toca una sesión para verla o reagendarla.
+   - Equipo: Instructores · Recepción (las altas siguen con el mismo formulario).
+   - Reportes: Reporte semanal · Eventos · Mantenimiento (si aplica).
+   - Gerencia ve el gimnasio con las mismas 4 secciones y sub-menús.
+2) RECEPCIÓN: Aforo · Disponibilidad · Avisos
+   - Aforo ya no incluye el horario abajo; está en "Disponibilidad".
+   - Avisos: "+ Pedir rutina", rutinas listas con el botón "Entregada al socio", rutinas en elaboración,
+     solicitudes enviadas a instructores y entregadas recientes. "Ver todas las rutinas" abre la lista completa.
+3) INSTRUCTOR: Por hacer · Agenda · Socios · Mi horario
+   - Por hacer: todo lo pendiente junto (solicitudes de recepción, rutinas por elaborar, sesiones sin registrar
+     con botones rápidos Realizada / No asistió, y avisos de cambios) más la agenda de hoy.
+   - Agenda: su semana con flechas, sesiones y horas bloqueadas ("Mío").
+   - Socios: sus personalizados y "+ Nuevo personalizado".
+   - Mi horario: igual que en el parche 17.
