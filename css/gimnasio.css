@@ -214,3 +214,14 @@
 span.gh-c.mio,span.gh-c.ok{cursor:default}
 .gpf-sr{margin-bottom:12px}
 .gpf .gpf-sr .btns{margin-top:4px;flex-wrap:wrap}
+
+/* ---------- entrega 3: calendario por semanas en el alta del personalizado ---------- */
+.gh-c.sel{background:var(--g);color:#fff;border:1.5px solid var(--g);cursor:pointer}
+span.gh-c.sel{opacity:.55;cursor:default}
+.gh-leg i.sel{background:var(--g);border:1.5px solid var(--g)}
+.pt-cont{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin:6px 0 2px}
+.pt-cont b{color:var(--ink);font-size:15px}
+.pt-ag .calnav{margin:6px 0}
+.gh-tb.pt-cal .gh-c{height:34px}
+.pt-rep{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;margin:4px 0 6px;cursor:pointer}
+.pt-rep input[type=checkbox]{width:18px;height:18px;flex:0 0 18px;min-height:0;padding:0;margin:2px 0 0;box-shadow:none}

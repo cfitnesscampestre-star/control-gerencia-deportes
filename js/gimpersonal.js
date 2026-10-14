@@ -7,9 +7,9 @@
      elige a un instructor libre y le manda una solicitud: “Fulano solicita clases”. No se capturan
      teléfonos: el instructor pasa a recepción y ahí se hace el contacto.
    · El instructor ve la solicitud en su pantalla (Enterado · Registrar personalizado · Ya lo atendí)
-     y registra el personalizado él mismo, con libertad de agenda:
-       - horario que se repite (cualquier día y hora en que abre el gimnasio: Lun 7:00, Jue 20:00…)
-       - y/o fechas sueltas
+     y registra el personalizado él mismo, con libertad de agenda, en un calendario por semanas:
+       - toca los días y horas de esta semana y, con ›, sigue en las semanas siguientes (ej. 10 sesiones, 3 por semana);
+       - “Repetir estas horas cada semana” acomoda solas las que falten en las mismas horas;
        - las sesiones que no se agenden quedan “sin fecha” y se agendan después.
      Solo se bloquea lo que no puede pasar: fechas u horas que ya pasaron y dos clientes a la misma hora.
    · Dirección y gerencia ven todo (dirección puede corregir con “Editar”).
@@ -21,7 +21,6 @@ LG_T.agenda = ['Sesión agendada','info'];
 const SOL_EST = {nueva:['Nueva','warn'],vista:['Vista','info'],atendida:['Atendida','ok']};
 const solicitudes = aid => coll(aid,'solicitudes').sort((a,b)=>(b.ts||0)-(a.ts||0));
 const solPendientes = (aid,profId) => solicitudes(aid).filter(s=>s.estado!=='atendida'&&(!profId||s.profId===profId));
-const ptHoraOpts = (horas,sel,dis) => horas.map(h=>`<option value="${h}"${String(h)===String(sel)?' selected':''}${dis&&dis[h]?' disabled':''}>${hh(h)}${dis&&dis[h]?' · '+esc(dis[h]):''}</option>`).join('');
 
 /* ---------- solicitudes: recepción → instructor ---------- */
 function solNueva(profId,f,h){
@@ -51,15 +50,16 @@ function gimSolRec(aid){                                    // lo que recepción
 }
 
 /* ---------- alta y edición del personalizado ---------- */
-let ptForm = null;                                           // {id, slots:{k:{d,h}}, sueltas:[{id,f,h,suelta}], solId}
+let ptForm = null;                                           // {id, sel:{'f_h':cita}, base:[citas que se conservan], rep, w:lunes de la semana a la vista, solId, k0}
+const PT_SEMANAS = 26;                                       // hasta cuántas semanas adelante se puede agendar en el calendario
 function openPT(id,o){
   o=o||{}; const aid=curArea(), x=id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{}, t=todayStr(), coach=isProf();
   if(id&&coach&&x.profId!==session.profId) return;
   if(!id&&!coach){ toast('Los personalizados los registra cada instructor desde su pantalla'); return; }
-  const ps=profesores(aid).filter(p=>p.activo!==false), usadas=ptReal(x), iniFijo=!!id&&(usadas>0||ptSes(x).length>0), ini0=x.inicio||t;
-  ptForm={id:id||'',slots:{},sueltas:[],solId:o.solId||''};
-  ghSlots(x).forEach(s=>{ ptForm.slots[ghKey(+s.d,+s.h)]={d:+s.d,h:+s.h}; });
-  const dHoy=wdIdx(t);
+  const ps=profesores(aid).filter(p=>p.activo!==false), usadas=ptReal(x), iniFijo=!!id&&(usadas>0||ptSes(x).length>0), ini0=x.inicio||t, now=ahoraKey();
+  const ag=id?ptMapa(x).ag:[], sel={};
+  ag.filter(c=>!c.reg&&ctKey(c.f,c.h)>now).forEach(c=>{ sel[`${c.f}_${+c.h}`]=ptLimpia(c); });      // las futuras se pueden mover en el calendario
+  ptForm={id:id||'',sel,base:ag.filter(c=>c.reg||ctKey(c.f,c.h)<=now).map(ptLimpia),rep:ghSlots(x).length>0,w:mondayOf(Object.values(sel).map(c=>c.f).sort()[0]||(ini0>t?ini0:t)),solId:o.solId||'',k0:Object.keys(sel).sort().join(',')};
   openModal(`${mHead(id?'Editar personalizado':'Nuevo personalizado')}
     ${coach?'':`<label class="f"><span>Instructor</span><select id="pt_prof">${ps.map(p=>`<option value="${esc(p.id)}"${x.profId===p.id?' selected':''}>${esc(p.nombre)}</option>`).join('')}</select></label>`}
     <label class="f"><span>Cliente</span><input id="pt_cli" value="${esc(x.cliente||o.cliente||'')}" placeholder="Nombre del socio" autocomplete="off"></label>
@@ -68,15 +68,10 @@ function openPT(id,o){
     ${usadas?`<small class="mut">Ya se usaron ${usadas} sesiones: no se puede contratar menos.</small>`:''}
     <div class="two"><label class="f"><span>Inicio</span><input id="pt_ini" type="date"${iniFijo?' disabled':` min="${t}"`} value="${esc(ini0)}"></label>
       <label class="f"><span>Vence</span><input id="pt_fin" type="date" value="${esc(x.fin||addDays(ini0,60))}"></label></div>
-    <div class="f pt-ag"><span class="lb">Horario que se repite cada semana <small class="mut">(opcional)</small></span>
-      <div id="pt_rep" class="gh-chips"></div>
-      <div class="two"><select id="pt_rd" aria-label="Día">${DIAS_L.map((n,i)=>`<option value="${i}"${i===dHoy?' selected':''}>${n}</option>`).join('')}</select><select id="pt_rh" aria-label="Hora"></select></div>
-      <button type="button" class="btn sm" data-act="ptRepAdd">+ Agregar día y hora</button>
-      <small class="mut">Cualquier día y hora en que abre el gimnasio, por ejemplo lunes 7:00 y jueves 20:00. Se repite cada semana desde el inicio hasta completar las sesiones.</small></div>
-    <div class="f pt-ag"><span class="lb">Fechas sueltas <small class="mut">(opcional)</small></span>
-      <div id="pt_sue" class="gh-chips"></div>
-      <div class="two"><input id="pt_sf" type="date" min="${t}" value="${t}" aria-label="Fecha"><select id="pt_sh" aria-label="Hora"></select></div>
-      <button type="button" class="btn sm" data-act="ptSueAdd">+ Agregar fecha</button></div>
+    <div class="f pt-ag"><span class="lb">Días y horas</span>
+      <div id="pt_cal"></div>
+      <label class="pt-rep"><input type="checkbox" id="pt_rep"${ptForm.rep?' checked':''}> <span>Repetir estas horas cada semana hasta completar las sesiones</span></label>
+      <small class="mut">Toca las horas de la semana y usa › para seguir en la siguiente. Puedes elegir cualquier hora en que abre el gimnasio, aunque no esté en tu horario. Las que no agendes quedan sin fecha y se agendan después con “+ Agendar sesión”.</small></div>
     <div id="pt_prev" class="gh-prev"></div>
     <label class="f"><span>Notas (opcional)</span><textarea id="pt_notas">${esc(x.notas||'')}</textarea></label>
     <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="savePT" data-id="${esc(id||'')}">Guardar</button></div>
@@ -84,36 +79,62 @@ function openPT(id,o){
   ptFormPintar();
 }
 const ptFormProf = () => isProf()?session.profId:(($('#pt_prof')||{}).value||'');
-function ptFormTmp(){                                         // paquete como quedaría con lo que hay en la ventana + citas que se conservan
+const ptSelLista = () => Object.values(ptForm.sel).sort(ctOrd);
+function ptSelSlots(){                                        // “Repetir”: el patrón semanal de las horas elegidas
+  const o={}; if(ptForm.rep) ptSelLista().forEach(c=>{ const d=wdIdx(c.f); o[ghKey(d,+c.h)]={d,h:+c.h}; }); return o;
+}
+function ptFormTmp(){                                         // paquete como quedaría con lo que hay en la ventana
   const aid=curArea(), id=ptForm.id, prev=id?(getPath(`data/${aid}/paquetes/${id}`)||{}):{}, prof=ptFormProf();
-  const tmp={...prev,id:id||'nuevo',profId:prof,total:parseInt(($('#pt_tot')||{}).value)||0,inicio:($('#pt_ini')||{}).value,slots:{...ptForm.slots}};
-  const base=(id?ptBase(prev,prof!==prev.profId):[]).concat(ptForm.sueltas.map(ptLimpia));
-  return {aid,prev,tmp,base};
+  const tmp={...prev,id:id||'nuevo',profId:prof,total:parseInt(($('#pt_tot')||{}).value)||0,inicio:($('#pt_ini')||{}).value,slots:ptSelSlots()};
+  const sel=ptSelLista(), base=ptForm.base.concat(sel);
+  const ult=sel.length?sel[sel.length-1].f:'', llenar={...tmp,inicio:ult&&addDays(ult,1)>tmp.inicio?addDays(ult,1):tmp.inicio};     // lo que se repite empieza después de la última hora elegida
+  return {aid,prev,tmp,base,llenar};
+}
+function ptCalCelda(aid,ctx,p,f,h,ini,fin){
+  const k=`${f}_${h}`, a=`data-act="ptCal" data-f="${f}" data-h="${h}"`;
+  if(ptForm.sel[k]) return `<button type="button" class="gh-c sel" ${a} aria-pressed="true" aria-label="Elegida: ${esc(ctTxt({f,h}))}"><b>✓</b></button>`;
+  if(!ctLibre(f,h)||(ini&&f<ini)||(fin&&f>fin)) return '<span class="gh-c off"></span>';
+  if(ptForm.base.some(c=>c.f===f&&+c.h===h)) return '<span class="gh-c sel" aria-label="Ya agendada"><b>✓</b></span>';
+  const oc=ctx.occ[`${p.id}|${f}|${h}`];
+  if(oc&&oc.bloqueo) return `<span class="gh-c mio" aria-label="Bloqueada"><b>Mío</b></span>`;
+  if(oc) return `<span class="gh-c yo" aria-label="Otro socio"><small>${esc(String(oc.cliente||'Socio').split(' ')[0])}</small></span>`;
+  return ghEnHorario(p,f,h)?`<button type="button" class="gh-c ok" ${a} aria-label="${esc(ctTxt({f,h}))}, en tu horario"><b>+</b></button>`:`<button type="button" class="gh-c fh" ${a} aria-label="${esc(ctTxt({f,h}))}, fuera de tu horario">·</button>`;
 }
 function ptFormPintar(){
-  const aid=curArea(); if(!ptForm||!$('#pt_rep')) return;
-  const R=Object.values(ptForm.slots).sort((a,b)=>(a.d-b.d)||(a.h-b.h));
-  $('#pt_rep').innerHTML=R.length?R.map(s=>`<span class="gh-chip">${DIAS[s.d]} ${hh(s.h)}<button type="button" data-act="ptRepDel" data-k="${ghKey(s.d,s.h)}" aria-label="Quitar">${ic('x')}</button></span>`).join(''):'<small class="mut">Sin horario que se repite.</small>';
-  $('#pt_sue').innerHTML=ptForm.sueltas.length?ptForm.sueltas.slice().sort(ctOrd).map(c=>`<span class="gh-chip">${esc(ctTxt(c))}<button type="button" data-act="ptSueDel" data-id="${esc(c.id)}" aria-label="Quitar">${ic('x')}</button></span>`).join(''):'<small class="mut">Sin fechas sueltas.</small>';
-  const rd=+($('#pt_rd')||{}).value||0, rh=$('#pt_rh'), dd=gimDia(aid,rd), hs=[]; for(let h=dd?dd.abre:5;h<(dd?dd.cierra:23);h++) hs.push(h);
-  if(rh){ const k=rh.value; rh.innerHTML=hs.length?ptHoraOpts(hs,k||hs[0]):'<option value="">El gimnasio no abre</option>'; }
-  ptFormHorasSuelta(); ptFormPreview();
+  const el=$('#pt_cal'); if(!ptForm||!el) return;
+  const {aid,tmp,base}=ptFormTmp(), t=todayStr(), ini=tmp.inicio||t, fin=($('#pt_fin')||{}).value, p=getProf(aid,tmp.profId)||{id:tmp.profId}, gc=gimCfg(aid);
+  const w0=mondayOf(ini>t?ini:t), ult=addDays(w0,7*(PT_SEMANAS-1));
+  if(ptForm.w<w0) ptForm.w=w0; if(ptForm.w>ult) ptForm.w=ult;
+  const w=ptForm.w, ctx=ghCtx(aid,tmp.id), fechas=[0,1,2,3,4,5,6].filter(d=>gimDia(aid,d)).map(d=>addDays(w,d));
+  const abre=h=>fechas.some(f=>{ const dd=gimDia(aid,wdIdx(f)); return dd&&h>=dd.abre&&h<dd.cierra; });
+  const suya=h=>fechas.some(f=>ptForm.sel[`${f}_${h}`]||ghEnHorario(p,f,h)||ctx.occ[`${p.id}|${f}|${h}`]);     // horas con algo para este instructor esa semana
+  const hs=[]; for(let h=gc.abre;h<gc.cierra;h++) if(abre(h)) hs.push(h);
+  const solo=!ptForm.todas&&hs.some(suya), vis=solo?hs.filter(suya):hs;
+  const filas=[]; for(const h of vis){
+    filas.push(`<tr><th>${hh(h)}</th>${fechas.map(f=>{ const dd=gimDia(aid,wdIdx(f)); return `<td>${(!dd||h<dd.abre||h>=dd.cierra)?'<span class="gh-c off"></span>':ptCalCelda(aid,ctx,p,f,h,ini,fin)}</td>`; }).join('')}</tr>`);
+  }
+  el.innerHTML=`<div id="pt_cont" class="pt-cont"></div>
+    <div class="calnav"><button type="button" class="ibtn" data-act="ptCalNav" data-n="-1" aria-label="Semana anterior"${w<=w0?' disabled':''}>${ic('back')}</button><b>${esc(fmtCorta(w))} – ${esc(fmtCorta(addDays(w,6)))}${w===mondayOf(t)?' · esta semana':''}</b><button type="button" class="ibtn" data-act="ptCalNav" data-n="1" aria-label="Semana siguiente"${w>=ult?' disabled':''}>${ic('next')}</button></div>
+    <div class="gh-wrap"><table class="gh-tb mih pt-cal"><thead><tr><th></th>${fechas.map(f=>`<th class="${f===t?'hoy':''}">${DIAS[wdIdx(f)]}<small>${+f.slice(8,10)}</small></th>`).join('')}</tr></thead><tbody>${filas.join('')}</tbody></table></div>
+    <div class="gh-leg"><span><i class="sel"></i>Elegida</span><span><i class="ok"></i>Tu horario</span><span><i class="fh"></i>Fuera de tu horario</span><span><i class="yo"></i>Otro socio</span><span><i class="mio"></i>Mío</span></div>
+    ${(solo||ptForm.todas)?`<button type="button" class="btn sm" data-act="ptCalTodas">${ptForm.todas?'Ver solo las horas de mi horario':'Ver todas las horas del gimnasio'}</button>`:''}`;
+  ptFormCont();
 }
-function ptFormHorasSuelta(){
-  const aid=curArea(), sh=$('#pt_sh'), f=($('#pt_sf')||{}).value; if(!sh) return;
-  const {tmp,base}=ptFormTmp(), ctx=ghCtx(aid,tmp.id), propias=new Set(base.map(c=>ctKey(c.f,c.h))), dis={}, hs=f?gimHorasDia(aid,f):[];
-  hs.forEach(h=>{ if(!ctLibre(f,h)) dis[h]='ya pasó'; else if(propias.has(ctKey(f,h))) dis[h]='ya agendada'; else if(ctx.occ[`${tmp.profId}|${f}|${h}`]) dis[h]='ocupado'; });
-  const k=sh.value, first=hs.find(h=>!dis[h]);
-  sh.innerHTML=hs.length?ptHoraOpts(hs,(k&&!dis[k])?k:first,dis):'<option value="">El gimnasio no abre</option>';
+function ptFormCont(){                                       // contador: se actualiza sin volver a dibujar el calendario (así no se pierde un toque)
+  const el=$('#pt_cont'); if(!el||!ptForm) return;
+  const {tmp,base}=ptFormTmp(), w=ptForm.w, esta=ptSelLista().filter(c=>c.f>=w&&c.f<=addDays(w,6)).length, falt=tmp.total?ptMapa(tmp,base).sinAgendar:0;
+  el.innerHTML=`<span><b>${Math.max(0,(tmp.total||0)-falt)}</b> de ${tmp.total||0} sesiones elegidas${ptForm.rep&&falt?' · las demás se repiten solas':''}</span><span>${esta} en esta semana</span>`;
+  ptFormPreview();
 }
 function ptFormPreview(){
   const el=$('#pt_prev'); if(!el||!ptForm) return;
-  const {aid,tmp,base}=ptFormTmp(), fin=($('#pt_fin')||{}).value, out=[];
+  const {aid,tmp,base,llenar}=ptFormTmp(), fin=($('#pt_fin')||{}).value, out=[], sel=ptSelLista();
   if(!tmp.total||!tmp.inicio){ el.innerHTML=''; return; }
-  const R=ptLlenar(aid,tmp,base), now=ahoraKey(), fut=R.citas.filter(c=>ctKey(c.f,c.h)>now);
+  const R=ptLlenar(aid,llenar,base), now=ahoraKey(), fut=R.citas.filter(c=>ctKey(c.f,c.h)>now);
+  if(!sel.length&&!fut.length) out.push('<small class="mut">Aún no eliges horas: toca el calendario.</small>');
   if(fut.length) out.push(`<small><b>${plu(fut.length,'sesión agendada','sesiones agendadas')}</b>: la primera el <b>${esc(ctTxt(fut[0]))}</b> y la última el <b>${esc(fmtFecha(fut[fut.length-1].f))}</b>.</small>`);
-  if(R.faltan>0) out.push(`<small class="warn">${plu(R.faltan,'sesión queda','sesiones quedan')} sin fecha: puedes agendarlas después con “+ Agendar sesión”.</small>`);
-  if(R.saltadas.length) out.push(`<small class="warn">Se brincan ${plu(R.saltadas.length,'fecha','fechas')} en que ya tienes otro cliente: ${esc(R.saltadas.slice(0,3).map(x=>ctTxt(x)).join(', '))}${R.saltadas.length>3?'…':''}.</small>`);
+  if(R.faltan>0) out.push(`<small class="warn">${plu(R.faltan,'sesión queda','sesiones quedan')} sin fecha: ${ptForm.rep?'no hubo lugar en las semanas siguientes. ':'avanza de semana con › y elige más, marca “Repetir”, o '}agéndalas después con “+ Agendar sesión”.</small>`);
+  if(R.saltadas.length) out.push(`<small class="warn">Al repetir se brincan ${plu(R.saltadas.length,'fecha','fechas')} en que ya tienes otro cliente: ${esc(R.saltadas.slice(0,3).map(x=>ctTxt(x)).join(', '))}${R.saltadas.length>3?'…':''}.</small>`);
   const ult=fut.length?fut[fut.length-1].f:'';
   if(fin&&ult&&ult>fin) out.push(`<small class="bad">La última sesión cae después del vencimiento (${esc(fmtCorta(fin))}). <button type="button" class="btn sm" data-act="ptAjustaFin" data-f="${ult}">Vencer el ${esc(fmtCorta(ult))}</button></small>`);
   el.innerHTML=out.join('');
@@ -135,23 +156,19 @@ function ctNueva(pkId){
 
 Object.assign(actions,{
   openPT(d){ if(roDatos(curArea())) return; closeModal(); openPT(d.id||'',{prof:d.prof}); },
-  ptRepAdd(){
-    const d=+$('#pt_rd').value, h=$('#pt_rh').value; if(h===''){ toast('El gimnasio no abre ese día'); return; }
-    ptForm.slots[ghKey(d,+h)]={d,h:+h}; ptFormPintar();
-  },
-  ptRepDel(d){ delete ptForm.slots[d.k]; ptFormPintar(); },
-  ptSueAdd(){
-    const f=$('#pt_sf').value, h=parseInt($('#pt_sh').value,10), fin=($('#pt_fin')||{}).value;
-    if(!f||isNaN(h)){ toast('Elige la fecha y una hora libre'); return; }
+  ptCal(d){                                                 // toca una hora del calendario: la elige o la quita
+    if(!ptForm) return; const f=d.f, h=+d.h, k=`${f}_${h}`;
+    if(ptForm.sel[k]){ delete ptForm.sel[k]; ptFormPintar(); return; }
     if(!ctLibre(f,h)){ toast('Esa fecha y hora ya pasaron'); return; }
-    if(fin&&f>fin){ toast(`Queda después del vencimiento (${fmtCorta(fin)})`); return; }
     const {aid,tmp,base}=ptFormTmp();
-    if(base.some(c=>c.f===f&&+c.h===h)){ toast('Esa fecha y hora ya están agendadas'); return; }
-    const oc=ghCtx(aid,tmp.id).occ[`${tmp.profId}|${f}|${h}`]; if(oc){ toast(`A esa hora ya tienes a ${oc.cliente||'otro cliente'}`); return; }
-    ptForm.sueltas.push({id:'c'+uid(),f,h,suelta:true}); ptFormPintar();
+    if(!tmp.total){ toast('Primero indica cuántas sesiones se contrataron'); return; }
+    if(ptMapa(tmp,base).sinAgendar<=0){ toast(`Ya elegiste las ${tmp.total} sesiones. Quita una para cambiarla`); return; }
+    const oc=ghCtx(aid,tmp.id).occ[`${tmp.profId}|${f}|${h}`]; if(oc){ toast(oc.bloqueo?'Esa hora está bloqueada':`A esa hora ya tienes a ${oc.cliente||'otro cliente'}`); return; }
+    ptForm.sel[k]={id:'c'+uid(),f,h,suelta:true}; ptFormPintar();
   },
-  ptSueDel(d){ ptForm.sueltas=ptForm.sueltas.filter(c=>c.id!==d.id); ptFormPintar(); },
-  ptAjustaFin(d){ const f=$('#pt_fin'); if(f){ f.value=d.f; ptFormPreview(); } },
+  ptCalTodas(){ if(!ptForm) return; ptForm.todas=!ptForm.todas; ptFormPintar(); },
+  ptCalNav(d){ if(!ptForm) return; ptForm.w=addDays(ptForm.w,7*(+d.n)); ptFormPintar(); },
+  ptAjustaFin(d){ const f=$('#pt_fin'); if(f){ f.value=d.f; ptFormPintar(); } },
   savePT(d){
     const aid=curArea(); if(roDatos(aid)||!ptForm) return;
     const cli=$('#pt_cli').value.trim(), tot=parseInt($('#pt_tot').value)||0, ini=$('#pt_ini').value, fin=$('#pt_fin').value, prof=ptFormProf(), t=todayStr();
@@ -163,12 +180,15 @@ Object.assign(actions,{
     if(tot<usadas){ toast(`Ya se usaron ${usadas} sesiones: no se puede contratar menos`); return; }
     if(!ini||!fin||fin<ini){ toast('Revisa las fechas de inicio y vencimiento'); return; }
     if((nuevo||ini!==prev.inicio)&&ini<t){ toast('El inicio no puede ser una fecha que ya pasó'); return; }
-    const slots={...ptForm.slots}, profCambia=!nuevo&&prof!==prev.profId;
-    const cambia=nuevo||profCambia||tot!==(+prev.total||0)||ini!==prev.inicio||ghSlotsKey(slots)!==ghSlotsKey(prev.slots)||ptForm.sueltas.length>0;
+    const slots=ptSelSlots(), profCambia=!nuevo&&prof!==prev.profId, sel=ptSelLista();
+    if(sel.some(c=>c.f<ini)){ toast('Hay horas elegidas antes del inicio: quítalas o cambia el inicio'); return; }
+    const occ=ghCtx(aid,id).occ, choca=sel.find(c=>ctKey(c.f,c.h)>ahoraKey()&&occ[`${prof}|${c.f}|${c.h}`]);
+    if(choca){ toast(`El ${ctTxt(choca)} ese instructor ya está ocupado: quita esa hora`); return; }
+    const cambia=nuevo||profCambia||tot!==(+prev.total||0)||ini!==prev.inicio||ghSlotsKey(slots)!==ghSlotsKey(prev.slots)||Object.keys(ptForm.sel).sort().join(',')!==ptForm.k0;
     let citas=prev.citas||null, R=null;
     if(cambia){
-      const tmp={...prev,id,profId:prof,total:tot,inicio:ini,slots};
-      R=ptLlenar(aid,tmp,(nuevo?[]:ptBase(prev,profCambia)).concat(ptForm.sueltas.map(ptLimpia)));
+      const tmp={...prev,id,profId:prof,total:tot,inicio:ini,slots}, ult0=sel.length?sel[sel.length-1].f:'';
+      R=ptLlenar(aid,{...tmp,inicio:ult0&&addDays(ult0,1)>ini?addDays(ult0,1):ini},ptForm.base.concat(sel).map(ptLimpia));
       const fut=R.citas.filter(c=>ctKey(c.f,c.h)>ahoraKey()), ult=fut.length?fut[fut.length-1].f:'';
       if(ult&&ult>fin){ toast(`La última sesión queda el ${fmtCorta(ult)}, después del vencimiento. Usa “Vencer el ${fmtCorta(ult)}”`); return; }
       citas=ptCitasMap(R.citas);
@@ -230,9 +250,9 @@ Object.assign(actions,{
   solBorrar(d){ const aid=curArea(), s=getPath(`data/${aid}/solicitudes/${d.id}`); if(!s||s.estado!=='nueva'||isProf()||roDatos(aid)) return; if(!confirm('¿Cancelar esta solicitud?')) return; setPath(`data/${aid}/solicitudes/${d.id}`,undefined); render(); }
 });
 document.addEventListener('change',e=>{
-  const id=e.target&&e.target.id; if(!ptForm||!$('#pt_rep')) return;
-  if(id==='pt_rd'||id==='pt_prof') ptFormPintar();
-  else if(id==='pt_sf') ptFormHorasSuelta();
-  else if(['pt_ini','pt_fin','pt_tot'].includes(id)) ptFormPreview();
+  const id=e.target&&e.target.id; if(!ptForm||!$('#pt_cal')) return;
+  if(id==='pt_rep'){ ptForm.rep=e.target.checked; ptFormPintar(); }
+  else if(['pt_prof','pt_ini','pt_fin'].includes(id)) ptFormPintar();
+  else if(id==='pt_tot') ptFormCont();
 });
-document.addEventListener('input',e=>{ const id=e.target&&e.target.id; if(ptForm&&$('#pt_rep')&&(id==='pt_tot'||id==='pt_fin')) ptFormPreview(); });
+document.addEventListener('input',e=>{ const id=e.target&&e.target.id; if(ptForm&&$('#pt_cal')&&id==='pt_tot') ptFormCont(); });
