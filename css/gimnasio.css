@@ -181,3 +181,14 @@
 .gi-pth-n{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--ink-2);margin-bottom:6px}
 .gi-pth-n b{font-size:17px;color:var(--ink)}
 .gi-pth-n .bad b{color:var(--bad)}.gi-pth-n .warn b{color:#a86a00}
+
+/* ===== Solicitudes de recepción y alta libre del instructor ===== */
+.card.sol{margin-bottom:10px;border-left:4px solid var(--b3)}
+.card.sol.nueva{border-left-color:var(--warn)}
+.sol-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sol-h b{font-size:15.5px}
+.card.sol>small{display:block;color:var(--ink-2);margin-top:2px}
+.sol-n{margin-top:6px;padding:7px 10px;border-radius:10px;background:#f4f7fb;font-size:13.5px}
+.card.sol .btns{margin-top:8px;flex-wrap:wrap}
+.pt-ag{border:1.5px solid var(--line);border-radius:14px;padding:10px;margin-bottom:12px}
+.pt-ag .lb small{font-weight:500}

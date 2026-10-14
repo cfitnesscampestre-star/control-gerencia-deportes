@@ -56,16 +56,48 @@ const REP_FIELDS_GIM = [
   {k:'incNota',l:'Incidencias generales de la semana',t:'ta',w:1},
   {k:'apoyo',l:'¿En qué te puede ayudar la gerencia deportiva?',t:'ta',w:1}
 ];
-const repFields = aid => esGim(aid) ? REP_FIELDS_GIM : REP_FIELDS;
+const REP_FIELDS_SERV = [
+  {sec:'Objetivos'},
+  {k:'objPrev',l:'Objetivo de la semana anterior',t:'ta'},
+  {k:'cumplio',l:'¿Se cumplió?',t:'sel',o:['','Sí','Parcialmente','No']},
+  {k:'porque',l:'¿Por qué?',t:'ta'},
+  {k:'objProx',l:'Objetivo de la próxima semana',t:'ta'},
+  {sec:'Servicio'},
+  {k:'svAtendidos',l:'Servicios atendidos',t:'num'},
+  {k:'svTiempo',l:'Tiempo de servicio',t:'txt'},
+  {k:'svOcup',l:'Ocupación del turno (%)',t:'num'},
+  {k:'svNoLlego',l:'Citas que no llegaron',t:'num'},
+  {k:'svEsp',l:'Especialistas',t:'num'},
+  {sec:'Especialistas'},
+  {k:'profDest',l:'Especialista más destacado',t:'txt'},
+  {k:'profMenos',l:'Especialista con más áreas de mejora',t:'txt'},
+  {sec:'Logros'},
+  {k:'logros',l:'Logros semanales',t:'ta'},
+  {sec:'Incidencias y apoyo'},
+  {k:'incNota',l:'Incidencias generales de la semana',t:'ta',w:1},
+  {k:'apoyo',l:'¿En qué te puede ayudar la gerencia deportiva?',t:'ta',w:1}
+];
+const repFields = aid => esGim(aid) ? REP_FIELDS_GIM : esServ(aid) ? REP_FIELDS_SERV : REP_FIELDS;
+const repAplica = aid => !(typeof esParamed==='function'&&esParamed(aid));     // todas las áreas entregan reporte, menos Paramédicos
 
 /* ---------- reporte corto: el sistema llena los números ----------
    La dirección solo escribe lo que el sistema no sabe (objetivos, logros y en qué la apoya gerencia).
    Los números se calculan con lo capturado en la semana y se guardan en los mismos campos de siempre
    al guardar o entregar, así la impresión, el comité y los reportes anteriores siguen igual. */
-const REP_AUTO = ['alumTotal','asistSem','profTotal','clasesTotal','inasist','aforoProm','horaPico','pctMu','pctHo','horasSat','horasBajas','ptActivos','ptSesiones','ptNuevos','ptPorVencer','instTotal'];
+const REP_AUTO = ['svAtendidos','svTiempo','svOcup','svNoLlego','svEsp','alumTotal','asistSem','profTotal','clasesTotal','inasist','aforoProm','horaPico','pctMu','pctHo','horasSat','horasBajas','ptActivos','ptSesiones','ptNuevos','ptPorVencer','instTotal'];
 const REP_TU = ['objPrev','cumplio','porque','objProx','logros','apoyo','profDest','profMenos'];      // lo que escribe la dirección
 function repAuto(aid,wk){                                  // {v:{campo:valor}, filas:[[etiqueta,valor,nota]], dest, menos}
   const f2=addDays(wk,6), v={}, filas=[];
+  if(esServ(aid)){
+    const S=servStats(aid,wk,f2), ps=profesores(aid).filter(p=>p.activo!==false);
+    Object.assign(v,{svAtendidos:S.n,svTiempo:svHm(S.min),svOcup:S.util==null?'':S.util,svNoLlego:S.noLlego,svEsp:ps.length});
+    filas.push(['Servicios atendidos',S.n,S.dias?`en ${plu(S.dias,'día','días')}`:'sin registros'],['Tiempo de servicio',v.svTiempo,''],['Ocupación del turno',S.util==null?'—':S.util+'%',S.util==null?'falta horario o registros':svUtilEtiqueta(S.util)],
+      ['Citas que no llegaron',S.noLlego,S.noLlego?`${S.noShow} no se presentaron · ${S.cancel} cancelaron`:''],[servDe(aid).espP,ps.length,'activos']);
+    const P=ps.map(p=>({p,s:servStats(aid,wk,f2,p.id)})).filter(x=>x.s.n||x.s.turno);
+    const d=P.slice().sort((a,b)=>b.s.n-a.s.n)[0], m=P.slice().sort((a,b)=>((a.s.util==null?999:a.s.util)-(b.s.util==null?999:b.s.util))||(a.s.n-b.s.n))[0];
+    const por=x=>[plu(x.s.n,'servicio','servicios'),x.s.util!=null?`ocupación ${x.s.util}%`:''].filter(Boolean).join(' · ');
+    return {v,filas,dest:d&&d.s.n?{nom:d.p.nombre,por:por(d)}:null,menos:m&&P.length>1&&m!==d?{nom:m.p.nombre,por:por(m)}:null};
+  }
   if(esGim(aid)){
     const S=gimStats(aid,wk,f2), T=ptTotales(aid), ses=ptSesionesEn(aid,wk,f2,'realizada');
     Object.assign(v,{aforoProm:S.aforo==null?'':S.aforo,horaPico:S.pico?hh(S.pico.h):'',pctMu:S.pctMu==null?'':S.pctMu,pctHo:S.pctHo==null?'':S.pctHo,horasSat:S.saturadas,horasBajas:S.bajas,
@@ -119,7 +151,7 @@ function vSemanal(aid){
     const objPrev=val('objPrev')||String(ant.objProx||''), cumplio=val('cumplio');
     const ta=(k,l,ph,o)=>`<label class="f${o&&o.wide?' wide':''}"${o&&o.id?` id="${o.id}"`:''}${o&&o.hide?' hidden':''}><span>${l}</span><textarea id="r_${k}" rows="2" placeholder="${esc(ph||'')}">${esc(k==='objPrev'?objPrev:val(k))}</textarea>${o&&o.nota?`<small class="mut">${o.nota}</small>`:''}</label>`;
     const sug=(k,l,x)=>`<label class="f"><span>${l}</span><input id="r_${k}" type="text" value="${esc(val(k)||(x?x.nom:''))}" placeholder="${x?'':'Sin datos suficientes'}">${x?`<small class="mut">Sugerido por el sistema: ${esc(x.nom)} · ${esc(x.por)}</small>`:''}</label>`;
-    const opc=gim?[['incNota','Incidencias generales de la semana','ta']]:[['nuevos','Nuevos alumnos','num'],['edades','Edades predominantes','txt'],['competencias','Competencias activas','ta'],['incNota','Incidencias generales de la semana','ta']];
+    const sv=esServ(aid), opc=(gim||sv)?[['incNota','Incidencias generales de la semana','ta']]:[['nuevos','Nuevos alumnos','num'],['edades','Edades predominantes','txt'],['competencias','Competencias activas','ta'],['incNota','Incidencias generales de la semana','ta']];
     form = `<div class="card rp-auto"><div class="rp-at">${ic('bolt')} Lo pone el sistema</div>
         <div class="rp-grid">${A.filas.map(([l,v,n])=>`<div><span>${esc(l)}</span><b>${esc(String(v))}</b>${n?`<small>${esc(n)}</small>`:''}</div>`).join('')}</div>
         <small class="mut">Sale de las listas, conteos y registros de la semana. Se actualiza solo y se guarda al entregar.</small></div>
@@ -132,8 +164,8 @@ function vSemanal(aid){
         ${ta('objProx','Objetivo de la próxima semana','Una sola meta clara',{wide:1})}
         ${ta('logros','Logros de la semana','Opcional',{wide:1})}
         ${ta('apoyo','¿En qué te puede ayudar la gerencia?','Opcional',{wide:1})}
-        ${sug('profDest',gim?'Instructor más destacado':'Profesor más destacado',A.dest)}
-        ${sug('profMenos',gim?'Instructor con más áreas de mejora':'Profesor menos destacado',A.menos)}
+        ${sug('profDest',gim?'Instructor más destacado':sv?'Especialista más destacado':'Profesor más destacado',A.dest)}
+        ${sug('profMenos',gim?'Instructor con más áreas de mejora':sv?'Especialista con más áreas de mejora':'Profesor menos destacado',A.menos)}
       </div>
       <details class="rp-mas"${opc.some(([k])=>val(k))?' open':''}><summary>Más detalles (opcional)</summary><div class="fgrid">
         ${opc.map(([k,l,t])=>t==='ta'?ta(k,l,'',{wide:1}):`<label class="f"><span>${l}</span><input id="r_${k}" ${t==='num'?'type="number" inputmode="numeric" min="0"':'type="text"'} value="${esc(val(k))}"></label>`).join('')}</div></details>

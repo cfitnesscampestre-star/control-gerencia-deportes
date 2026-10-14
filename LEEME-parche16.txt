@@ -1,0 +1,31 @@
+PARCHE 16 - Control Gerencia: el instructor registra sus personalizados y una sola dirección para Nutrición y Fisioterapia
+=======================================================================================================================
+Requiere el parche 15. Deja el service worker en gd-v86.
+Sube (reemplazando): index.html, sw.js, css/main.css, css/gimnasio.css, js/gimnasio.js, js/gimhorario.js, js/gimagenda.js,
+  js/recepcion.js, js/sidebar.js, js/mobile.js, js/dashboard.js, js/servicios.js, js/auth.js, js/app.js, js/ajustes.js,
+  js/reportes.js, js/analisis.js
+Sube (NUEVO): js/gimpersonal.js
+
+GIMNASIO
+1) RECEPCIÓN SOLO VE EL HORARIO Y MANDA SOLICITUDES
+   - Recepción ya no registra ni asigna personalizados (su menú: Aforo · Horario · Rutinas).
+   - En el horario toca una hora, ve qué instructores están libres y a uno le manda una solicitud: nombre del socio y una nota.
+   - No viajan teléfonos: si se escribe un número en la nota, se cambia por "[teléfono en recepción]". El instructor pasa a recepción.
+   - Recepción ve sus solicitudes enviadas: Nueva · Vista · Atendida.
+2) EL INSTRUCTOR REGISTRA Y AGENDA SUS PERSONALIZADOS
+   - Ve "Solicitudes de recepción" con Enterado · Registrar personalizado · Ya lo atendí.
+   - "+ Nuevo personalizado": cliente, sesiones, monto, inicio, vence y agenda libre:
+       · horario que se repite: cualquier día y hora en que abre el gimnasio (ej. lunes 7:00 y jueves 20:00);
+       · fechas sueltas;
+       · lo que no se agende queda "sin fecha" y se agenda después con "+ Agendar sesión".
+   - Ya no depende del horario autorizado ni pide un número fijo de horarios por semana.
+   - Solo se bloquea lo que no puede pasar: fechas u horas que ya pasaron y dos clientes a la misma hora.
+   - Puede editar, reagendar y cancelar sus propias sesiones.
+3) DIRECCIÓN Y GERENCIA VEN TODO: bitácora, sesiones sin registrar y solicitudes de más de un día sin atender.
+   La dirección puede corregir con "Editar", pero ya no da de alta personalizados.
+
+NUTRICIÓN Y FISIOTERAPIA
+4) UNA SOLA DIRECCIÓN: en el acceso de Dirección aparece "Nutrición y Fisioterapia". Entra con la contraseña de cualquiera de las dos
+   y cambia de área con el selector de arriba. "Cambiar contraseña" cambia la de las dos.
+5) REPORTE E INCIDENCIAS: las dos áreas tienen ahora la pestaña Reporte (reporte semanal corto, con los números de la bitácora
+   ya puestos, e incidencias). Gerencia los cuenta en "Reportes semanales" y en "Requiere tu atención". Paramédicos no cambia.

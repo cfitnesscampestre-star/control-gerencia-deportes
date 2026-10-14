@@ -69,8 +69,8 @@ function viewGerencia(){
   return shell({title,sub,body,back,fs:!!ui.lista});
 }
 function viewDireccion(){
-  const a=getArea(session.area);
-  return shell({title:`${areaIco(a,{size:22})} ${esc(a.nombre)}`,sub:'Dirección de área',body:ui.rufier?vRufier():metBanner()+(ui.lista?vLista():areaBody(session.area)),back:ui.lista?'listaBack':null,fs:!!ui.lista||!!ui.rufier});
+  const a=getArea(session.area), gr=Array.isArray(session.grupo)&&session.grupo.length>1&&typeof SV_GRUPO_NOM!=='undefined';
+  return shell({title:`${areaIco(a,{size:22})} ${esc(a.nombre)}`,sub:gr?`Dirección de ${esc(SV_GRUPO_NOM)}`:'Dirección de área',body:ui.rufier?vRufier():metBanner()+(typeof dirGrupoSwitch==='function'?dirGrupoSwitch():'')+(ui.lista?vLista():areaBody(session.area)),back:ui.lista?'listaBack':null,fs:!!ui.lista||!!ui.rufier});
 }
 
 Object.assign(actions,{

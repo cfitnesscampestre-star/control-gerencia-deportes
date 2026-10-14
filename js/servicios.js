@@ -234,7 +234,15 @@ const svUtilEtiqueta = u => u==null?'':u>=SV_UTIL.ok?'justo':u>=SV_UTIL.warn?'re
 function svAviso(aid){
   return `<div class="sv-priv">${ic('shield')}<span>Solo se lleva el <b>control de la actividad</b>: nombre del socio, servicio y horario. No captures diagnósticos ni datos clínicos: el expediente lo lleva ${esc(servDe(aid).esp.toLowerCase())} por separado.</span></div>`;
 }
-const svTabs = aid => [['inicio','Resumen'],['profesores',pfNom(aid,1)]];
+const svTabs = aid => [['inicio','Resumen'],['profesores',pfNom(aid,1)]].concat(esParamed(aid)?[]:[['reporte','Reporte']]);
+/* Una sola dirección para Nutrición y Fisioterapia: entra una vez y cambia de área con el selector de arriba */
+const SV_GRUPO_NOM = 'Nutrición y Fisioterapia';
+const svDirGrupo = () => { const ids=areasList().filter(a=>a.tipo==='nutricion'||a.tipo==='fisioterapia').map(a=>a.id); return ids.length>1?ids:null; };
+function dirGrupoSwitch(){
+  if(!session||session.rol!=='dir'||!Array.isArray(session.grupo)||session.grupo.length<2||ui.lista) return '';
+  return `<div class="seg dir-grupo">${session.grupo.map(id=>getArea(id)).filter(Boolean).map(a=>`<button class="${session.area===a.id?'on':''}" data-act="dirGrupoArea" data-id="${esc(a.id)}">${areaIco(a,{size:16})} ${esc(a.nombre)}</button>`).join('')}</div>`;
+}
+Object.assign(actions,{ dirGrupoArea(d){ if(!session||!Array.isArray(session.grupo)||!session.grupo.includes(d.id)) return; session.area=d.id; if(!svTabs(d.id).some(t=>t[0]===ui.aTab)) ui.aTab='inicio'; saveSession(); render(); top0(); } });
 const servSwitch = () => '';
 function svKpis(aid,s){
   const S=servDe(aid), a=S.servicios[0], b=S.servicios[1], ga=s.porServ.find(x=>x.k===a.s)||{n:0,min:0}, gb=s.porServ.find(x=>x.k===b.s)||{n:0,min:0};
@@ -311,6 +319,7 @@ function vServInicio(aid){
   const sinH=profesores(aid).filter(p=>p.activo!==false&&!spDias(p).length);
   const medir=!esParamed(aid);                          // Gerencia no mide el servicio de Paramédicos: solo agendan citas a Fisioterapia
   return `<div class="sv">
+    ${(medir&&typeof dirPendientes==='function')?dirPendientes(aid):''}
     <div class="sub">${esc(fmtLarga(todayStr()))} · ${plu(nProf,S.esp.toLowerCase(),S.espP.toLowerCase())}</div>
     ${nProf?'':empty(`Da de alta a los ${esc(S.espP.toLowerCase())} en la pestaña “${esc(S.espP)}”, con su horario y su clave.`)}
     ${svPendientesBanner(aid)}

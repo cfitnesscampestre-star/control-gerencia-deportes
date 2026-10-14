@@ -103,10 +103,12 @@ Object.assign(actions,{
   savePw(d){
     const err=m=>{ $('#pw_err').textContent=m; };
     const n1=$('#pw_new').value, n2=$('#pw_new2').value;
-    if(d.kind==='self' && hashPass($('#pw_cur').value)!==state.cfg.pass.dir[d.id]) return err('La contraseña actual no coincide.');
+    const grupo=d.kind==='self'&&session&&Array.isArray(session.grupo)?session.grupo:null;
+    if(d.kind==='self' && !(grupo||[d.id]).some(id=>hashPass($('#pw_cur').value)===state.cfg.pass.dir[id])) return err('La contraseña actual no coincide.');
     if(n1.length<4) return err('Usa al menos 4 caracteres.');
     if(n1!==n2) return err('Las dos contraseñas no coinciden.');
-    setPath(d.kind==='ger'?'cfg/pass/ger':d.kind==='met'?'cfg/pass/met':`cfg/pass/dir/${d.id}`,hashPass(n1));
+    if(grupo) grupo.forEach(id=>setPath(`cfg/pass/dir/${id}`,hashPass(n1)));          // Nutrición y Fisioterapia: una sola contraseña
+    else setPath(d.kind==='ger'?'cfg/pass/ger':d.kind==='met'?'cfg/pass/met':`cfg/pass/dir/${d.id}`,hashPass(n1));
     closeModal(); toast('Contraseña actualizada');
   },
   ghCopiar(){                                            // copia el horario del primer día abierto a los demás días abiertos

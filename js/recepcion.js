@@ -7,13 +7,13 @@
      uno con su PIN.
    · RECEPCIÓN (entra con su PIN): solo estas cosas
        1) captura el aforo por hora (junto con la dirección)
-       2) da de alta los personalizados y se los asigna a un instructor (con sus citas por fecha y hora)
-       3) consulta el horario semanal de personalizados (horas libres u ocupadas)
-       3b) reagenda o cancela una sesión cuando el cliente avisa: el instructor recibe el aviso
+       2) consulta el horario semanal de personalizados (horas libres u ocupadas)
+       3) manda una SOLICITUD al instructor libre: “Fulano solicita clases” (sin teléfonos: el
+          instructor pasa a recepción). Los personalizados los registra el instructor (gimpersonal.js)
        4) solicita rutinas genéricas, que llegan al entrenador que sigue en la fila
      No ve instructores, eventos, reportes ni otras áreas.
-   · INSTRUCTOR / ENTRENADOR (entra con su PIN): ve su agenda (hoy, sin registrar, próximos
-     días), los avisos de cambios (marca “Enterado”) y registra cada sesión cuando ya pasó su hora.
+   · INSTRUCTOR / ENTRENADOR (entra con su PIN): atiende las solicitudes de recepción, registra y
+     agenda sus personalizados, ve su agenda (hoy, sin registrar, próximos días) y registra cada sesión.
 
    Datos: data/<área>/recepcion/<id>  {id, nombre, pin, activo}
    Sesión: {rol:'rec', area, recId}
@@ -28,7 +28,7 @@ function vGimRecepcion(aid){
   const ro=roDatos(aid), L=recepcion(aid);
   return `<div class="h2">Recepción ${ro?'':`<button class="btn sm primary" data-act="openRec">+ Recepcionista</button>`}</div>
     ${gruposSwitch()}
-    <div class="sub">${ro?'Personal de recepción con acceso.':'Da de alta a las personas de recepción, cada una con su PIN.'} Ellas capturan el aforo por hora y dan de alta los personalizados, asignándolos a un instructor. No ven nada más.</div>
+    <div class="sub">${ro?'Personal de recepción con acceso.':'Da de alta a las personas de recepción, cada una con su PIN.'} Capturan el aforo por hora, ven el horario de personalizados y mandan solicitudes a los instructores. No registran personalizados ni ven nada más.</div>
     ${L.length?`<div class="plist">${L.map(r=>`<button class="pcard" data-act="openRec" data-id="${esc(r.id)}" style="--ac:${areaColor(aid)}">${avatarHTML(r.nombre,'',54)}<div class="pc-n"><b>${esc(r.nombre)}</b><small>Recepción</small></div><div class="pc-r">${r.activo===false?pill('Inactiva','mut'):pill('Con acceso','ok')}</div></button>`).join('')}</div>`
       :empty(ro?'Todavía no hay personal de recepción dado de alta.':'Aún no hay recepcionistas. Da de alta a la primera con “+ Recepcionista”.')}`;
 }
@@ -48,8 +48,8 @@ function openRec(id){
 /* ---------- pantalla de Recepción ---------- */
 function viewRecepcion(){
   const aid=session.area, a=getArea(aid), r=getRec(aid,session.recId)||{};
-  if(!['gimaforo','gimpt','gimhorario','gimrutinas'].includes(ui.aTab)) ui.aTab='gimaforo';
-  const body = ui.aTab==='gimpt' ? vGimPT(aid) : ui.aTab==='gimhorario' ? vGimHorario(aid) : ui.aTab==='gimrutinas' ? vGimRutinas(aid) : vGimAforo(aid);
+  if(!['gimaforo','gimhorario','gimrutinas'].includes(ui.aTab)) ui.aTab='gimaforo';
+  const body = ui.aTab==='gimhorario' ? vGimHorario(aid) : ui.aTab==='gimrutinas' ? vGimRutinas(aid) : vGimAforo(aid);
   return shell({title:esc(r.nombre||'Recepción'),sub:`Recepción · ${areaIco(a,{size:14})} ${esc(a.nombre)}`,body});
 }
 
@@ -63,6 +63,7 @@ function vGimProf(){
   const sesMes=pk.reduce((n,x)=>n+ptSes(x).filter(s=>s.e==='realizada'&&String(s.f).startsWith(mes)).length,0);
   const dias=[...new Set(prox.map(y=>y.c.f))];
   return `<div class="gpf">
+    ${gimSolProf(aid,pid)}
     ${gimAvisosProf(aid,pid)}
     ${gimRutProf()}
     ${(()=>{ const y=hoy.filter(y=>!y.c.reg&&ctKey(y.c.f,y.c.h)<=ahoraKey()).pop(); if(!y) return '';      // la sesión que acaba de empezar: registro en un toque
@@ -77,8 +78,8 @@ function vGimProf(){
     ${hoy.length?hoy.map(y=>ctFila(aid,y.pk,y.c)).join(''):empty('Hoy no tienes sesiones agendadas.')}
     <div class="h2">Próximos 7 días</div>
     ${dias.length?dias.map(f=>`<div class="ct-dia">${esc(fmtLarga(f))}</div>${prox.filter(y=>y.c.f===f).map(y=>ctFila(aid,y.pk,y.c)).join('')}`).join(''):empty('No tienes sesiones agendadas en los próximos 7 días.')}
-    <div class="h2">Mis personalizados</div>
-    ${act.length?act.map(x=>ptPaqHTML(aid,x,{prof:true})).join(''):empty('Todavía no tienes personalizados asignados. Recepción los da de alta y te los asigna.')}
+    <div class="h2">Mis personalizados <button class="btn sm primary" data-act="openPT">+ Nuevo personalizado</button></div>
+    ${act.length?act.map(x=>ptPaqHTML(aid,x,{prof:true})).join(''):empty('Todavía no tienes personalizados. Regístralos con “+ Nuevo personalizado”.')}
     ${ant.length?`<div class="h2 sm">Anteriores</div>${ant.map(x=>ptPaqHTML(aid,x,{prof:true})).join('')}`:''}
   </div>`;
 }
