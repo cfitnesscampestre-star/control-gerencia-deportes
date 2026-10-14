@@ -33,7 +33,8 @@ const NAV_REC = [
   {id:'gimrutinas',label:'Rutinas',ic:'doc'}
 ];
 const NAV_PROF_GIM = [
-  {id:'hoy',label:'Mis personalizados',ic:'users'}
+  {id:'hoy',label:'Mis personalizados',ic:'users'},
+  {id:'horario',label:'Mi horario',ic:'cal'}
 ];
 const NAV_PROF_SERV = [
   {id:'hoy',label:'Mi bitácora',ic:'clip'}

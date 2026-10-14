@@ -221,7 +221,7 @@ function rgOpciones(aid,pk,cid,f){
   if(!f) return [];
   const ctx=ghCtx(aid,pk.id), propias=new Set(ptMapa(pk).ag.filter(c=>c.id!==cid&&ctCuenta(c)).map(c=>ctKey(c.f,c.h)));
   return gimHorasDia(aid,f).map(h=>{ const oc=ctx.occ[`${pk.profId}|${f}|${h}`], ya=propias.has(ctKey(f,h)), pasada=!ctLibre(f,h);
-    return {h,ok:!pasada&&!oc&&!ya,por:pasada?'ya pasó':oc?`ocupado con ${oc.cliente||'otro cliente'}`:ya?'ya tiene sesión':''}; });
+    return {h,ok:!pasada&&!oc&&!ya,por:pasada?'ya pasó':oc?(oc.bloqueo?`bloqueada (${String(oc.motivo||'').toLowerCase()})`:`ocupado con ${oc.cliente||'otro cliente'}`):ya?'ya tiene sesión':''}; });
 }
 function rgFillHoras(){
   if(!rgCtx) return;
@@ -268,12 +268,17 @@ function gimAtencion(aid){
   const sinVer=gimLogs(aid).filter(l=>l.aviso&&!l.visto);
   const sinAg=coll(aid,'paquetes').filter(x=>ptVigente(x)&&!fcId(x.id)).map(x=>({x,n:ptMapa(x).sinAgendar})).filter(y=>y.n>0);
   const sinAt=typeof solPendientes==='function'?solPendientes(aid).filter(s=>Date.now()-(s.ts||0)>864e5):[];     // solicitudes de recepción de más de un día sin atender
-  return {sinReg,sinVer,sinAg,sinAt};
+  const huerf=typeof ptHuerfanos==='function'?ptHuerfanos(aid):[];                 // personalizados de instructores dados de baja, por decidir
+  const rutAtr=typeof rutAtrasadas==='function'?rutAtrasadas(aid):[];
+  return {sinReg,sinVer,sinAg,sinAt,huerf,rutAtr};
 }
 function gimAtencionHTML(aid){
   const A=gimAtencion(aid);
-  if(!A.sinReg.length&&!A.sinVer.length&&!A.sinAg.length&&!A.sinAt.length) return `<div class="an-cs" style="margin:6px 0 10px">✓ Sin pendientes: todas las sesiones pasadas están registradas y los instructores ya vieron los avisos.</div>`;
+  if(!A.sinReg.length&&!A.sinVer.length&&!A.sinAg.length&&!A.sinAt.length&&!A.huerf.length&&!A.rutAtr.length) return `<div class="an-cs" style="margin:6px 0 10px">✓ Sin pendientes: todas las sesiones pasadas están registradas y los instructores ya vieron los avisos.</div>`;
+  const porProf={}; A.huerf.forEach(x=>{ (porProf[x.profId]=porProf[x.profId]||[]).push(x); });
   return `<div class="h2 sm">Requiere atención</div>
+    ${Object.entries(porProf).map(([pid,L])=>`<div class="card pb-atn"><div class="row"><div><b class="bad">${esc(ptProfNom(aid,L[0]))} ya no está activo</b><small>${plu(L.length,'personalizado pendiente por decidir','personalizados pendientes por decidir')}: ${esc(L.map(x=>x.cliente||'Cliente').join(', '))}</small></div>${roDatos(aid)?'':`<button class="btn sm primary" data-act="ptBajaAbrir" data-prof="${esc(pid)}">Decidir</button>`}</div></div>`).join('')}
+    ${A.rutAtr.length?`<div class="sub"><b class="warn">${plu(A.rutAtr.length,'rutina atrasada','rutinas atrasadas')}:</b> ${esc(A.rutAtr.map(r=>`${r.nombre} (${rutProfNom(aid,r)})`).join(', '))}.</div>`:''}
     ${A.sinReg.length?`<div class="sub"><b class="bad">${plu(A.sinReg.length,'sesión ya pasó','sesiones ya pasaron')} sin registro</b> (últimos 30 días). El instructor debe indicar si se dio, si el cliente no asistió o si se canceló.</div>${A.sinReg.slice(0,8).map(y=>ctFila(aid,y.pk,y.c,{prof:true,fecha:true})).join('')}${A.sinReg.length>8?`<small class="mut">y ${A.sinReg.length-8} más…</small>`:''}`:''}
     ${A.sinVer.length?`<div class="sub"><b class="warn">${plu(A.sinVer.length,'aviso','avisos')} sin ver por el instructor:</b> ${esc([...new Set(A.sinVer.map(l=>(getProf(aid,l.prof)||{}).nombre).filter(Boolean))].join(', '))}.</div>`:''}
     ${A.sinAg.length?`<div class="sub"><b class="warn">Sesiones sin fecha:</b> ${A.sinAg.map(y=>`${esc(y.x.cliente||'Cliente')} (${y.n})`).join(', ')}. El instructor las agenda.</div>`:''}

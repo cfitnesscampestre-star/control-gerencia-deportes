@@ -91,9 +91,13 @@ Object.assign(actions,{
     const id=d.id||('p'+uid()), prev=d.id?(getProf(aid,id)||{}):{};
     setPath(`data/${aid}/profesores/${id}`,{...prev,id,nombre,pin,tipo:$('#pf_tipo').value,activo:$('#pf_activo').value==='1',especialidad:$('#pf_esp').value.trim(),foto:pfFotoData||'',mantenimiento:!!($('#pf_mant')?$('#pf_mant').value==='1':prev.mantenimiento),...svProfLeer(aid),...gimProfLeer(aid)});
     if(prev.nombre&&prev.nombre!==nombre) clasesDe(aid,id).forEach(g=>setPath(`data/${aid}/grupos/${g.id}/prof`,profsDeGrupo(g).map(x=>x===id?nombre:((getProf(aid,x)||{}).nombre||'')).filter(Boolean).join(' / ')));
+    if(esGim(aid)&&prev.activo!==false&&$('#pf_activo').value!=='1'&&typeof ptPendientesDe==='function'&&ptPendientesDe(aid,id).length){   // inactivo con personalizados pendientes
+      closeModal(); render(); ptBajaModal(id,'inactivar'); toast('Guardado. Decide qué pasa con sus personalizados'); return;
+    }
     closeModal(); render(); toast(esServ(aid)?'Especialista guardado':'Profesor guardado');
   },
   delProfesor(d){
+    if(esGim(curArea())&&typeof ptPendientesDe==='function'&&ptPendientesDe(curArea(),d.id).length){ closeModal(); ptBajaModal(d.id,'eliminar'); return; }   // gimnasio: primero se decide qué pasa con sus personalizados
     if(!confirm(esServ(curArea())?'¿Eliminar a este especialista? Sus registros de bitácora se conservan.':'¿Eliminar este profesor? Sus clases quedan sin profesor asignado.')) return;
     const aid=curArea();
     clasesDe(aid,d.id).forEach(g=>{                      // lo quita de todos sus días; si el grupo tenía a otro profesor, se queda con él

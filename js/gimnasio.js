@@ -60,12 +60,13 @@ const ptSes = p => Object.values(p.sesiones||{});
 const ptReal = p => ptSes(p).filter(s=>PT_DESC.includes(s.e)).length;             // sesiones que ya se descontaron (realizadas + no asistió)
 function ptEstado(p){
   const t=todayStr(), real=ptReal(p);
+  if(p.cerrado) return 'cerrado';                           // la dirección lo cerró (p. ej. por baja del instructor): ya no ocupa horas
   if(real>=(+p.total||0)) return 'completado';
   if(p.fin&&p.fin<t) return 'vencido';
   if(p.fin&&p.fin<=addDays(t,7)) return 'por vencer';
   return 'activo';
 }
-const PT_CLS = {activo:'ok','por vencer':'warn',vencido:'bad',completado:'info'};
+const PT_CLS = {activo:'ok','por vencer':'warn',vencido:'bad',completado:'info',cerrado:'mut'};
 const ptVigente = p => ['activo','por vencer'].includes(ptEstado(p));
 function ptResumen(aid){                                   // una fila por instructor
   const pk=coll(aid,'paquetes');
@@ -262,7 +263,7 @@ function ptDetalle(pid){
   const pk=coll(aid,'paquetes').filter(x=>x.profId===pid).sort((a,b)=>(ptVigente(b)-ptVigente(a))||String(b.fin).localeCompare(String(a.fin)));
   const ro=roDatos(aid);
   openModal(`${mHead(esc(p.nombre))}
-    <div class="sub">${esc(p.tipo||'Instructor')} · ${plu(pk.filter(ptVigente).length,'paquete activo','paquetes activos')}${ghHorTxt(p,'horPt')?` · personalizados ${esc(ghHorTxt(p,'horPt'))}`:''}</div>
+    <div class="sub">${esc(p.tipo||'Instructor')} · ${plu(pk.filter(ptVigente).length,'paquete activo','paquetes activos')}${ghSemanaTxt(p,mondayOf(todayStr()))?` · personalizados esta semana: ${esc(ghSemanaTxt(p,mondayOf(todayStr())))}`:''}</div>
     ${pk.length?pk.map(x=>ptPaqHTML(aid,x,{from:'det:'+pid})).join(''):empty('Este instructor todavía no tiene personalizados.')}
     <div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`);
 }

@@ -192,3 +192,14 @@
 .card.sol .btns{margin-top:8px;flex-wrap:wrap}
 .pt-ag{border:1.5px solid var(--line);border-radius:14px;padding:10px;margin-bottom:12px}
 .pt-ag .lb small{font-weight:500}
+
+/* ===== Mi horario del instructor ===== */
+.gh-c.yo{background:var(--info-l);color:var(--info);border:1.5px solid var(--info);cursor:pointer}
+.gh-c.yo small{font-size:10.5px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+.gh-c.mio{background:var(--warn-l);color:#8a5a00;border:1.5px solid var(--warn);cursor:pointer}
+.gh-c.fh{background:transparent;border:1.5px dashed var(--line-2);color:var(--mut);cursor:pointer}
+.gh-leg i.yo{background:var(--info-l);border:1.5px solid var(--info)}.gh-leg i.mio{background:var(--warn-l);border:1.5px solid var(--warn)}.gh-leg i.fh{border:1.5px dashed var(--line-2)}
+.gh-tb.mih .gh-c{height:38px}
+.gh-rp.atr{border-left-color:var(--bad)}
+.card.pb{margin-bottom:10px}.card.pb>small{display:block;color:var(--ink-2);margin:2px 0 6px}
+.card.pb-atn{border-left:4px solid var(--bad);margin-bottom:10px}.card.pb-atn .row{display:flex;gap:10px;align-items:center;justify-content:space-between}.card.pb-atn small{display:block;color:var(--ink-2)}

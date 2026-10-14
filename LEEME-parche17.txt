@@ -1,0 +1,25 @@
+PARCHE 17 - Gimnasio, primera entrega: horario del instructor, bajas sin perder datos y rutinas con entrega en recepción
+=====================================================================================================================
+Requiere el parche 16. Deja el service worker en gd-v89. No cambia colores, fondos ni el reporte semanal a Gerencia.
+Sube (reemplazando): index.html, sw.js, css/gimnasio.css, js/gimhorario.js, js/gimnasio.js, js/gimagenda.js, js/portal.js,
+  js/sidebar.js, js/mobile.js, js/profesores.js, js/dashboard.js
+Sube (NUEVOS): js/gimmihorario.js, js/gimbaja.js
+
+1) "MI HORARIO" DEL INSTRUCTOR
+   - El instructor (no la dirección) define sus horas de personalizados, semana por semana (pestaña "Mi horario").
+   - Toca una hora vacía para agregarla, o una suya para quitarla o bloquearla (comida, salida o asunto personal).
+   - No puede quitar ni bloquear una hora donde ya tiene socio.
+   - "Copiar a la semana siguiente" (para repetir o recortar) y "Usar como horario fijo".
+   - La ficha del instructor en Dirección queda igual que antes, solo sin el horario de personalizados (muestra el de esta semana).
+   - Mientras un instructor no defina el suyo, se sigue usando el que capturó la dirección.
+2) RECEPCIÓN VE OCUPADO TODO LO OCUPADO
+   - Sesiones a cualquier hora (aunque estén fuera del horario) y horas bloqueadas salen ocupadas, sin nombres ni motivos.
+3) BAJA DE INSTRUCTOR SIN PERDER PERSONALIZADOS
+   - Al eliminar o marcar como inactivo a un instructor con personalizados pendientes, la dirección decide por paquete:
+     pasarlo a otro instructor (recibe el aviso; si alguna sesión choca, se le dice) o cerrarlo (se conserva el historial).
+   - Lo que no se decida queda en "Requiere atención", en los pendientes de la dirección y en el resumen de Gerencia.
+4) RUTINAS GENÉRICAS
+   - Teléfono opcional: solo lo ven recepción y la dirección, nunca el entrenador.
+   - Recepción elige el plazo de entrega (24, 48 o 72 horas; 48 por omisión).
+   - Estados: En elaboración -> Lista en recepción (el entrenador la deja) -> Entregada (recepción se la da al socio).
+   - Las que pasan el plazo salen como atrasadas para la dirección y Gerencia.

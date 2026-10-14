@@ -126,6 +126,10 @@ function gAtencion(as){
   if(sinL.length) it('warn','Clases de ayer sin lista',gAtnChips(sinL,'inicio'),anSum(sinL,x=>x.n));
   const gimP=as.filter(a=>esGim(a.id)&&typeof gimAtencion==='function').map(a=>({a,n:gimAtencion(a.id).sinReg.length})).filter(x=>x.n);
   if(gimP.length) it('warn','Personalizados sin registrar',gAtnChips(gimP,'gimpt'),anSum(gimP,x=>x.n));
+  const gimB=as.filter(a=>esGim(a.id)&&typeof ptHuerfanos==='function').map(a=>({a,n:ptHuerfanos(a.id).length})).filter(x=>x.n);
+  if(gimB.length) it('bad','Personalizados de instructores dados de baja, sin decidir',gAtnChips(gimB,'gimpt'),anSum(gimB,x=>x.n));
+  const gimR=as.filter(a=>esGim(a.id)&&typeof rutAtrasadas==='function').map(a=>({a,n:rutAtrasadas(a.id).length})).filter(x=>x.n);
+  if(gimR.length) it('warn','Rutinas genéricas atrasadas',gAtnChips(gimR,'gimrutinas'),anSum(gimR,x=>x.n));
   if(otras.length) it('mut','Otras incidencias abiertas',gAtnChips(otras,'reporte','incidencias'),anSum(otras,x=>x.n));
   const sv=svAtencionGerencia();
   if(sv) out.push(`<div class="gx-it info"><div class="gx-h"><i></i><b>Nutrición y Fisioterapia</b></div>${sv}</div>`);
@@ -219,6 +223,8 @@ function dirPendientes(aid){
       if(A.sinReg.length) rows.push(pendRow('bad',`${plu(A.sinReg.length,'sesión de personalizado','sesiones de personalizado')} sin registrar`,lista([...new Set(A.sinReg.map(y=>(getProf(aid,y.pk.profId)||{}).nombre).filter(Boolean))],3),ir('gimpt','Ver')));
       if(A.sinVer.length) rows.push(pendRow('info',`${plu(A.sinVer.length,'aviso','avisos')} sin ver por los instructores`,'Cambios de recepción que el instructor no ha marcado como enterado',ir('gimpt','Ver')));
       if(A.sinAg.length) rows.push(pendRow('info',`${plu(A.sinAg.length,'personalizado','personalizados')} con sesiones sin fecha`,lista(A.sinAg.map(y=>y.x.cliente||'Cliente'),3),ir('gimpt','Ver')));
+      if(A.huerf.length) rows.push(pendRow('bad',`${plu(A.huerf.length,'personalizado','personalizados')} de instructores dados de baja`,'Decide si pasan a otro instructor o se cierran',ir('gimpt','Decidir')));
+      if(A.rutAtr.length) rows.push(pendRow('warn',`${plu(A.rutAtr.length,'rutina atrasada','rutinas atrasadas')}`,lista(A.rutAtr.map(r=>r.nombre),3),ir('gimrutinas','Ver')));
       if(A.sinAt.length) rows.push(pendRow('warn',`${plu(A.sinAt.length,'solicitud de recepción','solicitudes de recepción')} sin atender`,'Más de un día esperando al instructor',ir('gimhorario','Ver')));
     }
   } else if(!esVinculada(aid)&&!esServ(aid)){
