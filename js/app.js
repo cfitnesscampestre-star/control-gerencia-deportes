@@ -10,11 +10,12 @@ function viewTopbar(title,sub,back){
     <div class="tb-t"><b>${title}</b><small>${sub}</small>
       ${(c=>`<button class="cloud ${c.cls}" data-act="syncInfo" aria-label="Estado de la sincronización"><i></i>${c.txt}</button>`)(cloudChip())}</div>
     ${typeof dirPuedeEntrenar==='function'&&dirPuedeEntrenar()?`<button class="tb-ent only-m" data-act="dirComoProf" aria-label="Entrar como entrenador">${ic('clip')}<span>Entrenador</span></button>`:''}
+    ${session&&session.rol==='ger'?`<button class="tb-ent only-m" data-act="verComo" aria-label="Ver como otra área (modo prueba)">${ic('users')}<span>Ver como</span></button>`:''}
     <button class="ibtn only-m" data-act="logout" aria-label="Salir">${ic('logout')}</button>
   </header>`;
 }
 function shell({title,sub,body,back,fs}){
-  return `<div class="app${fs?' fs':''}">${viewSidebar()}<div class="content">${viewTopbar(title,sub,back)}<main class="main">${typeof bannerEntrena==='function'?bannerEntrena():''}${body}</main></div>${viewBottomNav()}</div>`;
+  return `<div class="app${fs?' fs':''}">${viewSidebar()}<div class="content">${viewTopbar(title,sub,back)}<main class="main">${typeof bannerPrueba==='function'?bannerPrueba():''}${typeof bannerEntrena==='function'?bannerEntrena():''}${body}</main></div>${viewBottomNav()}</div>`;
 }
 function render(){
   const app=$('#app');
@@ -63,8 +64,8 @@ function viewGerencia(){
   else if(ui.gTab==='mantenimiento'){ body=vMantGerencia(); title='Mantenimiento'; sub='Reportes de equipo · solo lectura'; }
   else if(ui.gTab==='ajustes') body=gAjustes();
   else if(ui.gArea&&getArea(ui.gArea)){
-    const a=getArea(ui.gArea); title=`${areaIco(a,{size:22})} ${esc(a.nombre)}`; sub='Vista de gerencia · solo lectura'; back=ui.lista?'listaBack':'gBack';
-    body=ui.lista?vLista():areaTabs()+areaBody(ui.gArea);
+    const a=getArea(ui.gArea), gs=enGrupoSalud(ui.gArea); title=gs?esc(SV_GRUPO_NOM):`${areaIco(a,{size:22})} ${esc(a.nombre)}`; sub=gs?`${esc(a.nombre)} · vista de gerencia · solo lectura`:'Vista de gerencia · solo lectura'; back=ui.lista?'listaBack':'gBack';
+    body=ui.lista?vLista():gerGrupoSwitch()+areaTabs()+areaBody(ui.gArea);
   } else body=gAreasList();
   return shell({title,sub,body,back,fs:!!ui.lista});
 }

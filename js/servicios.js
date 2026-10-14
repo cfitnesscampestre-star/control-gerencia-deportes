@@ -236,8 +236,21 @@ function svAviso(aid){
 }
 const svTabs = aid => [['inicio','Resumen'],['profesores',pfNom(aid,1)]].concat(esParamed(aid)?[]:[['reporte','Reporte']]);
 /* Una sola dirección para Nutrición y Fisioterapia: entra una vez y cambia de área con el selector de arriba */
-const SV_GRUPO_NOM = 'Nutrición y Fisioterapia';
+const SV_GRUPO_NOM = 'Área de la Salud';
 const svDirGrupo = () => { const ids=areasList().filter(a=>a.tipo==='nutricion'||a.tipo==='fisioterapia').map(a=>a.id); return ids.length>1?ids:null; };
+const enGrupoSalud = id => { const G=svDirGrupo(); return !!G&&G.includes(id); };
+/* lista de áreas tal como la ve gerencia: Nutrición y Fisioterapia juntas como “Área de la Salud” (en el lugar de la primera) */
+function areasVista(){
+  const as=areasList(), G=svDirGrupo(); if(!G) return as;
+  const out=[]; let puesto=false;
+  as.forEach(a=>{ if(!G.includes(a.id)) out.push(a); else if(!puesto){ out.push({...a,id:G[0],nombre:SV_GRUPO_NOM,_grupo:true}); puesto=true; } });
+  return out;
+}
+function gerGrupoSwitch(){                                   // gerencia dentro del Área de la Salud: Nutrición | Fisioterapia
+  if(!session||session.rol!=='ger'||!enGrupoSalud(ui.gArea)||ui.lista) return '';
+  return `<div class="seg dir-grupo">${svDirGrupo().map(id=>getArea(id)).filter(Boolean).map(a=>`<button class="${ui.gArea===a.id?'on':''}" data-act="gGrupoArea" data-id="${esc(a.id)}">${areaIco(a,{size:16})} ${esc(a.nombre)}</button>`).join('')}</div>`;
+}
+Object.assign(actions,{ gGrupoArea(d){ if(!enGrupoSalud(d.id)) return; ui.gArea=d.id; if(!svTabs(d.id).some(t=>t[0]===ui.aTab)) ui.aTab='inicio'; render(); top0(); } });
 function dirGrupoSwitch(){
   if(!session||session.rol!=='dir'||!Array.isArray(session.grupo)||session.grupo.length<2||ui.lista) return '';
   return `<div class="seg dir-grupo">${session.grupo.map(id=>getArea(id)).filter(Boolean).map(a=>`<button class="${session.area===a.id?'on':''}" data-act="dirGrupoArea" data-id="${esc(a.id)}">${areaIco(a,{size:16})} ${esc(a.nombre)}</button>`).join('')}</div>`;

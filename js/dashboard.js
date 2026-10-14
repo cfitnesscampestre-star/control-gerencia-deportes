@@ -21,7 +21,7 @@ function areaCard(a,pa){                        // pa = datos del período (opci
   const s=areaStats(a.id), af=pa?pa.aforo:s.aforo, cls=aforoCls(af), lbl=pa?anPerLabel():'30 días', gim=esGim(a.id), sv=esServ(a.id);
   const hoyG=gim?gimStats(a.id,todayStr(),todayStr()):null, PT=gim?ptTotales(a.id):null;
   return `<button class="acard" data-act="openArea" data-id="${esc(a.id)}" style="--ac:${esc(a.color)}">
-    <div class="ac-h">${areaIco(a,{tile:true,size:22})}<b>${esc(a.nombre)}</b>${repAplica(a.id)?repPill(s.reporte):''}</div>
+    <div class="ac-h">${areaIco(a,{tile:true,size:22})}<b>${enGrupoSalud(a.id)?`<small class="ac-g">${esc(SV_GRUPO_NOM)}</small>`:''}${esc(a.nombre)}</b>${repAplica(a.id)?repPill(s.reporte):''}</div>
     <div class="ac-m">
       <div class="ac-p ${sv?'':cls}">${sv?esc(svHm(pa&&pa.sv?pa.sv.min:0)):(af==null?'—':af+'%')}<small>${sv?'de servicio':'aforo'}, ${esc(lbl)} ${pa&&!sv?anDeltaChip(pa.d):''}</small></div>
       <div class="ac-r"><div class="bar"><i class="${sv?'ok':cls}" style="width:${sv?(pa&&pa.sv&&pa.sv.n?100:0):Math.min(af||0,100)}%"></i></div>

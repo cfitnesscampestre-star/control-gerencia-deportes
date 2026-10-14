@@ -80,8 +80,8 @@ function viewSidebar(){
     : rec ? NAV_REC.map(n=>`<button class="${ui.aTab===n.id?'on':''}" data-act="aTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')
     : prof ? (typeof navProfExtra==='function'?navProfExtra:x=>x)(esServ(session.area)?NAV_PROF_SERV:esGim(session.area)?NAV_PROF_GIM:NAV_PROF).map(n=>`<button class="${ui.pTab===n.id?'on':''}" data-act="pTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')
     : (typeof navDirExtra==='function'?navDirExtra:x=>x)(esServ(session.area)?NAV_SERV.filter(n=>svTabs(session.area).some(t=>t[0]===n.id)):esGim(session.area)?NAV_GIM:NAV_DIR).map(n=>`<button class="${ui.aTab===n.id?'on':''}" data-act="aTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('');
-  const areas = ger ? `<div class="sb-sec">Áreas</div><nav class="sb-nav sb-areas">${areasList().map(x=>
-    `<button class="${ui.gTab==='areas'&&ui.gArea===x.id?'on':''}" data-act="openArea" data-id="${esc(x.id)}"><i class="sb-dot" style="background:${esc(x.color)}"></i><span>${esc(x.nombre)}</span></button>`).join('')}</nav>` : '';
+  const areas = ger ? `<div class="sb-sec">Áreas</div><nav class="sb-nav sb-areas">${areasVista().map(x=>
+    `<button class="${ui.gTab==='areas'&&(ui.gArea===x.id||(x._grupo&&enGrupoSalud(ui.gArea)))?'on':''}" data-act="openArea" data-id="${esc(x.id)}"><i class="sb-dot" style="background:${esc(x.color)}"></i><span>${esc(x.nombre)}</span></button>`).join('')}</nav>` : '';
   return `<aside class="sidebar">
     <div class="sb-brand">
       <div class="sb-logo"><span>C</span><img src="img/logo.png" alt="Club Campestre Aguascalientes" data-fallback></div>
@@ -94,6 +94,7 @@ function viewSidebar(){
       <div class="sb-user"><b>${ger?'Gerencia':rec?'Recepción':prof?(esServ(session.area)?pfNom(session.area,0):esGim(session.area)?'Instructor':'Profesor'):'Dirección'}</b>${ger?'Todas las áreas':(prof||rec)?esc(pr.nombre):areaIco(a,{size:15})+' '+esc(a.nombre)}</div>
       ${(c=>`<button class="cloud ${c.cls}" data-act="syncInfo" aria-label="Estado de la sincronización"><i></i>${c.txt}</button>`)(cloudChip())}
       ${typeof dirPuedeEntrenar==='function'&&dirPuedeEntrenar()?`<button class="btn sm block" data-act="dirComoProf">${ic('clip')} Entrar como entrenador</button>`:''}
+      ${ger?`<button class="btn sm block" data-act="verComo">${ic('users')} Ver como… (modo prueba)</button>`:''}
       <button class="btn sm block" data-act="logout">${ic('logout')} Salir</button>
     </div>
   </aside>`;
