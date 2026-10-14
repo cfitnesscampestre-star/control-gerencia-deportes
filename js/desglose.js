@@ -119,9 +119,9 @@ function dgIncid(ctx){
 
 /* ---------- reportes semanales ---------- */
 function dgReportes(ctx){
-  const wk=mondayOf(ctx.r.hasta), semAct=mondayOf(todayStr());
+  const semAct=mondayOf(todayStr()), wk0=mondayOf(ctx.r.hasta), wk=wk0>=semAct?addDays(semAct,-7):wk0;     // la semana en curso aún no se reporta: se muestra la que se entrega ahora
   const filas=ctx.aids.map(aid=>{ const a=getArea(aid), rep=(areaData(aid).reportes||{})[wk];
-    const est=rep?(rep.entregado?['Entregado','ok']:['Borrador','info']):(wk===semAct?['Pendiente','mut']:['No entregado','bad']);
+    const est=rep?(rep.entregado?['Entregado','ok']:['Borrador','info']):(wk===addDays(semAct,-7)?['Por entregar','warn']:['No entregado','bad']);
     return {a,rep,est}; }).filter(x=>x.a);
   const cuerpo=filas.sort((x,y)=>(y.est[1]==='bad')-(x.est[1]==='bad')||x.a.nombre.localeCompare(y.a.nombre)).map(({a,rep,est})=>
     `<button class="line" style="--ac:${esc(a.color)}" data-act="dgReporte" data-id="${esc(a.id)}"><div class="t">${areaIco(a,{tile:true,size:20})}</div>

@@ -134,11 +134,13 @@ function vReporte(aid){
   return `<div class="h2">Reporte</div>${sub}${ui.repTab==='incidencias'?vIncidencias(aid):vSemanal(aid)}`;
 }
 function vSemanal(aid){
-  const wk=ui.repWeek, ro=isRO(), gim=esGim(aid);
+  if(ui.repWeek>semEntrega()) ui.repWeek=semEntrega();         // la semana en curso todavía no termina: no se reporta
+  const wk=ui.repWeek, ro=isRO(), gim=esGim(aid), ultima=wk===semEntrega();
   const rep=(areaData(aid).reportes||{})[wk]||{}, ant=(areaData(aid).reportes||{})[addDays(wk,-7)]||{};
   const incs=coll(aid,'incidencias').filter(i=>i.fecha>=wk&&i.fecha<=addDays(wk,6)).sort(incSort);
   const estado=rep.entregado?pill('Entregado '+fmtCorta(String(rep.entregadoEn||wk).slice(0,10)),'ok'):rep.semana?pill('Borrador guardado','info'):pill('Sin capturar','warn');
-  const nav=`<div class="calnav"><button class="ibtn" data-act="repNav" data-n="-1" aria-label="Semana anterior">${ic('back')}</button><b>Semana del ${esc(fmtCorta(wk))} al ${esc(fmtCorta(addDays(wk,6)))}</b><button class="ibtn" data-act="repNav" data-n="1" aria-label="Semana siguiente">${ic('next')}</button></div>`;
+  const nav=`<div class="calnav"><button class="ibtn" data-act="repNav" data-n="-1" aria-label="Semana anterior">${ic('back')}</button><b>Semana ${esc(semTxt(wk))}</b><button class="ibtn" data-act="repNav" data-n="1" aria-label="Semana siguiente"${ultima?' disabled':''}>${ic('next')}</button></div>
+    <div class="sub rp-cual">${ultima?`Este es el reporte que se entrega <b>esta semana</b> (a partir del lunes ${esc(fmtCorta(addDays(wk,7)))}): corresponde a la semana anterior, ya terminada.`:`Reporte de una semana pasada. El que toca entregar ahora es el de la semana ${esc(semTxt(semEntrega()))}.`}</div>`;
   let form='';
   if(ro){
     const filled=repFields(aid).filter(f=>f.k&&String(rep[f.k]==null?'':rep[f.k]).trim());
@@ -173,7 +175,7 @@ function vSemanal(aid){
       ${rep.entregado?`<button class="btn" data-act="repReopen">Reabrir</button>`:`<button class="btn primary" data-act="repSend">Entregar a gerencia</button>`}</div>`;
   }
   return `${nav}<div class="btns no-print" style="margin-top:0"><button class="btn sm" data-act="repPrint">Imprimir / guardar PDF</button></div>
-    <div class="card" style="margin-top:10px"><div class="row"><div><b>Estado del reporte</b><small>${ro?'Lo entrega la dirección del área':'Los números ya están: solo escribe tu semana y entrégalo'}</small></div>${estado}</div></div>
+    <div class="card" style="margin-top:10px"><div class="row"><div><b>Estado del reporte</b><small>${ro?`Lo entrega la dirección del área el lunes ${esc(fmtCorta(addDays(wk,7)))}`:`Semana ${esc(semTxt(wk))} · los números ya están: solo escribe tu parte y entrégalo`}</small></div>${estado}</div></div>
     ${form}
     <div class="h2 sm">Incidencias registradas esta semana (${incs.length})</div>
     ${incs.length?incs.map(incRow).join(''):empty('No hay incidencias registradas en esta semana.')}`;
@@ -218,7 +220,7 @@ function persistReport(extra){
 
 Object.assign(actions,{
   repTab(d){ ui.repTab=d.t; render(); },
-  repNav(d){ ui.repWeek=addDays(ui.repWeek,7*(+d.n)); render(); },
+  repNav(d){ const w=addDays(ui.repWeek,7*(+d.n)); ui.repWeek=w>semEntrega()?semEntrega():w; render(); },
   repCumple(d){
     const h=$('#r_cumplio'); if(!h) return; h.value=d.v;
     document.querySelectorAll('.rp-seg button').forEach(b=>b.classList.toggle('on',b.dataset.v===d.v));
@@ -245,6 +247,7 @@ Object.assign(actions,{
   repSave(){ persistReport({}); toast('Reporte guardado'); },
   repSend(){
     const t=id=>(($('#r_'+id)||{}).value||'').trim();
+    if(ui.repWeek>semEntrega()){ toast('Esa semana todavía no termina: se entrega el lunes siguiente'); return; }
     if(!t('objProx')){ toast('Escribe el objetivo de la próxima semana'); const el=$('#r_objProx'); if(el) el.focus(); return; }
     if(t('objPrev')&&!t('cumplio')){ toast('Indica si se cumplió el objetivo de la semana pasada'); return; }
     persistReport({entregado:true,entregadoEn:new Date().toISOString()}); toast('Reporte entregado a gerencia');

@@ -428,11 +428,15 @@ function gruposDelDia(aid,fecha){
   const conReg=new Set(coll(aid,'asistencia').filter(r=>r.fecha===fecha).map(r=>r.grupoId));
   return grupos(aid).filter(g=>progEn(g,fecha)||conReg.has(g.id)).map(g=>gDia(g,fecha));
 }
+/* Reporte semanal: se entrega el LUNES y corresponde a la semana anterior, ya terminada.
+   Del lunes 12 al domingo 18 se entrega (y gerencia revisa) el reporte de la semana del 5 al 11. */
+const semEntrega = () => addDays(mondayOf(todayStr()),-7);
+const semTxt = wk => `del ${fmtCorta(wk)} al ${fmtCorta(addDays(wk,6))}`;
 function areaStats(aid){
   const t=todayStr(), gs=grupos(aid), wk=mondayOf(t), wd=wdIdx(t);
   const evs=coll(aid,'eventos').filter(e=>evFin(e)>=t&&e.estado!=='cancelado').sort((a,b)=>(a.fecha+(a.hora||'')).localeCompare(b.fecha+(b.hora||'')));
   const reps=areaData(aid).reportes||{};
-  const rep=reps[wk];
+  const rep=reps[semEntrega()];                        // el reporte que toca entregar esta semana (el de la semana anterior)
   const ult=Object.values(reps).filter(r=>r.entregado).sort((a,b)=>b.semana.localeCompare(a.semana))[0];
   const prog=gruposDelDia(aid,t);
   const hoyRecs=new Set(coll(aid,'asistencia').filter(r=>r.fecha===t).map(r=>r.grupoId));
@@ -457,7 +461,7 @@ function dayItems(aid,d){
 const ui = {
   gTab:'resumen', gArea:null, aTab:'inicio', gDia:-1,
   calMode:'mes', calRef:todayStr(), calSel:todayStr(), evFil:'proximos',
-  repTab:'semanal', repWeek:mondayOf(todayStr()), incFil:'abiertas',
+  repTab:'semanal', repWeek:addDays(mondayOf(todayStr()),-7), incFil:'abiertas',
   afFecha:todayStr(), afTodos:false,
   pTab:'hoy', pFecha:todayStr(), lista:null,
   chartSel:null, gaFecha:todayStr()
