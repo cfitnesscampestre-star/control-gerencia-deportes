@@ -31,7 +31,8 @@ const NAV_M_PROF = [
   {id:'horario',label:'Horario',ic:'cal',tabs:['horario']}
 ];
 const NAV_M_PROF_GIM = [
-  {id:'hoy',label:'Sesiones',ic:'users',tabs:['hoy']}
+  {id:'hoy',label:'Sesiones',ic:'users',tabs:['hoy']},
+  {id:'horario',label:'Mi horario',ic:'cal',tabs:['horario']}
 ];
 const NAV_M_PROF_SERV = [
   {id:'hoy',label:'Bitácora',ic:'clip',tabs:['hoy']}
@@ -54,7 +55,7 @@ function viewBottomNav(){
   if(session.rol==='met') return `<nav class="bottomnav" aria-label="Navegación">${NAV_M_MET.map(n=>`<button class="${ui.mt.tab===n.id?'on':''}" data-act="mTab" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')}</nav>`;
   const ger=session.rol==='ger', prof=session.rol==='prof', rec=session.rol==='rec';
   const mantP = prof && typeof mantProfActivo==='function' && mantProfActivo();
-  if(prof&&(esServ(session.area)||esGim(session.area))&&!mantP) return '';            // el especialista solo tiene su bitácora: no hace falta barra inferior
+  if(prof&&esServ(session.area)&&!mantP) return '';            // el especialista solo tiene su bitácora: no hace falta barra inferior
   const items=ger?(typeof navMGer==='function'?navMGer():NAV_M_GER):prof?(typeof navMProfExtra==='function'?navMProfExtra:x=>x)(esServ(session.area)?NAV_M_PROF_SERV:esGim(session.area)?NAV_M_PROF_GIM:NAV_M_PROF):rec?NAV_M_REC:(typeof navMDirExtra==='function'?navMDirExtra:x=>x)(esServ(session.area)?NAV_M_SERV.filter(n=>svTabs(session.area).some(t=>t[0]===n.id)):esGim(session.area)?NAV_M_GIM:NAV_M_DIR), cur=ger?ui.gTab:prof?ui.pTab:ui.aTab, act=ger?'gTab':prof?'pTab':'aTab';
   return `<nav class="bottomnav" aria-label="Navegación">${items.map(n=>
     `<button class="${n.tabs.includes(cur)?'on':''}" data-act="${act}" data-tab="${n.id}">${ic(n.ic)}<span>${n.label}</span></button>`).join('')}</nav>`;

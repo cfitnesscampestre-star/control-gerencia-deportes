@@ -121,11 +121,15 @@ function gAtencion(as){
   const apoyos=[]; as.forEach(a=>{ const r=Object.values(areaData(a.id).reportes||{}).filter(r=>r.semana>=wkP&&String(r.apoyo||'').trim()).sort((p,q)=>q.semana.localeCompare(p.semana))[0]; if(r) apoyos.push({a,r}); });
   if(apoyos.length) it('info','Te piden apoyo',apoyos.map(x=>`<button class="gx-ap" data-act="gAbrir" data-id="${esc(x.a.id)}" data-tab="reporte" style="--ac:${esc(x.a.color)}">${areaIco(x.a,{size:15})} <b>${esc(x.a.nombre)}:</b> ${esc(String(x.r.apoyo).slice(0,140))}</button>`).join(''),apoyos.length);
   const sinRep=as.filter(a=>repAplica(a.id)&&!((areaData(a.id).reportes||{})[wkP]||{}).entregado).map(a=>({a}));
-  if(sinRep.length) it('warn',`Reportes de la semana pasada sin entregar <small>(del ${esc(fmtCorta(wkP))})</small>`,gAtnChips(sinRep,'reporte'),sinRep.length);
+  if(sinRep.length) it('warn',`Reportes sin entregar <small>(semana ${esc(semTxt(wkP))})</small>`,gAtnChips(sinRep,'reporte'),sinRep.length);
   const sinL=clases.map(a=>{ const hay=new Set(coll(a.id,'asistencia').filter(r=>r.fecha===ayer).map(r=>r.grupoId)); return {a,n:gruposDelDia(a.id,ayer).filter(g=>!hay.has(g.id)).length}; }).filter(x=>x.n);
   if(sinL.length) it('warn','Clases de ayer sin lista',gAtnChips(sinL,'inicio'),anSum(sinL,x=>x.n));
   const gimP=as.filter(a=>esGim(a.id)&&typeof gimAtencion==='function').map(a=>({a,n:gimAtencion(a.id).sinReg.length})).filter(x=>x.n);
   if(gimP.length) it('warn','Personalizados sin registrar',gAtnChips(gimP,'gimpt'),anSum(gimP,x=>x.n));
+  const gimB=as.filter(a=>esGim(a.id)&&typeof ptHuerfanos==='function').map(a=>({a,n:ptHuerfanos(a.id).length})).filter(x=>x.n);
+  if(gimB.length) it('bad','Personalizados de instructores dados de baja, sin decidir',gAtnChips(gimB,'gimpt'),anSum(gimB,x=>x.n));
+  const gimR=as.filter(a=>esGim(a.id)&&typeof rutAtrasadas==='function').map(a=>({a,n:rutAtrasadas(a.id).length})).filter(x=>x.n);
+  if(gimR.length) it('warn','Rutinas genéricas atrasadas',gAtnChips(gimR,'gimrutinas'),anSum(gimR,x=>x.n));
   if(otras.length) it('mut','Otras incidencias abiertas',gAtnChips(otras,'reporte','incidencias'),anSum(otras,x=>x.n));
   const sv=svAtencionGerencia();
   if(sv) out.push(`<div class="gx-it info"><div class="gx-h"><i></i><b>Nutrición y Fisioterapia</b></div>${sv}</div>`);
@@ -167,7 +171,7 @@ function gResumen(){
         ${kpi('Asistentes a clases',T.asisTot.toLocaleString('es-MX'),anDeltaChip(dAs,'%')||`${T.ses} sesiones`,{k:'asistentes',color:'var(--b3)'})}
         ${kpi('Aforo de clases',anPct(T.aforo),`${anDeltaChip(dAf)||`Período: ${anPerLabel()}`}<span class="k-n">${T.lugares?numLugares(T.asisL,T.lugares):''}</span>`,{k:'aforo',cls:aforoCls(T.aforo),color:'var(--b1)'})}
         ${kpi('Captura de aforo',T.cumple==null?'—':T.cumple+'%',`${plu(T.sinCaptura,'clase','clases')} ${anHoyDia()?'por capturar o iniciar':'sin captura'}`,{k:'captura',cls:T.cumple==null?'':T.cumple>=90?'ok':T.cumple>=70?'warn':'bad',color:'var(--b4)'})}
-        ${kpi('Reportes semanales',rp.esperados?`${rp.entregados}/${rp.esperados}`:`${entregSem}/${stR.length}`,rp.esperados?'entregados a tiempo':'entregados esta semana',{k:'reportes',cls:rp.esperados?(rp.entregados===rp.esperados?'ok':''):(entregSem===stR.length&&stR.length?'ok':''),color:'var(--warn)'})}
+        ${kpi('Reportes semanales',rp.esperados?`${rp.entregados}/${rp.esperados}`:`${entregSem}/${stR.length}`,rp.esperados?'entregados a tiempo':`entregados de la semana ${semTxt(semEntrega())}`,{k:'reportes',cls:rp.esperados?(rp.entregados===rp.esperados?'ok':''):(entregSem===stR.length&&stR.length?'ok':''),color:'var(--warn)'})}
       </div>
       ${gAtencion(as)}
     </div>
@@ -219,6 +223,8 @@ function dirPendientes(aid){
       if(A.sinReg.length) rows.push(pendRow('bad',`${plu(A.sinReg.length,'sesión de personalizado','sesiones de personalizado')} sin registrar`,lista([...new Set(A.sinReg.map(y=>(getProf(aid,y.pk.profId)||{}).nombre).filter(Boolean))],3),ir('gimpt','Ver')));
       if(A.sinVer.length) rows.push(pendRow('info',`${plu(A.sinVer.length,'aviso','avisos')} sin ver por los instructores`,'Cambios de recepción que el instructor no ha marcado como enterado',ir('gimpt','Ver')));
       if(A.sinAg.length) rows.push(pendRow('info',`${plu(A.sinAg.length,'personalizado','personalizados')} con sesiones sin fecha`,lista(A.sinAg.map(y=>y.x.cliente||'Cliente'),3),ir('gimpt','Ver')));
+      if(A.huerf.length) rows.push(pendRow('bad',`${plu(A.huerf.length,'personalizado','personalizados')} de instructores dados de baja`,'Decide si pasan a otro instructor o se cierran',ir('gimpt','Decidir')));
+      if(A.rutAtr.length) rows.push(pendRow('warn',`${plu(A.rutAtr.length,'rutina atrasada','rutinas atrasadas')}`,lista(A.rutAtr.map(r=>r.nombre),3),ir('gimrutinas','Ver')));
       if(A.sinAt.length) rows.push(pendRow('warn',`${plu(A.sinAt.length,'solicitud de recepción','solicitudes de recepción')} sin atender`,'Más de un día esperando al instructor',ir('gimhorario','Ver')));
     }
   } else if(!esVinculada(aid)&&!esServ(aid)){
@@ -229,9 +235,8 @@ function dirPendientes(aid){
     if(H.length) rows.push(pendRow('warn',`${plu(H.length,'clase','clases')} de hoy ya empezaron y no tienen lista`,lista(H.map(nomG),3),ir('aforos','Capturar',t)));
   }
   if(repAplica(aid)){
-    const reps=areaData(aid).reportes||{}, wk=mondayOf(t), pas=reps[addDays(wk,-7)];
-    if(!(pas&&pas.entregado)) rows.push(pendRow('bad','Reporte de la semana pasada sin entregar',`Semana del ${esc(fmtCorta(addDays(wk,-7)))} · los números ya están, solo falta tu parte`,ro?'':`<button class="btn sm" data-act="pendRep" data-w="${addDays(wk,-7)}">Abrir</button>`));
-    else if(s.reporte!=='entregado'&&wdIdx(t)>=4) rows.push(pendRow(s.reporte==='borrador'?'info':'warn',`Reporte de esta semana ${s.reporte==='borrador'?'en borrador':'sin capturar'}`,`Semana del ${esc(fmtCorta(wk))}`,ro?'':`<button class="btn sm" data-act="pendRep" data-w="${wk}">Abrir</button>`));
+    const reps=areaData(aid).reportes||{}, we=semEntrega(), pas=reps[we];
+    if(!(pas&&pas.entregado)) rows.push(pendRow(wdIdx(t)===0?'warn':'bad',`Reporte semanal ${pas?'en borrador':'sin entregar'}`,`Semana ${esc(semTxt(we))} · se entrega a partir del lunes ${esc(fmtCorta(addDays(we,7)))} · los números ya están`,ro?'':`<button class="btn sm" data-act="pendRep" data-w="${we}">Abrir</button>`));
   }
   if(s.incAbiertas){ const alt=coll(aid,'incidencias').filter(i=>i.estado!=='resuelta'&&i.grav==='alta').length;
     rows.push(pendRow(alt?'bad':'warn',`${plu(s.incAbiertas,'incidencia abierta','incidencias abiertas')}`,alt?`${alt} de gravedad alta`:'Dales seguimiento o ciérralas',ro?'':`<button class="btn sm" data-act="pendInc">Ver</button>`)); }
