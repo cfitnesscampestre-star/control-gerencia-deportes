@@ -1,0 +1,30 @@
+PARCHE 21 - Ajustes de Gerencia reorganizado
+============================================
+Requiere el parche 20 (con la corrección 20.1) y el cambio de sesión en Fitness Control (PR 10). Deja el service worker en gd-v96. No cambia reglas de Firebase.
+Sube (reemplazando): index.html, sw.js, css/main.css, js/ajustes.js, js/cuentas.js, js/vinculo.js, js/mantenimiento.js
+
+QUÉ CAMBIA (solo la pestaña Ajustes de Gerencia)
+La pestaña se ordenó por lo que se usa más seguido:
+ 1. PENDIENTES (amarillo, solo aparece si hay algo por hacer): cuentas por aprobar, respaldo de hace 7 días o más,
+    contraseñas que siguen siendo las de fábrica, y Fitness Control o Mantenimiento si no conectan.
+ 2. ÁREAS: una sola lista. Cada área muestra cuántos profesores tiene, si usa Mantenimiento y si su dirección ya
+    tiene cuenta. Al tocarla se abre su FICHA, con todo lo de esa área en un solo lugar:
+      - nombre, ícono y color (Editar)
+      - contraseña de dirección (Cambiar) y el estado de su cuenta (con botón Aprobar si está esperando)
+      - Mantenimiento sí/no (interruptor)
+      - en Fitness: la proporción de hombres y mujeres
+    El Área de la Salud abre una ficha con Nutrición y Fisioterapia juntas.
+ 3. ACCESOS: contraseñas de Gerencia y Metodología, y debajo "Cuentas de acceso" (aprobar, crear cuentas).
+ 4. RESPALDO Y DATOS: nube, respaldo, restaurar y papelera.
+ 5. CONEXIONES Y ESTE EQUIPO, plegados en una línea cada uno: Fitness Control, Control Mantenimiento y Este equipo
+    (acceso recordado y colores). Se abren tocándolos.
+Ya no existen las listas repetidas "Contraseñas" (una fila por área) ni "Mantenimiento por área": están en la
+ficha de cada área. Nada se perdió: todas las opciones siguen, solo cambiaron de lugar.
+
+PROBADO
+ - En celular, tablet y computadora: sin errores, sin desbordes; el interruptor de Mantenimiento guarda; las
+   secciones plegadas recuerdan si estaban abiertas.
+ - Las 39 pantallas del recorrido automático (Gerencia y Metodología en computadora y celular, y cada área), sin errores.
+ - Las 53 comprobaciones de cuentas y reglas con los emuladores de Firebase, sin fallas.
+
+NOTA: lo que antes se llamaba "parche 21" (reglas estrictas por área) pasa a ser el parche 22.
