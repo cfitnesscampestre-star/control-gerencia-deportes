@@ -1,6 +1,6 @@
 PARCHE 20 - Cada equipo descarga solo lo suyo + cuentas de Firebase por persona
 =================================================================================
-Requiere el parche 19. Deja el service worker en gd-v93. No cambia colores, pantallas ni la forma de entrar.
+Requiere el parche 19. Deja el service worker en gd-v94 (con la corrección 20.1, ver al final). No cambia colores, pantallas ni la forma de entrar.
 Sube (reemplazando): index.html, sw.js, js/core.js, js/auth.js, js/ajustes.js, js/profesores.js, js/recepcion.js,
                      js/gimbaja.js, js/sincronizacion.js, js/app.js
 Sube (NUEVO):        js/cuentas.js
@@ -48,9 +48,11 @@ PASOS, EN ESTE ORDEN (consola de Firebase, proyecto registro-gerencia)
     Si tu contraseña de Gerencia tiene menos de 6 caracteres, primero cámbiala en la app (Ajustes →
     Contraseñas → Gerencia) por una de 6 o más y usa esa.
  4. En la app: sal y vuelve a entrar como Gerencia, con internet. En Ajustes → "Cuentas de Firebase" debe
-    decir "Cuenta de Gerencia: Activa". Toca "Crear N" en "Profesores y recepción".
+    decir "Cuenta de Gerencia: Activa". (Abajo dirá "No se pudieron leer: permission_denied": es normal,
+    las cuentas se guardan en una parte de la base que solo abren las reglas nuevas.)
  5. SOLO cuando el paso 4 diga "Activa": Realtime Database → Reglas → reemplaza todo por el contenido de
     reglas-firebase-parche20.json → Publicar. (Si publicas antes, Gerencia no podrá guardar Ajustes.)
+    Luego, en Ajustes → "Cuentas de Firebase", toca "Reintentar" y después "Crear N" en "Profesores y recepción".
  6. En los próximos días, conforme entren Metodología y cada dirección, aparecerán en Ajustes → "Por aprobar".
     Aprueba solo las que esperas (lo ideal: justo después de que esa persona te avise que entró).
     Cuando "Metodología y direcciones" y "Profesores y recepción" estén completos, avísame para el parche 21.
@@ -67,3 +69,11 @@ PROBADO
    con la copia completa anterior se limpia solo; trabajo sin internet y subida al volver la señal; cambios de
    PIN y contraseña; y que las reglas bloquean lo que deben.
  - En modo simulación, las 63 pantallas de siempre sin errores.
+
+CORRECCIÓN 20.1 (service worker gd-v94)
+Sube (reemplazando): index.html, sw.js, js/cuentas.js
+ - Las áreas creadas desde Ajustes llevan un guion en su identificador (por ejemplo "yoga-ab12"). Con ellas no
+   se podían crear las cuentas de sus profesores y recepción ("Crear N" se quedaba en las mismas), ni aprobar a
+   su dirección. Corregido.
+ - Si alguna cuenta no se puede crear, Ajustes → Cuentas de Firebase ahora dice de quién y por qué.
+ - No hace falta tocar las reglas.

@@ -51,14 +51,21 @@ function ctClave(x){                                   // x = {rol, area, id, gr
 }
 /* qué permite una clave (lo calcula Gerencia, nunca se toma de lo que manda el equipo) */
 function ctPermisos(key){
+  key=String(key);
   if(key==='met') return {rol:'met'};
-  const k=String(key).split('-');
-  if(k[0]==='dir'){
-    const G=typeof svDirGrupo==='function'?svDirGrupo():null;
+  if(key.startsWith('dir-')){                          // los id de área pueden llevar guion (áreas creadas en Ajustes: "yoga-ab12")
+    const G=typeof svDirGrupo==='function'?svDirGrupo():null, resto=key.slice(4);
     if(G&&key===('dir-'+G.join('-')).toLowerCase()) return {rol:'dir',areas:Object.fromEntries(G.map(a=>[a,true]))};
-    return k.length===2&&getArea(k[1])?{rol:'dir',areas:{[k[1]]:true}}:null;
+    const a=areasList().find(x=>x.id.toLowerCase()===resto);
+    return a?{rol:'dir',areas:{[a.id]:true}}:null;
   }
-  if((k[0]==='prof'||k[0]==='rec')&&k.length===3&&getArea(k[1])) return {rol:k[0],area:k[1],id:k[2]};
+  const rol=key.startsWith('prof-')?'prof':key.startsWith('rec-')?'rec':null; if(!rol) return null;
+  const resto=key.slice(rol.length+1);
+  for(const a of areasList().slice().sort((x,y)=>y.id.length-x.id.length)){   // el área cuyo id empieza la clave (la más larga primero)
+    const pre=a.id.toLowerCase()+'-'; if(!resto.startsWith(pre)) continue;
+    const L=rol==='prof'?coll(a.id,'profesores'):coll(a.id,'recepcion'), p=L.find(x=>String(x.id).toLowerCase()===resto.slice(pre.length));
+    if(p) return {rol,area:a.id,id:p.id};
+  }
   return null;
 }
 function ctNombre(key){
@@ -204,6 +211,7 @@ function ctCard(){
   const ger=ctEsGer();
   let h=fila('Cuenta de Gerencia',ger?'Activa en este equipo.':ct.estado==='sin-ger'?'No existe todavía en Firebase: créala en la consola (ver LEEME-parche20.txt) y vuelve a entrar.':'Este equipo no ha entrado con la cuenta de Gerencia. Sal y vuelve a entrar con internet.',pill(ger?'Activa':'Pendiente',ger?'ok':'warn'));
   if(ct.aviso) h+=`<div class="sub bad">${esc(ct.aviso)}</div>`;
+  if(ct.fallas&&ct.fallas.length) h+=`<div class="sub bad">No se pudieron crear:<br>${ct.fallas.slice(0,10).map(esc).join('<br>')}</div>`;
   if(!ger) return `<div class="card">${h}</div>`;
   if(!ctListo()) return `<div class="card">${h}${fila('Cuentas del equipo de trabajo','Se revisan cuando haya internet.')}</div>`;
   if(!ct.datos){ ctCargar(); return `<div class="card">${h}${fila('Cuentas del equipo de trabajo','Revisando…')}</div>`; }
@@ -241,10 +249,10 @@ Object.assign(actions,{
   async ctCrearFaltan(){
     if(!ctEsGer()||ct.creando||!ct.datos||!ct.datos.emails) return;
     const faltan=ctPersonas().filter(x=>!ct.datos.emails[x.key]);
-    ct.creando=true; render(); let n=0;
+    ct.creando=true; ct.fallas=[]; render(); let n=0;
     for(const x of faltan){
       try{ await ctCrearPara(x.key,x.pin); n++; }
-      catch(e){ ctFalla(e); if(['auth/too-many-requests','auth/operation-not-allowed','auth/network-request-failed'].includes(e&&e.code)) break; }
+      catch(e){ ctFalla(e); ct.fallas.push(`${ctNombre(x.key)}: ${(e&&(e.code||e.message))||e}`); if(['auth/too-many-requests','auth/operation-not-allowed','auth/network-request-failed'].includes(e&&e.code)) break; }
     }
     ct.creando=false; ct.datos=null;
     toast(n===faltan.length?`${plu(n,'cuenta creada','cuentas creadas')}`:`${n} de ${faltan.length} cuentas creadas${ct.aviso?': '+ct.aviso:''}`);
