@@ -205,6 +205,15 @@ async function ctCargar(){
   catch(e){ ct.datos={error:(e&&e.message)||String(e)}; }
   ct.cargando=false; safeRender();
 }
+/* resumen para Ajustes (Pendientes, etiquetas de cada área y su ficha) */
+function ctResumen(){
+  const R={listo:false,pend:[],tiene:()=>null,pendiente:()=>null};
+  if(!FIREBASE_CONFIG.databaseURL||!ctEsGer()) return R;
+  if(!ct.datos){ ctCargar(); return R; }
+  if(ct.datos.error) return R;
+  const E=ct.datos.emails, P=Object.entries(ct.datos.pend);
+  return {listo:true,pend:P.map(([,p])=>ctNombre(p.key)),tiene:k=>E[k]||null,pendiente:k=>{ const x=P.find(([,p])=>p.key===k); return x?x[0]:null; }};
+}
 function ctCard(){
   if(!FIREBASE_CONFIG.databaseURL) return '';
   const fila=(t,s,btn)=>`<div class="row"><div><b>${t}</b><small>${s}</small></div>${btn||''}</div>`;
@@ -237,6 +246,7 @@ Object.assign(actions,{
       Object.entries(todas).forEach(([u,x])=>{ if(x&&x.key===p.key) upd[u]=null; });      // las demás solicitudes de la misma persona ya no sirven
       await ctRef('pendientes').update(upd);
       toast('Cuenta aprobada: '+ctNombre(p.key));
+      if(document.querySelector('.aj-ficha')) closeModal();
     }catch(e){ ctFalla(e); toast('No se pudo aprobar: '+((e&&e.message)||e)); }
     ct.datos=null; render();
   },

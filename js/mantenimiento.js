@@ -386,12 +386,7 @@ function mantCard(){
     ${m.estado==='ok'||m.estado==='cache'?`<div class="row"><div><b>Datos recibidos</b><small>${plu(mantArr('reportes').length,'reporte abierto','reportes abiertos')} · ${plu(mantArr('equipos').length,'equipo','equipos')} · ${plu(mantArr('preventivo').length,'revisión de preventivo','revisiones de preventivo')}</small></div></div>`:''}
     ${m.estado==='error'?`<div class="row"><div><b>No se pudo leer</b><small>${esc(m.msg)}. Revisa las reglas de Firebase del proyecto de mantenimiento.</small></div></div>`:''}
     <div class="row"><div><small>Gerencia y las direcciones solo leen. Los profesores solo envían sus reportes y eliminan sus avisos ya resueltos.</small></div></div>
-  </div>
-  <div class="h2">Mantenimiento por área</div>
-  <div class="card">
-    <div class="row"><div><small>Elige qué áreas usan Mantenimiento. En las áreas activadas, la dirección ve la pestaña Mantenimiento y puede activar el módulo a cada profesor (Profesores → editar). Fitness siempre lo tiene: sus reportes salen de Control Fitness.</small></div></div>
-    ${areasList().map(a=>`<div class="row"><div><b>${areaIco(a,{size:18})} ${esc(a.nombre)}</b><small>${esFitArea(a.id)?'Siempre activo (Control Fitness)':a.mantenimiento?'Activo: '+plu(profesores(a.id).filter(p=>p.mantenimiento).length,'profesor con el módulo','profesores con el módulo'):'Sin Mantenimiento'}</small></div>
-      ${esFitArea(a.id)?pill('Activo','ok'):`<div class="seg"><button class="${a.mantenimiento?'on':''}" data-act="mantAreaSet" data-id="${esc(a.id)}" data-v="1">Sí</button><button class="${a.mantenimiento?'':'on'}" data-act="mantAreaSet" data-id="${esc(a.id)}" data-v="0">No</button></div>`}</div>`).join('')}
+    <div class="row"><div><small>Qué áreas usan Mantenimiento se elige en la ficha de cada área (Ajustes → Áreas).</small></div></div>
   </div>`;
 }
 /* Menús: la pestaña "Mantenimiento" existe en las áreas que lo usan, y en gerencia si hay alguna */

@@ -1,48 +1,110 @@
 'use strict';
 /* =====================================================================
-   ajustes.js — Ajustes de gerencia: contraseñas, áreas y respaldo
+   ajustes.js — Ajustes de gerencia: pendientes, áreas (con su ficha), accesos, respaldo y conexiones
    ===================================================================== */
+/* La pestaña está ordenada por lo que se hace con más frecuencia:
+     Pendientes (solo si hay algo) → Áreas (cada una abre su ficha) → Accesos → Respaldo y datos → Conexiones y este equipo (plegado).
+   Todo lo de un área (nombre, contraseña de dirección, su cuenta, Mantenimiento, proporción de Fitness) vive en su ficha: ajFicha(). */
+const ajFila = (t,s,der) => `<div class="row"><div><b>${t}</b>${s?`<small>${s}</small>`:''}</div>${der||''}</div>`;
+const ajSw = (on,attrs,lbl) => `<button class="aj-sw${on?' on':''}" role="switch" aria-checked="${on}" aria-label="${esc(lbl)}" ${attrs}><i></i></button>`;
+const ajGrupoDe = a => a._grupo ? svDirGrupo().map(getArea).filter(Boolean) : [a];
+const ajClaveDir = a => typeof ctClave==='function' ? ctClave(a._grupo?{rol:'dir',grupo:svDirGrupo()}:{rol:'dir',area:a.id}) : '';
+const ajDefault = () => {                               // contraseñas que siguen siendo las de fábrica
+  const P=(state.cfg&&state.cfg.pass)||{}, L=[];
+  if(P.ger===hashPass(DEF_PASS_GER)) L.push('Gerencia');
+  if(P.met===hashPass(DEF_PASS_MET)) L.push('Metodología');
+  areasVista().forEach(a=>{ if(ajGrupoDe(a).some(x=>(P.dir||{})[x.id]===hashPass(DEF_PASS_DIR))) L.push(a.nombre); });
+  return L;
+};
+function ajPendientes(){
+  const L=[], C=typeof ctResumen==='function'?ctResumen():null, n=respaldoDias(), def=ajDefault();
+  if(C&&C.pend.length) L.push(ajFila(`${plu(C.pend.length,'cuenta por aprobar','cuentas por aprobar')}`,`${esc(C.pend.slice(0,3).join(', '))}${C.pend.length>3?'…':''}. Apruébalas solo si las esperabas.`,`<button class="btn sm primary" data-act="ajIr" data-id="aj-cuentas">Revisar</button>`));
+  if(n==null||n>=7) L.push(ajFila('Respaldo pendiente',n==null?'Todavía no se ha descargado ningún respaldo.':`El último se descargó hace ${plu(n,'día','días')}.`,`<button class="btn sm primary" data-act="export">Descargar</button>`));
+  if(def.length) L.push(ajFila(`${plu(def.length,'contraseña de fábrica','contraseñas de fábrica')}`,`${esc(def.slice(0,4).join(', '))}${def.length>4?'…':''}. Son públicas: cámbialas (las de cada dirección, en su área).`));
+  if(FIREBASE_CONFIG.databaseURL&&LINKMETA.estado==='error') L.push(ajFila('Fitness Control no conecta',esc(LINKMETA.msg||''),`<button class="btn sm" data-act="ajIr" data-id="aj-conex">Ver</button>`));
+  if(typeof mantMeta!=='undefined'&&mantMeta.estado==='error') L.push(ajFila('Control Mantenimiento no conecta',esc(mantMeta.msg||''),`<button class="btn sm" data-act="ajIr" data-id="aj-conex">Ver</button>`));
+  return L.length?`<div class="h2">Pendientes <small class="aj-cnt">${plu(L.length,'cosa por hacer','cosas por hacer')}</small></div><div class="card aj-pend">${L.join('')}</div>`:'';
+}
+function ajAreaChips(a){
+  const G=ajGrupoDe(a), C=typeof ctResumen==='function'?ctResumen():null;
+  const np=G.reduce((s,x)=>s+profesores(x.id).filter(p=>p.activo!==false).length,0);
+  const mant=G.some(x=>typeof mantAplica==='function'&&mantAplica(x.id));
+  const k=ajClaveDir(a), cta=C&&C.listo?(C.tiene(k)?pill('Dirección con cuenta','ok'):C.pendiente(k)?pill('Dirección por aprobar','warn'):pill('Dirección sin cuenta','warn')):'';
+  return `<span class="aj-chips">${pill(plu(np,'profesor','profesores'),'')}${pill(mant?'Mantenimiento':'Sin mantenimiento',mant?'info':'')}${cta}</span>`;
+}
 function gAjustes(){
-  const as=areasList();
-  const nPend = pendientes();
-  const nube = online ? 'Firebase conectado: los datos se sincronizan entre dispositivos.'+(nPend?` Subiendo ${nPend} cambio(s) pendientes.`:'')
-    : FIREBASE_CONFIG.databaseURL ? `Sin internet: se guarda en este equipo${nPend?` (${nPend} cambio(s) por subir)`:''} y se sube solo al volver la señal.`
-    : 'Firebase no está configurado: los datos viven solo en este equipo.';
-  return `<div class="dash">
-    <div class="d-att">
-      ${gSimulacionCard()}
-      <div class="h2">Fitness Control</div>
-      ${gVinculoCard()}
-      ${typeof mantCard==='function'?`<div class="h2">Control Mantenimiento</div>${mantCard()}`:''}
-      <div class="h2">Este equipo</div>
-      <div class="card"><div class="row"><div><b>Acceso recordado</b><small>${esc((()=>{ const c=(typeof equipoCfg==='function')?equipoCfg():null; if(!c) return 'Todavía no se ha guardado'; const a=getArea(c.area); return (ROL_NOMBRE[c.rol]||c.rol)+(a?' · '+a.nombre:''); })())}. Al restablecer, este equipo vuelve a preguntar cómo se entra.</small></div><button class="btn sm" data-act="eqReset">Restablecer</button></div></div>
-      <div class="h2">Apariencia</div>
-      <div class="card"><div class="row"><div><b>Colores del sistema</b><small>Solo en este dispositivo</small></div>
-        <div class="seg"><button class="${temaActual()==='campestre'?'on':''}" data-act="tema" data-t="campestre">Campestre</button><button class="${temaActual()==='magenta'?'on':''}" data-act="tema" data-t="magenta">Magenta</button></div></div></div>
-      ${typeof ctCard==='function'&&FIREBASE_CONFIG.databaseURL?`<div class="h2">Cuentas de Firebase</div>${ctCard()}`:''}
-      <div class="h2">Contraseñas</div>
-      <div class="card">
-        <div class="row"><div><b>Gerencia</b><small>Acceso a todas las áreas</small></div><button class="btn sm" data-act="pwGer">Cambiar</button></div>
-        <div class="row"><div><b>Metodología deportiva</b><small>Aforos, eventos y pruebas de todas las áreas</small></div><button class="btn sm" data-act="pwMet">Cambiar</button></div>
-        ${areasVista().map(a=>`<div class="row"><div><b>${areaIco(a,{size:18})} ${esc(a.nombre)}</b><small>${a._grupo?'Dirección de Nutrición y Fisioterapia (una sola contraseña)':'Dirección del área'}</small></div><button class="btn sm" data-act="pwDir" data-id="${esc(a.id)}"${a._grupo?' data-grupo="1"':''}>Cambiar</button></div>`).join('')}
-      </div>
+  const nPend=pendientes(), eq=(typeof equipoCfg==='function')?equipoCfg():null;
+  const nube=!FIREBASE_CONFIG.databaseURL?['Solo en este equipo: Firebase no está configurado.','Sin nube','mut']
+    : online?[nPend?`Subiendo ${plu(nPend,'cambio','cambios')}…`:'Guardado en la nube ✔ · nada pendiente por subir',nPend?'Subiendo':'Al día',nPend?'warn':'ok']
+    : [`Sin internet: se guarda en este equipo${nPend?` (${plu(nPend,'cambio','cambios')} por subir)`:''} y se sube al volver la señal.`,'Sin internet','warn'];
+  const fc=!FIREBASE_CONFIG.databaseURL?'Sin Firebase':!fcAreaVinculada()?'Sin área vinculada':LINKMETA.estado==='ok'?'Conectado ✔':LINKMETA.estado==='error'?'Error':'Conectando…';
+  const mn=typeof mantMeta==='undefined'?'':!mantConfig()?'Sin configurar':mantMeta.estado==='ok'?'Conectado ✔':mantMeta.estado==='error'?'Error':mantMeta.estado==='cache'?'Copia guardada':'Conectando…';
+  const det=(id,t,s,body)=>`<details class="aj-det" data-aj="${id}"${ui.ajAbierto&&ui.ajAbierto[id]?' open':''}><summary class="card"><b>${t}</b><small>${s}</small></summary>${body}</details>`;
+  return `<div class="aj">
+    ${gSimulacionCard()}
+    ${ajPendientes()}
+    <div class="h2">Áreas <button class="btn sm primary aj-mas" data-act="areaNew">+ Área</button></div>
+    <div class="card aj-areas">
+      ${areasVista().map(a=>`<button class="aj-a" data-act="ajArea" data-id="${esc(a.id)}"${a._grupo?' data-grupo="1"':''}>
+        <span class="aj-dot" style="background:${esc(a.color)}"></span>
+        <span class="aj-t"><b>${areaIco(a,{size:18})} ${esc(a.nombre)}</b>${ajAreaChips(a)}</span>
+        <span class="aj-go" aria-hidden="true">${ic('next')}</span></button>`).join('')||'<div class="sub">Sin áreas.</div>'}
     </div>
-    <div class="d-ev">
-      <div class="h2">Áreas <button class="btn sm primary" data-act="areaNew">+ Área</button></div>
-      <div class="card">
-        ${as.map(a=>`<div class="row"><div><b>${areaIco(a,{size:18})} ${esc(a.nombre)}</b><small style="color:${esc(a.color)}">Color de identificación</small></div><button class="btn sm" data-act="areaEdit" data-id="${esc(a.id)}">Editar</button></div>`).join('')||'<div class="sub">Sin áreas.</div>'}
-      </div>
-      <div class="h2">Datos</div>
-      <div class="card">
-        <div class="row"><div><b>Sincronización</b><small>${nube}</small></div></div>
-        <div class="row"><div><b>Respaldo</b><small>${esc(respaldoTxt())}</small></div><button class="btn sm primary" data-act="export">Descargar</button></div>
-        <div class="row"><div><b>Restaurar un respaldo</b><small>Reemplaza todos los datos con los de un archivo descargado antes. Antes de restaurar se descarga una copia de lo actual.</small></div><button class="btn sm" data-act="importPick">Importar</button><input type="file" id="imp_file" accept=".json,application/json" hidden></div>
-        <div class="row"><div><b>Papelera</b><small>${Object.keys(state.papelera||{}).length?plu(Object.keys(state.papelera).length,'grupo borrado','grupos borrados')+' · se conservan 30 días':'Aquí se guardan 30 días los grupos que se eliminen'}</small></div><button class="btn sm" data-act="openPapelera">Abrir</button></div>
-      </div>
+    <div class="h2">Accesos</div>
+    <div class="card">
+      ${ajFila('Contraseña de Gerencia','Acceso a todas las áreas','<button class="btn sm" data-act="pwGer">Cambiar</button>')}
+      ${ajFila('Contraseña de Metodología','Aforos, eventos y pruebas de todas las áreas','<button class="btn sm" data-act="pwMet">Cambiar</button>')}
+      ${ajFila('','La contraseña de cada dirección está en la ficha de su área.')}
     </div>
+    ${typeof ctCard==='function'&&FIREBASE_CONFIG.databaseURL?`<div id="aj-cuentas" class="aj-sub">Cuentas de acceso</div>${ctCard()}`:''}
+    <div class="h2">Respaldo y datos</div>
+    <div class="card">
+      ${ajFila('Nube',esc(nube[0]),pill(nube[1],nube[2]))}
+      ${ajFila('Respaldo',esc(respaldoTxt()),'<button class="btn sm primary" data-act="export">Descargar</button>')}
+      ${ajFila('Restaurar un respaldo','Reemplaza todos los datos con los de un archivo descargado antes. Primero se descarga una copia de lo actual.','<button class="btn sm" data-act="importPick">Importar</button><input type="file" id="imp_file" accept=".json,application/json" hidden>')}
+      ${ajFila('Papelera',Object.keys(state.papelera||{}).length?plu(Object.keys(state.papelera).length,'grupo borrado','grupos borrados')+' · se conservan 30 días':'Aquí se guardan 30 días los grupos que se eliminen','<button class="btn sm" data-act="openPapelera">Abrir</button>')}
+    </div>
+    <div class="h2" id="aj-conex">Conexiones y este equipo</div>
+    ${det('fc','Fitness Control',fc,gVinculoCard())}
+    ${typeof mantCard==='function'?det('mant','Control Mantenimiento',mn,mantCard()):''}
+    ${det('eq','Este equipo',`${esc(eq?(ROL_NOMBRE[eq.rol]||eq.rol):'Sin acceso recordado')} · tema ${temaActual()==='magenta'?'Magenta':'Campestre'}`,`<div class="card">
+      ${ajFila('Acceso recordado',`${esc((()=>{ if(!eq) return 'Todavía no se ha guardado'; const a=getArea(eq.area); return (ROL_NOMBRE[eq.rol]||eq.rol)+(a?' · '+a.nombre:''); })())}. Al restablecer, este equipo vuelve a preguntar cómo se entra.`,'<button class="btn sm" data-act="eqReset">Restablecer</button>')}
+      ${ajFila('Colores del sistema','Solo en este dispositivo',`<div class="seg"><button class="${temaActual()==='campestre'?'on':''}" data-act="tema" data-t="campestre">Campestre</button><button class="${temaActual()==='magenta'?'on':''}" data-act="tema" data-t="magenta">Magenta</button></div>`)}
+    </div>`)}
   </div>`;
 }
-
+/* ficha de un área: todo lo que se configura de ella en un solo lugar */
+function ajFicha(id,grupo){
+  const base=grupo?areasVista().find(a=>a._grupo):getArea(id); if(!base) return;
+  const G=ajGrupoDe(base), C=typeof ctResumen==='function'?ctResumen():null, k=ajClaveDir(base), sec=t=>`<div class="aj-sec">${t}</div>`;
+  let cta='';
+  if(C&&C.listo){
+    const e=C.tiene(k), p=C.pendiente(k);
+    cta=ajFila('Cuenta de acceso de la dirección',e?(e.t?`Activa desde el ${esc(fmtCorta(ymd(new Date(e.t))))}`:'Activa'):p?'Se creó al entrar y espera tu aprobación.':'Se crea sola cuando la dirección entre, o al cambiarle la contraseña aquí.',
+      e?pill('Activa','ok'):p?`<button class="btn sm primary" data-act="ctAprobar" data-id="${esc(p)}">Aprobar</button>`:pill('Sin cuenta','warn'));
+  }
+  openModal(`${mHead(`${areaIco(base,{size:22})} ${esc(base.nombre)}`)}
+    <div class="aj-ficha">
+      ${sec(G.length>1?'Áreas':'Datos del área')}
+      ${G.map(a=>ajFila(G.length>1?esc(a.nombre):'Nombre, ícono y color',`<span class="aj-col"><i style="background:${esc(a.color)}"></i>${esc(a.nombre)}</span>`,`<button class="btn sm" data-act="areaEdit" data-id="${esc(a.id)}">Editar</button>`)).join('')}
+      ${sec('Dirección')}
+      ${ajFila('Contraseña de dirección',G.length>1?'Una sola contraseña para las dos áreas':'La usa quien dirige el área para entrar',`<button class="btn sm" data-act="pwDir" data-id="${esc(G[0].id)}"${G.length>1?' data-grupo="1"':''}>Cambiar</button>`)}
+      ${cta}
+      ${typeof mantAplica==='function'&&mantConfig()?sec('Mantenimiento')+G.map(a=>esFitArea(a.id)
+        ?ajFila(G.length>1?esc(a.nombre):'Usa Control Mantenimiento','Siempre activo: sus reportes salen de Fitness Control',pill('Activo','ok'))
+        :ajFila(G.length>1?esc(a.nombre):'Usa Control Mantenimiento',a.mantenimiento?`La dirección ve los reportes de equipo · ${plu(profesores(a.id).filter(p=>p.mantenimiento).length,'profesor con el módulo','profesores con el módulo')}`:'La dirección vería los reportes de equipo y podría activarlo a cada profesor',
+          ajSw(!!a.mantenimiento,`data-act="ajMant" data-id="${esc(a.id)}" data-v="${a.mantenimiento?'0':'1'}"${G.length>1?` data-g="1"`:''}`,'Mantenimiento en '+a.nombre))).join(''):''}
+      ${G.some(a=>esFitArea(a.id))?sec('Clases fitness')+`<div class="row fit-prop"><div><b>Hombres y mujeres</b><small>Fitness Control no lo manda: se aplica <b>${fitHo()}%</b> hombres y <b>${100-fitHo()}%</b> mujeres.</small></div>
+        <div class="fit-ctl"><input id="fit_ho" type="number" inputmode="numeric" min="0" max="100" value="${fitHo()}" aria-label="Porcentaje de hombres"><span>% H</span><button class="btn sm" data-act="fitHoGuardar">Guardar</button></div></div>`:''}
+      <div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>
+    </div>`);
+}
+Object.assign(actions,{
+  ajArea(d){ ajFicha(d.id,!!d.grupo); },
+  ajMant(d){ actions.mantAreaSet(d); ajFicha(d.id,!!d.g); },
+  ajIr(d){ const el=document.getElementById(d.id); if(!el) return; if(d.id==='aj-conex'){ ui.ajAbierto={...(ui.ajAbierto||{}),fc:true,mant:true}; render(); } (document.getElementById(d.id)||el).scrollIntoView({behavior:'smooth',block:'start'}); }
+});
+document.addEventListener('toggle',e=>{ const d=e.target; if(d&&d.dataset&&d.dataset.aj){ ui.ajAbierto={...(ui.ajAbierto||{}),[d.dataset.aj]:d.open}; } },true);
 function openPw(kind,aid,grupo){
   const self=kind==='self'||kind==='ger';               // la propia: se pide la actual (también para cambiarla en su cuenta de Firebase)
   const label=kind==='ger'?'Gerencia':kind==='met'?'Metodología deportiva':`Dirección · ${esc(grupo?SV_GRUPO_NOM:(getArea(aid)||{}).nombre||'')}`;

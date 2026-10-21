@@ -68,7 +68,7 @@ PROBADO
    Gerencia, Metodología, dirección, profesor, recepción y Paramédicos; qué descarga cada uno; que un equipo
    con la copia completa anterior se limpia solo; trabajo sin internet y subida al volver la señal; cambios de
    PIN y contraseña; y que las reglas bloquean lo que deben.
- - En modo simulación, las 63 pantallas de siempre sin errores.
+ - En modo simulación, las 39 pantallas del recorrido automático, sin errores.
 
 CORRECCIÓN 20.1 (service worker gd-v94)
 Sube (reemplazando): index.html, sw.js, js/cuentas.js
