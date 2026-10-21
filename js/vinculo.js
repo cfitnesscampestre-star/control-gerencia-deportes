@@ -200,7 +200,7 @@ const FC_CACHE = 'gd_fc_cache_v1';
 function fcGuardarCache(raw){
   try{
     const c={...raw};
-    if(c.instructores) c.instructores=fcArr(c.instructores).map(({foto,pin,PIN,...r})=>r);  // sin fotos ni PIN
+    if(c.instructores) c.instructores=fcArr(c.instructores).map(({foto,pin,PIN,pinHash,...r})=>r);  // sin fotos ni PIN
     localStorage.setItem(FC_CACHE,JSON.stringify({ts:Date.now(),raw:c}));
   }catch(e){ console.warn('Copia de Fitness Control demasiado grande para el equipo',e); }
 }
@@ -212,14 +212,17 @@ function fcDesdeCache(){
 }
 function fcConectar(db){
   if(LINKMETA.estado!=='ok') LINKMETA={estado:'conectando',msg:'',n:{},ts:0};
-  FC_PARTES.forEach(k=>{
-    db.ref(`${FC_NODO}/${k}`).on('value',snap=>{
-      fcRaw[k]=snap.val(); fcRecv[k]=true; clearTimeout(fcT);
-      fcT=setTimeout(()=>{ if(fcRecv.instructores&&fcRecv.registros){ fcAplicar(fcRaw); fcGuardarCache(fcRaw); } },300);
-    },err=>{
-      LINKMETA={estado:'error',msg:(err&&err.message)||String(err),n:{},ts:0};
-      safeRender();
-    });
+  FC_PARTES.forEach(k=>fcEscuchar(db,k));
+}
+function fcEscuchar(db,k){
+  db.ref(`${FC_NODO}/${k}`).on('value',snap=>{
+    fcRaw[k]=snap.val(); fcRecv[k]=true; clearTimeout(fcT);
+    fcT=setTimeout(()=>{ if(fcRecv.instructores&&fcRecv.registros){ fcAplicar(fcRaw); fcGuardarCache(fcRaw); } },300);
+  },err=>{
+    LINKMETA={estado:'error',msg:(err&&err.message)||String(err),n:{},ts:0};
+    safeRender();
+    // Un listener rechazado (p. ej. la sesión en Fitness aún no estaba lista) no se reintenta solo
+    setTimeout(()=>{ (typeof fcSesion==='function'?fcSesion(db.app):Promise.resolve()).then(()=>fcEscuchar(db,k)); },15000);
   });
 }
 
