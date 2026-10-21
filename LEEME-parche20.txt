@@ -1,6 +1,6 @@
 PARCHE 20 - Cada equipo descarga solo lo suyo + cuentas de Firebase por persona
 =================================================================================
-Requiere el parche 19. Deja el service worker en gd-v93. No cambia colores, pantallas ni la forma de entrar.
+Requiere el parche 19. Deja el service worker en gd-v94 (con la corrección 20.1, ver al final). No cambia colores, pantallas ni la forma de entrar.
 Sube (reemplazando): index.html, sw.js, js/core.js, js/auth.js, js/ajustes.js, js/profesores.js, js/recepcion.js,
                      js/gimbaja.js, js/sincronizacion.js, js/app.js
 Sube (NUEVO):        js/cuentas.js
@@ -69,3 +69,11 @@ PROBADO
    con la copia completa anterior se limpia solo; trabajo sin internet y subida al volver la señal; cambios de
    PIN y contraseña; y que las reglas bloquean lo que deben.
  - En modo simulación, las 63 pantallas de siempre sin errores.
+
+CORRECCIÓN 20.1 (service worker gd-v94)
+Sube (reemplazando): index.html, sw.js, js/cuentas.js
+ - Las áreas creadas desde Ajustes llevan un guion en su identificador (por ejemplo "yoga-ab12"). Con ellas no
+   se podían crear las cuentas de sus profesores y recepción ("Crear N" se quedaba en las mismas), ni aprobar a
+   su dirección. Corregido.
+ - Si alguna cuenta no se puede crear, Ajustes → Cuentas de Firebase ahora dice de quién y por qué.
+ - No hace falta tocar las reglas.
