@@ -11,7 +11,8 @@ configurados en `js/config.js`:
 
 - `registro-gerencia`: base propia (lee y escribe).
 - `fitness-campestre-e218c`: Fitness Control (**solo lectura**, ver `LEEME-vinculo.txt` y `js/vinculo.js`).
-- `registro-mantenimiento-9854c`: Control Mantenimiento (**solo lectura**, `js/mantenimiento.js`).
+- `registro-mantenimiento-9854c`: Control Mantenimiento (lectura en `js/mantenimiento.js`; los profesores
+  **sí escriben** sus reportes de equipo en `reportes/` e `historial/` desde `js/mantprof.js`, por diseño).
 
 Roles (`js/auth.js`): Gerencia (`ger`), Dirección (`dir`), Profesor (`prof`), Recepción (`rec`), Metodología (`met`).
 Cada cambio se entrega como un `LEEME-parcheN.txt` y sube `VERSION` en `sw.js`.
@@ -62,7 +63,7 @@ Revisar sobre todo `js/core.js`, `js/auth.js`, `js/sincronizacion.js`, `js/vincu
    Las contraseñas se validan en el navegador con `hashPass` (ofuscación, no criptografía): reportar el
    riesgo una sola vez y revisar si las reglas de Firebase protegen los datos (no están en el repo: preguntar).
 2. **Solo lectura de verdad**: ninguna escritura (`set`, `update`, `push`, `remove`, `setPath`) hacia
-   las bases de Fitness o Mantenimiento.
+   la base de Fitness; hacia Mantenimiento solo las de `js/mantprof.js` (reportes del profesor).
 3. **Sincronización sin internet**: cola de pendientes (`outbox`), qué pasa si se cierra la app con cambios
    sin subir, conflictos cuando dos personas guardan lo mismo, memoria llena (`memFalla`).
 4. **Integridad de datos**: rutas `data/<area>/...` con ids que vengan del usuario, fechas y zonas

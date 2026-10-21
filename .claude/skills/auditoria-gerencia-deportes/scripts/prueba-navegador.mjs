@@ -60,10 +60,11 @@ async function recorrer(rol, clv, nombreVp, viewport) {
     const revision = await page.evaluate(() => {
       const anchoDoc = document.documentElement.scrollWidth, ancho = window.innerWidth;
       const sinNombre = [...document.querySelectorAll('button, a[href], [role=button]')]
-        .filter(b => b.offsetParent && !(b.innerText || '').trim() && !b.getAttribute('aria-label') && !b.title).length;
+        .filter(b => b.checkVisibility() && !(b.innerText || '').trim() && !b.getAttribute('aria-label') && !b.title);
       const pequenos = [...document.querySelectorAll('button, a[href], input, select')]
-        .filter(b => { const r = b.getBoundingClientRect(); return b.offsetParent && r.width && (r.width < 32 || r.height < 32); }).length;
-      return { desborde: anchoDoc > ancho + 1 ? `${anchoDoc}px > ${ancho}px` : '', sinNombre, pequenos };
+        .filter(b => { const r = b.getBoundingClientRect(); return b.checkVisibility() && r.width && (r.width < 32 || r.height < 32); }).length;
+      return { desborde: anchoDoc > ancho + 1 ? `${anchoDoc}px > ${ancho}px` : '', sinNombre: sinNombre.length,
+        ejemplosSinNombre: [...new Set(sinNombre.map(b => b.outerHTML.slice(0, 160)))].slice(0, 5), pequenos };
     });
     informe.vistas.push({ rol, viewport: nombreVp, vista: nombre, captura: archivo, errores, ...revision });
     errores = [];
