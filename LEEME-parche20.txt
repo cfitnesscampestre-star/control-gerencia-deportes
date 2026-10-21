@@ -1,0 +1,69 @@
+PARCHE 20 - Cada equipo descarga solo lo suyo + cuentas de Firebase por persona
+=================================================================================
+Requiere el parche 19. Deja el service worker en gd-v93. No cambia colores, pantallas ni la forma de entrar.
+Sube (reemplazando): index.html, sw.js, js/core.js, js/auth.js, js/ajustes.js, js/profesores.js, js/recepcion.js,
+                     js/gimbaja.js, js/sincronizacion.js, js/app.js
+Sube (NUEVO):        js/cuentas.js
+Para la consola:     reglas-firebase-parche20.json (no hace falta subirlo al sitio)
+
+QUÉ CAMBIA
+1) CADA EQUIPO DESCARGA SOLO LO QUE LE TOCA
+   - Gerencia ............ toda la base (igual que antes).
+   - Metodología ......... configuración, Metodología y los datos de todas las áreas (ya no la papelera).
+   - Dirección / Profesor  configuración, SU área (Nutrición + Fisioterapia si dirige las dos) y lo de Metodología
+                           que usa: pruebas, Rufier, formación, evaluación y los informes de SU área.
+                           Paramédicos ve además a los fisioterapeutas, su agenda y lo reservado para empleados.
+   - Recepción ........... configuración y el gimnasio.
+   - Equipo nuevo ........ configuración y las listas de nombres para poder elegir al entrar.
+   - Fitness Control y Mantenimiento solo se conectan en los equipos que los usan.
+   - Al abrir la app con este parche, cada equipo BORRA de su memoria lo que no le toca (las demás áreas,
+     con sus PIN). Lo pendiente por subir no se toca: se sube igual.
+
+2) CUENTAS DE FIREBASE POR PERSONA (para la gente no cambia nada)
+   - Cada quien sigue entrando con su misma contraseña o PIN. Por dentro, la app inicia sesión en Firebase
+     con la cuenta de esa persona, así Firebase sabe quién está en cada equipo. Los correos de las cuentas
+     son internos (…@cuentas.gd-campestre.app); nadie tiene que saberlos.
+   - Profesores y recepción: Gerencia crea todas sus cuentas con un botón (usan el PIN que ya tienen).
+     Cuando la dirección o Gerencia cambia un PIN, se crea su cuenta nueva sola; si se da de baja, se quita.
+   - Metodología y direcciones: su cuenta se crea sola la primera vez que entran y queda "Por aprobar" en
+     Ajustes de Gerencia. Si Gerencia les cambia la contraseña, la cuenta nueva queda creada y aprobada.
+   - Las contraseñas nuevas ahora piden al menos 6 caracteres. Para cambiar la de Gerencia se pide la actual.
+   - Si algo falla (sin internet, falta un paso en la consola), la app sigue funcionando igual que antes y lo
+     vuelve a intentar la siguiente vez. Tocando la nube se ve "Cuenta de este equipo".
+
+3) REGLAS NUEVAS (reglas-firebase-parche20.json)
+   - Solo la cuenta de Gerencia puede: reemplazar toda la base (restaurar respaldo), borrar un área completa,
+     cambiar la configuración y las contraseñas de Gerencia y Metodología.
+   - Nadie puede darse permisos a sí mismo ni tocar las cuentas de otra área.
+   - IMPORTANTE: en este parche cualquier sesión todavía puede LEER la base y escribir registros sueltos,
+     porque aún hay personas sin cuenta. Eso se cierra en el parche 21, cuando todos tengan cuenta.
+
+PASOS, EN ESTE ORDEN (consola de Firebase, proyecto registro-gerencia)
+ 1. Sube los archivos del parche. La app funciona igual con las reglas actuales.
+ 2. Authentication → Método de acceso (Sign-in method) → activa "Correo electrónico/contraseña".
+    Deja ACTIVADO también "Anónimo" (se sigue usando en la pantalla de entrada).
+ 3. Authentication → Usuarios → Agregar usuario:
+        Correo:      ger@cuentas.gd-campestre.app
+        Contraseña:  tu contraseña de Gerencia de la app, exactamente igual.
+    Si tu contraseña de Gerencia tiene menos de 6 caracteres, primero cámbiala en la app (Ajustes →
+    Contraseñas → Gerencia) por una de 6 o más y usa esa.
+ 4. En la app: sal y vuelve a entrar como Gerencia, con internet. En Ajustes → "Cuentas de Firebase" debe
+    decir "Cuenta de Gerencia: Activa". Toca "Crear N" en "Profesores y recepción".
+ 5. SOLO cuando el paso 4 diga "Activa": Realtime Database → Reglas → reemplaza todo por el contenido de
+    reglas-firebase-parche20.json → Publicar. (Si publicas antes, Gerencia no podrá guardar Ajustes.)
+ 6. En los próximos días, conforme entren Metodología y cada dirección, aparecerán en Ajustes → "Por aprobar".
+    Aprueba solo las que esperas (lo ideal: justo después de que esa persona te avise que entró).
+    Cuando "Metodología y direcciones" y "Profesores y recepción" estén completos, avísame para el parche 21.
+
+PARA REGRESAR (si algo saliera mal)
+ - Vuelve a pegar tus reglas anteriores en Realtime Database → Reglas:
+     { "rules": { ".read": false, ".write": false,
+         "gerencia_deportes": { ".read": "auth != null", ".write": "auth != null && newData.exists()" } } }
+ - Los archivos del parche 19 siguen funcionando con esas reglas.
+
+PROBADO
+ - Con los emuladores de Firebase (cuentas y base de datos locales, nunca la base real): 50 comprobaciones de
+   Gerencia, Metodología, dirección, profesor, recepción y Paramédicos; qué descarga cada uno; que un equipo
+   con la copia completa anterior se limpia solo; trabajo sin internet y subida al volver la señal; cambios de
+   PIN y contraseña; y que las reglas bloquean lo que deben.
+ - En modo simulación, las 63 pantallas de siempre sin errores.

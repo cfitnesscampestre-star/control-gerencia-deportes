@@ -38,6 +38,7 @@ function openSync(){
     <div class="card">
       <div class="row"><div><b>Conexión</b><small>${!con?'Esta copia trabaja solo en este equipo.':online?'Conectado a la nube.':'Sin internet: todo lo que captures se guarda en este equipo y se sube solo cuando vuelva la señal.'}</small></div>${pill(!con?'Solo equipo':online?'Conectado':'Sin internet',!con?'mut':online?'ok':'warn')}</div>
       <div class="row"><div><b>Cambios por subir</b><small>${n?`${plu(n,'cambio espera','cambios esperan')} la conexión. No se pierden aunque cierres la app.`:'No hay nada pendiente.'}</small></div><b class="sy-n">${n}</b></div>
+      ${con&&typeof ctEstadoTxt==='function'?`<div class="row"><div><b>Cuenta de este equipo</b><small>${esc(ctEstadoTxt())}</small></div></div>`:''}
       <div class="row"><div><b>Último guardado completo en la nube</b><small>${ult?`${esc(fmtLarga(ymd(ult)))} · ${hh2(ult)}`:'Todavía no hay registro en este equipo.'}</small></div></div>
     </div>
     ${n?`<div class="h2 sm">Pendientes</div><div class="card">${outbox.slice(0,12).map(o=>`<div class="row"><div><small>${esc(syRutaTxt(o.p))}</small></div></div>`).join('')}${n>12?`<div class="row"><div><small>… y ${n-12} más</small></div></div>`:''}</div>`:''}

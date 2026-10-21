@@ -94,10 +94,11 @@ Object.assign(actions,{
     if(!/^\d{4,6}$/.test(pin)){ toast('El PIN debe tener de 4 a 6 dígitos'); return; }
     const id=d.id||('rc'+uid()), prev=d.id?(getRec(aid,id)||{}):{};
     setPath(`data/${aid}/recepcion/${id}`,{...prev,id,nombre,pin,activo:$('#rc_activo').value==='1'});
+    if(typeof ctPersonaGuardada==='function') ctPersonaGuardada('rec',aid,id,pin,prev.pin,$('#rc_activo').value==='1');   // su cuenta de Firebase (ver cuentas.js)
     closeModal(); render(); toast('Recepcionista guardada');
   },
   delRec(d){
     if(!confirm('¿Eliminar a esta recepcionista? Ya no podrá entrar. Lo que capturó se conserva.')) return;
-    setPath(`data/${curArea()}/recepcion/${d.id}`,undefined); closeModal(); render(); toast('Recepcionista eliminada');
+    setPath(`data/${curArea()}/recepcion/${d.id}`,undefined); if(typeof ctQuitar==='function') ctQuitar(ctClave({rol:'rec',area:curArea(),id:d.id})); closeModal(); render(); toast('Recepcionista eliminada');
   }
 });

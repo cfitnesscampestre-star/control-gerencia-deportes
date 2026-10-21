@@ -114,7 +114,9 @@ if(window.matchMedia){                                                   // al g
 /* ----- arranque ----- */
 function boot(){
   aplicarTema();
-  state=lsLoad(); ensureSeed(); lsSave(); validateSession();
+  state=lsLoad(); ensureSeed(); lsSave();
+  if(FIREBASE_CONFIG.databaseURL) alcancePodar(alcance());  // la copia del equipo se queda solo con lo que le toca (ver core.js)
+  validateSession();
   simIniciar();                                            // datos de ejemplo (solo si no hay base de datos conectada)
   if(window.FC_DEMO_RAW) fcAplicar(window.FC_DEMO_RAW);      // solo en la versión de demostración
   render();

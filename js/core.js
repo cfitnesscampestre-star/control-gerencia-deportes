@@ -105,7 +105,7 @@ const roDatos = aid => isRO() || esVinculada(aid);
 let fbRef = null, online = false, pendingRender = false;
 let session = null;
 try{ session = JSON.parse(sessionStorage.getItem(SS_KEY)); }catch(e){ session = null; }
-const saveSession = () => { try{ session ? sessionStorage.setItem(SS_KEY,JSON.stringify(session)) : sessionStorage.removeItem(SS_KEY); }catch(e){} };
+const saveSession = () => { try{ session ? sessionStorage.setItem(SS_KEY,JSON.stringify(session)) : sessionStorage.removeItem(SS_KEY); }catch(e){} if(typeof fbSuscribirLuego==='function') fbSuscribirLuego(); };   // al entrar o salir cambia lo que descarga el equipo
 const lsLoad = () => { try{ return JSON.parse(localStorage.getItem(LS_KEY))||{}; }catch(e){ return {}; } };
 const lsSave = () => { try{ localStorage.setItem(LS_KEY,JSON.stringify(state)); }catch(e){ if(typeof memFalla==='function') memFalla(); } };
 const getPath = p => {
@@ -156,8 +156,8 @@ function setIn(o,rel,val){                                 // pone (o quita, si 
 }
 /* cómo estaba ese dato en la nube la última vez que se vio */
 function baseDe(p){
-  if(srvState){ const b=getIn(srvState,p); return b===undefined?null:clean(b); }
-  // la app se abrió sin internet: se usa la copia del equipo, quitando los cambios pendientes que están dentro de esta ruta
+  if(srvState&&rutaCubierta(p)){ const b=getIn(srvState,p); return b===undefined?null:clean(b); }
+  // la app se abrió sin internet (o la ruta no se descarga en este equipo): se usa la copia del equipo, quitando los cambios pendientes que están dentro de esta ruta
   let b=getIn(state,p); b=b===undefined?null:clean(b);
   outbox.filter(o=>o.p.startsWith(p+'/')).forEach(o=>{ b=setIn(b,o.p.slice(p.length+1),o.base===undefined?null:clean(o.base)); });
   return b;
@@ -280,8 +280,9 @@ function ensureSeed(){
 
 const loadScript = src => new Promise((ok,ko)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=()=>{ s.remove(); ko(new Error('No cargó '+src)); }; document.head.appendChild(s); });
 let fbIniciado = false;
-/* Sesión anónima en la base de Gerencia. Si no se puede (sin internet o todavía no activada en la consola),
-   la app sigue: mientras las reglas estén abiertas funciona igual, y sin internet trabaja con la copia del equipo. */
+/* Sesión en la base de Gerencia: la cuenta de quien entró la última vez en este equipo (queda guardada, ver cuentas.js)
+   o, si no hay, una sesión anónima para poder mostrar la pantalla de entrada. Si no se puede (sin internet),
+   la app sigue con la copia del equipo. */
 async function fbAutenticar(){
   try{
     if(!firebase.auth) await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js');
@@ -291,6 +292,136 @@ async function fbAutenticar(){
     if(!au.currentUser) await Promise.race([au.signInAnonymously(),new Promise((_,ko)=>setTimeout(()=>ko(new Error('tiempo')),6000))]);
   }catch(e){ console.warn('Firebase Auth no disponible:',e&&e.message); }
 }
+/* ---------- QUÉ DESCARGA CADA EQUIPO ----------
+   Cada equipo escucha solo las ramas de la base que le tocan, según quién entra (o, antes de entrar,
+   según el acceso que recuerda el equipo):
+     · Gerencia ........ toda la base.
+     · Metodología ..... configuración, Metodología y los datos de todas las áreas (sin la papelera).
+     · Dirección y profesor .. configuración, SU área (o Nutrición + Fisioterapia si dirige las dos) y lo
+                          de Metodología que usan (pruebas, Rufier, formación, evaluación, informes de su área).
+                          Paramédicos además ve los fisioterapeutas, su agenda y lo reservado para empleados.
+     · Recepción ....... configuración y el gimnasio.
+     · Equipo nuevo (sin acceso recordado): configuración y la lista de profesores y recepción de cada área,
+                          solo para poder elegir el nombre al entrar.
+   Lo que no le toca a este equipo se borra de su copia local. Fitness Control y Mantenimiento solo se
+   conectan si el área los usa. */
+const MET_DIR = ['pruebas','rufier','formacion','evalCfg','evalProf'];
+let fbDb = null, subs = {}, subsListas = new Set(), subsT = null, subsReintento = 5000, fcHecho = false, mantHecho = false;
+const accesoActual = () => session || (typeof equipoCfg==='function' ? equipoCfg() : null);
+function areasDeAcceso(c){
+  if(!c||!c.area||c.area==='all') return [];
+  if(c.rol==='dir'&&(Array.isArray(c.grupo)||c.grupo===true)){ const G=Array.isArray(c.grupo)?c.grupo:(typeof svDirGrupo==='function'?svDirGrupo():null); if(G&&G.length) return G; }
+  return [c.area];
+}
+function alcance(){                                    // [{k, p, pre?}]: rutas (dentro de DB_ROOT) que escucha este equipo
+  const c=accesoActual(), rol=c&&c.rol, R=[], add=(p,pre)=>R.push({k:pre?`${p}?${pre}`:p,p,pre});
+  if(rol==='ger'||(c&&c.gerOrigen)){ add(''); return R; }          // Gerencia (también cuando prueba “Ver como”)
+  add('cfg');
+  if(rol==='met'){ add('met'); add('data'); return R; }
+  const as=areasDeAcceso(c);
+  if(!rol||!as.length){ areasList().forEach(a=>{ add(`data/${a.id}/profesores`); add(`data/${a.id}/recepcion`); }); return R; }
+  as.forEach(a=>add(`data/${a}`));
+  if(rol==='rec') return R;
+  const par=as.some(a=>typeof esParamed==='function'&&esParamed(a)), fis=typeof fisioAreaId==='function'?fisioAreaId():'';
+  if(par&&fis&&!as.includes(fis)) ['profesores','bitacora','bloqueos'].forEach(k=>add(`data/${fis}/${k}`));   // Paramédicos agenda citas con Fisioterapia
+  MET_DIR.forEach(k=>add(`met/${k}`));
+  as.forEach(a=>add('met/informes',`${a}__`));
+  return R;
+}
+const dentroDe = (s,p) => s.p==='' || ((p===s.p||p.startsWith(s.p+'/')) && (!s.pre||p.startsWith(`${s.p}/${s.pre}`)));
+const rutaCubierta = p => alcance().some(s=>subsListas.has(s.k)&&dentroDe(s,p));
+const alcanceListo = () => Object.keys(subs).length>0 && Object.keys(subs).every(k=>subsListas.has(k));
+/* quita de la copia del equipo lo que ya no le toca (por ejemplo, las demás áreas que se bajaban antes) */
+function alcancePodar(R){
+  if(!FIREBASE_CONFIG.databaseURL||!R.length||R.some(s=>s.p==='')) return;
+  const podar=o=>{
+    let n={};
+    R.forEach(s=>{
+      const v=getIn(o,s.p); if(v===undefined||v===null) return;
+      if(!s.pre){ n=setIn(n,s.p,clean(v)); return; }
+      Object.keys(v).filter(k=>k.startsWith(s.pre)).forEach(k=>{ n=setIn(n,`${s.p}/${k}`,clean(v[k])); });
+    });
+    return n;
+  };
+  state=podar(state); if(srvState) srvState=podar(srvState);
+  obAplicarLocal(); lsSave();
+}
+/* llega una rama de la nube */
+function fbRecibe(s,snap){
+  const v=snap.val(), primera=!fbRef;
+  fbRef=fbDb.ref(DB_ROOT);
+  if(s.p===''){
+    if(v===null&&primera&&!subsListas.has(s.k)){          // nube vacía: sube lo que hay en este equipo
+      subsListas.add(s.k); ensureSeed(); fbRef.set(clean(state)); outbox=[]; obSave(); lsSave(); safeRender(); return;
+    }
+    srvState=v?clean(v):{}; state=v?clean(v):{};
+  } else {
+    if(!srvState) srvState={};
+    [0,1].forEach(i=>{
+      let o=i?state:srvState;
+      if(s.pre){
+        const cur=getIn(o,s.p); if(cur&&typeof cur==='object') Object.keys(cur).filter(k=>k.startsWith(s.pre)).forEach(k=>{ o=setIn(o,`${s.p}/${k}`,null); });
+        Object.entries(v||{}).forEach(([k,x])=>{ o=setIn(o,`${s.p}/${k}`,clean(x)); });
+      } else o=setIn(o,s.p,v==null?null:clean(v));
+      if(i) state=o; else srvState=o;
+    });
+  }
+  subsListas.add(s.k); subsReintento=5000;
+  obAplicarLocal();                                      // lo capturado sin internet no se pierde al llegar la nube
+  if(s.p===''||s.p==='cfg'){ cfgRevisar(); fbSuscribirLuego(); }   // las ramas dependen de la configuración (áreas, grupo de salud)
+  lsSave(); if(alcanceListo()) validateSession(); safeRender(); obFlush();
+}
+/* completa la configuración (áreas nuevas, contraseñas iniciales…). Solo Gerencia la sube a la nube, y solo lo que cambió */
+function cfgDif(a,b,ruta,nivel){
+  const out=[];
+  new Set([...Object.keys(a||{}),...Object.keys(b||{})]).forEach(k=>{
+    const x=(a||{})[k], y=(b||{})[k]; if(jeq(x,y)) return;
+    if(nivel<2&&esObj(x)&&esObj(y)) out.push(...cfgDif(x,y,`${ruta}/${k}`,nivel+1)); else out.push([`${ruta}/${k}`,y]);
+  });
+  return out;
+}
+function cfgRevisar(){
+  const antes=clean(state.cfg||{});
+  if(!ensureSeed()||!fbRef||!(typeof ctEsGer==='function'&&ctEsGer())) return;
+  cfgDif(antes,state.cfg,'cfg',0).forEach(([p,v])=>fbRef.child(p).set(v===undefined?null:clean(v)).catch(e=>console.warn('No se pudo completar la configuración',p,e&&e.message)));
+}
+/* engancha o suelta las ramas según quién está en este equipo */
+function fbSuscribirLuego(){ clearTimeout(subsT); subsT=setTimeout(fbSuscribir,0); }
+function fbSuscribir(){
+  const R=alcance();
+  alcancePodar(R);
+  if(!fbDb) return;
+  const quiere=new Set(R.map(s=>s.k));
+  Object.keys(subs).forEach(k=>{ if(!quiere.has(k)){ subs[k].ref.off('value',subs[k].fn); delete subs[k]; subsListas.delete(k); } });
+  R.forEach(s=>{
+    if(subs[s.k]) return;
+    const base=fbDb.ref(s.p?`${DB_ROOT}/${s.p}`:DB_ROOT), ref=s.pre?base.orderByKey().startAt(s.pre).endAt(s.pre+''):base;
+    const fn=ref.on('value',snap=>fbRecibe(s,snap),err=>{          // sin permiso o se cortó: se vuelve a intentar, cada vez más espaciado
+      console.warn('No se pudo leer',s.p||'(todo)',err&&err.message);
+      if(subs[s.k]&&subs[s.k].fn===fn){ delete subs[s.k]; subsListas.delete(s.k); }
+      clearTimeout(subsT); subsT=setTimeout(fbSuscribir,subsReintento); subsReintento=Math.min(subsReintento*2,120000);
+      if(!subsListas.size) toast('No se pudo leer Firebase: usando la copia de este equipo');
+    });
+    subs[s.k]={ref,fn};
+  });
+  fbExtras();
+}
+/* Fitness Control y Mantenimiento: solo si este equipo los usa */
+function fbExtras(){
+  const c=accesoActual(), rol=c&&c.gerOrigen?'ger':c&&c.rol, as=areasDeAcceso(c), dp=['dir','prof'].includes(rol);
+  if(!fcHecho&&typeof fcConectar==='function'&&(rol==='ger'||rol==='met'||(dp&&as.some(a=>esVinculada(a)||(typeof tieneVinculoSecundario==='function'&&tieneVinculoSecundario(a)))))){
+    fcHecho=true;
+    const appFC = firebase.apps.find(a=>a.name==='fitness') || firebase.initializeApp(FIREBASE_CONFIG_FITNESS,'fitness');
+    fcConectar(appFC.database());
+  }
+  if(!mantHecho&&typeof mantConectar==='function'&&FIREBASE_CONFIG_MANT.databaseURL&&(rol==='ger'||(dp&&as.some(a=>typeof mantAplica==='function'&&mantAplica(a))))){
+    mantHecho=true;
+    try{
+      const appM = firebase.apps.find(a=>a.name==='mant') || firebase.initializeApp(FIREBASE_CONFIG_MANT,'mant');
+      mantConectar(appM.database());
+    }catch(e){ console.warn('Control Mantenimiento no disponible',e); }
+  }
+}
 async function initFirebase(){
   if(fbIniciado) return;
   try{
@@ -299,36 +430,11 @@ async function initFirebase(){
       await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js');
     }
     fbIniciado=true;
-    if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);              // app de Gerencia (por defecto)
-    await fbAutenticar();                                                           // sesión anónima: las reglas de Firebase exigen auth != null
-    const db=firebase.database();
-    db.ref('.info/connected').on('value',s=>{ online=!!s.val(); if(online) obFlush(); safeRender(); });
-    if(typeof fcConectar==='function'){                                            // segunda app: solo lectura de Fitness Control
-      const appFC = firebase.apps.find(a=>a.name==='fitness') || firebase.initializeApp(FIREBASE_CONFIG_FITNESS,'fitness');
-      fcConectar(appFC.database());
-    }
-    if(typeof mantConectar==='function'&&FIREBASE_CONFIG_MANT.databaseURL){        // tercera app: solo lectura de Control Mantenimiento
-      try{
-        const appM = firebase.apps.find(a=>a.name==='mant') || firebase.initializeApp(FIREBASE_CONFIG_MANT,'mant');
-        mantConectar(appM.database());
-      }catch(e){ console.warn('Control Mantenimiento no disponible',e); }
-    }
-    const ref=db.ref(DB_ROOT);
-    let first=true;
-    ref.on('value',snap=>{
-      const v=snap.val();
-      if(first){
-        first=false; fbRef=ref;
-        if(v===null){                                        // nube vacía: sube lo que hay en este equipo
-          ensureSeed(); ref.set(clean(state)); outbox=[]; obSave(); lsSave(); safeRender(); return;
-        }
-      }
-      srvState=v?clean(v):{};                               // cómo está la nube (para saber si alguien más cambió algo mientras trabajábamos sin internet)
-      state=v||{};
-      obAplicarLocal();                                      // lo capturado sin internet no se pierde al llegar la nube
-      if(ensureSeed()) ref.child('cfg').set(clean(state.cfg));
-      lsSave(); validateSession(); safeRender(); obFlush();
-    },err=>{ console.warn(err); toast('No se pudo leer Firebase: usando la copia de este equipo'); });
+    if(!firebase.apps.some(a=>a.name==='[DEFAULT]')) firebase.initializeApp(FIREBASE_CONFIG);   // app de Gerencia (por defecto)
+    await fbAutenticar();                                                           // sesión anónima o la cuenta de quien entró (ver cuentas.js)
+    fbDb=firebase.database();
+    fbDb.ref('.info/connected').on('value',s=>{ online=!!s.val(); if(online){ obFlush(); if(typeof ctReintentar==='function') ctReintentar(); } safeRender(); });
+    fbSuscribir();
   }catch(e){
     // sin internet al abrir: la app sigue con la copia del equipo y se conecta cuando vuelva la señal
     console.warn('Firebase no disponible todavía',e);
@@ -337,7 +443,7 @@ async function initFirebase(){
 if(typeof window!=='undefined'){
   window.addEventListener('online',()=>{ if(FIREBASE_CONFIG.databaseURL&&!fbIniciado) initFirebase(); else obFlush(); });
   document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&FIREBASE_CONFIG.databaseURL){ if(!fbIniciado) initFirebase(); else obFlush(); } });
-  setInterval(()=>{ if(!FIREBASE_CONFIG.databaseURL) return; if(!fbIniciado) initFirebase(); else if(outbox.length&&online) obFlush(); },20000);   // reintento automático
+  setInterval(()=>{ if(!FIREBASE_CONFIG.databaseURL) return; if(!fbIniciado) initFirebase(); else{ if(outbox.length&&online) obFlush(); if(typeof ctReintentar==='function') ctReintentar(); } },20000);   // reintento automático
 }
 
 /* ---------- acceso a datos ---------- */

@@ -90,6 +90,7 @@ Object.assign(actions,{
     if(!/^\d{4,6}$/.test(pin)){ toast('El PIN debe tener de 4 a 6 dígitos'); return; }
     const id=d.id||('p'+uid()), prev=d.id?(getProf(aid,id)||{}):{};
     setPath(`data/${aid}/profesores/${id}`,{...prev,id,nombre,pin,tipo:$('#pf_tipo').value,activo:$('#pf_activo').value==='1',especialidad:$('#pf_esp').value.trim(),foto:pfFotoData||'',mantenimiento:!!($('#pf_mant')?$('#pf_mant').value==='1':prev.mantenimiento),...svProfLeer(aid),...gimProfLeer(aid)});
+    if(typeof ctPersonaGuardada==='function'&&!esVinculada(aid)) ctPersonaGuardada('prof',aid,id,pin,prev.pin,$('#pf_activo').value==='1');   // su cuenta de Firebase (ver cuentas.js)
     if(prev.nombre&&prev.nombre!==nombre) clasesDe(aid,id).forEach(g=>setPath(`data/${aid}/grupos/${g.id}/prof`,profsDeGrupo(g).map(x=>x===id?nombre:((getProf(aid,x)||{}).nombre||'')).filter(Boolean).join(' / ')));
     if(esGim(aid)&&prev.activo!==false&&$('#pf_activo').value!=='1'&&typeof ptPendientesDe==='function'&&ptPendientesDe(aid,id).length){   // inactivo con personalizados pendientes
       closeModal(); render(); ptBajaModal(id,'inactivar'); toast('Guardado. Decide qué pasa con sus personalizados'); return;
@@ -106,6 +107,7 @@ Object.assign(actions,{
       setPath(`data/${aid}/grupos/${g.id}`,{...g,profDia:pd,profId:pid,prof:profNombresDe(aid,rest.filter(x=>x!==d.id))});
     });
     setPath(`data/${aid}/profesores/${d.id}`,undefined);
+    if(typeof ctQuitar==='function') ctQuitar(ctClave({rol:'prof',area:aid,id:d.id}));
     closeModal(); render(); toast('Profesor eliminado');
   }
 });
