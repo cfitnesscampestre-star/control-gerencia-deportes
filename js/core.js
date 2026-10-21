@@ -406,13 +406,26 @@ function fbSuscribir(){
   });
   fbExtras();
 }
+/* Sesión anónima en el proyecto de Fitness Control. Su base exige sesión para leer
+   (registro-fitness/firebase/database.rules.json) y la de Gerencia no cuenta allá: cada proyecto
+   tiene su propia sesión. Si falla (sin red, o el acceso anónimo aún no está activado en Fitness),
+   se lee igual: con las reglas abiertas sigue funcionando. */
+async function fcSesion(app){
+  try{
+    if(!firebase.auth) await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js');
+    const au=app.auth();
+    const lista=typeof au.authStateReady==='function'?au.authStateReady():new Promise(r=>{ const u=au.onAuthStateChanged(()=>{ u(); r(); }); });
+    await Promise.race([lista,new Promise(r=>setTimeout(r,4000))]);
+    if(!au.currentUser) await Promise.race([au.signInAnonymously(),new Promise((_,ko)=>setTimeout(()=>ko(new Error('tiempo')),6000))]);
+  }catch(e){ console.warn('[Fitness Control] sin sesión:',e&&(e.code||e.message)); }
+}
 /* Fitness Control y Mantenimiento: solo si este equipo los usa */
 function fbExtras(){
   const c=accesoActual(), rol=c&&c.gerOrigen?'ger':c&&c.rol, as=areasDeAcceso(c), dp=['dir','prof'].includes(rol);
   if(!fcHecho&&typeof fcConectar==='function'&&(rol==='ger'||rol==='met'||(dp&&as.some(a=>esVinculada(a)||(typeof tieneVinculoSecundario==='function'&&tieneVinculoSecundario(a)))))){
     fcHecho=true;
     const appFC = firebase.apps.find(a=>a.name==='fitness') || firebase.initializeApp(FIREBASE_CONFIG_FITNESS,'fitness');
-    fcConectar(appFC.database());
+    fcSesion(appFC).then(()=>fcConectar(appFC.database()));
   }
   if(!mantHecho&&typeof mantConectar==='function'&&FIREBASE_CONFIG_MANT.databaseURL&&(rol==='ger'||(dp&&as.some(a=>typeof mantAplica==='function'&&mantAplica(a))))){
     mantHecho=true;
