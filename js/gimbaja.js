@@ -53,6 +53,7 @@ Object.assign(actions,{
     if(d.modo==='eliminar'&&p){
       ptDe(aid,pid).forEach(x=>{ if(!x.profNom) setPath(`data/${aid}/paquetes/${x.id}/profNom`,nom); });     // su nombre se conserva en el historial
       setPath(`data/${aid}/profesores/${pid}`,undefined);
+      if(typeof ctQuitar==='function') ctQuitar(ctClave({rol:'prof',area:aid,id:pid}));
     }
     closeModal(); render();
     toast(`${d.modo==='eliminar'?`Se eliminó a ${nom}. `:''}${pasados?`${plu(pasados,'paquete pasado','paquetes pasados')} a otro instructor`:''}${pasados&&cerrados?' · ':''}${cerrados?plu(cerrados,'paquete cerrado','paquetes cerrados'):''}${choques?` · ${plu(choques,'sesión choca','sesiones chocan')}: el instructor recibió el aviso`:''}`);

@@ -175,6 +175,7 @@ function doLogin(){
     localStorage.setItem(EQ_KEY,JSON.stringify(c)); localStorage.setItem(LAST_KEY,JSON.stringify(c));
     loginUI.cfg=c; loginUI.fijo=true; loginUI.otra=false;
   }catch(e){}
+  if(typeof ctAlEntrar==='function') ctAlEntrar({rol:session.rol,area:session.area,id:session.profId||session.recId,grupo:session.grupo},pw);   // su cuenta de Firebase (ver cuentas.js)
   loginUI.err=''; ui.repTab='semanal'; ui.afFecha=todayStr(); ui.gaFecha=todayStr(); ui.afTodos=false; ui.lista=null;
   saveSession(); render(); top0();
 }
@@ -209,7 +210,7 @@ Object.assign(actions,{
     if(pw!==state.cfg.pass.ger&&!dirOk){ toast('Contraseña incorrecta'); return; }
     try{ localStorage.removeItem(EQ_KEY); localStorage.removeItem(LAST_KEY); }catch(e){}
     Object.assign(loginUI,{rol:'',area:'',prof:'',paso:'rol',err:'',fijo:false,cfg:null}); loginIniciado=true;
-    closeModal(); render(); toast('Equipo restablecido: elige cómo vas a entrar');
+    closeModal(); if(typeof fbSuscribirLuego==='function') fbSuscribirLuego(); render(); toast('Equipo restablecido: elige cómo vas a entrar');
   },
   dirComoProf(){
     if(!dirPuedeEntrenar()) return;
@@ -235,10 +236,10 @@ Object.assign(actions,{
     if(!confirm('¿Restablecer el acceso de este equipo? Se cerrará la sesión y volverá a preguntar cómo se entra.')) return;
     try{ localStorage.removeItem(EQ_KEY); localStorage.removeItem(LAST_KEY); }catch(e){}
     Object.assign(loginUI,{rol:'',area:'',prof:'',paso:'rol',err:'',fijo:false,cfg:null});
-    if(typeof rfLimpiar==='function') rfLimpiar(); session=null; ui.lista=null; loginIniciado=true; saveSession(); closeModal(); render(); top0(); toast('Equipo restablecido: elige cómo vas a entrar');
+    if(typeof rfLimpiar==='function') rfLimpiar(); if(typeof ctAlSalir==='function') ctAlSalir(); session=null; ui.lista=null; loginIniciado=true; saveSession(); closeModal(); render(); top0(); toast('Equipo restablecido: elige cómo vas a entrar');
   },
   login(){ doLogin(); },
-  logout(){ if(typeof rfLimpiar==='function') rfLimpiar(); session=null; ui.lista=null; loginIniciado=false; saveSession(); closeModal(); render(); top0(); }
+  logout(){ if(typeof rfLimpiar==='function') rfLimpiar(); if(typeof ctAlSalir==='function') ctAlSalir(); session=null; ui.lista=null; loginIniciado=false; saveSession(); closeModal(); render(); top0(); }
 });
 
 document.addEventListener('change',e=>{

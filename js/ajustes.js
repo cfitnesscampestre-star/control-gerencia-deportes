@@ -19,6 +19,7 @@ function gAjustes(){
       <div class="h2">Apariencia</div>
       <div class="card"><div class="row"><div><b>Colores del sistema</b><small>Solo en este dispositivo</small></div>
         <div class="seg"><button class="${temaActual()==='campestre'?'on':''}" data-act="tema" data-t="campestre">Campestre</button><button class="${temaActual()==='magenta'?'on':''}" data-act="tema" data-t="magenta">Magenta</button></div></div></div>
+      ${typeof ctCard==='function'&&FIREBASE_CONFIG.databaseURL?`<div class="h2">Cuentas de Firebase</div>${ctCard()}`:''}
       <div class="h2">Contraseñas</div>
       <div class="card">
         <div class="row"><div><b>Gerencia</b><small>Acceso a todas las áreas</small></div><button class="btn sm" data-act="pwGer">Cambiar</button></div>
@@ -43,12 +44,12 @@ function gAjustes(){
 }
 
 function openPw(kind,aid,grupo){
-  const self=kind==='self';
+  const self=kind==='self'||kind==='ger';               // la propia: se pide la actual (también para cambiarla en su cuenta de Firebase)
   const label=kind==='ger'?'Gerencia':kind==='met'?'Metodología deportiva':`Dirección · ${esc(grupo?SV_GRUPO_NOM:(getArea(aid)||{}).nombre||'')}`;
   openModal(`${mHead('Cambiar contraseña')}
     <div class="sub">${label}</div>
     ${self?`<label class="f"><span>Contraseña actual</span><input id="pw_cur" type="password" autocomplete="current-password"></label>`:''}
-    <label class="f"><span>Nueva contraseña (mínimo 4 caracteres)</span><input id="pw_new" type="password" autocomplete="new-password"></label>
+    <label class="f"><span>Nueva contraseña (mínimo 6 caracteres)</span><input id="pw_new" type="password" autocomplete="new-password"></label>
     <label class="f"><span>Confirmar nueva contraseña</span><input id="pw_new2" type="password" autocomplete="new-password"></label>
     <div class="err" id="pw_err"></div>
     <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="savePw" data-kind="${kind}" data-id="${esc(aid||'')}"${grupo?' data-grupo="1"':''}>Guardar contraseña</button></div>`);
@@ -104,11 +105,14 @@ Object.assign(actions,{
     const err=m=>{ $('#pw_err').textContent=m; };
     const n1=$('#pw_new').value, n2=$('#pw_new2').value;
     const grupo=d.kind==='self'&&session&&Array.isArray(session.grupo)?session.grupo:(d.kind==='dir'&&d.grupo?svDirGrupo():null);
-    if(d.kind==='self' && !(grupo||[d.id]).some(id=>hashPass($('#pw_cur').value)===state.cfg.pass.dir[id])) return err('La contraseña actual no coincide.');
-    if(n1.length<4) return err('Usa al menos 4 caracteres.');
+    const cur=($('#pw_cur')||{}).value||'';
+    if(d.kind==='self' && !(grupo||[d.id]).some(id=>hashPass(cur)===state.cfg.pass.dir[id])) return err('La contraseña actual no coincide.');
+    if(d.kind==='ger' && hashPass(cur)!==state.cfg.pass.ger) return err('La contraseña actual no coincide.');
+    if(n1.length<6) return err('Usa al menos 6 caracteres.');
     if(n1!==n2) return err('Las dos contraseñas no coinciden.');
     if(grupo) grupo.forEach(id=>setPath(`cfg/pass/dir/${id}`,hashPass(n1)));          // Nutrición y Fisioterapia: una sola contraseña
     else setPath(d.kind==='ger'?'cfg/pass/ger':d.kind==='met'?'cfg/pass/met':`cfg/pass/dir/${d.id}`,hashPass(n1));
+    if(typeof ctPassCambiada==='function') ctPassCambiada(d.kind,d.id,!!d.grupo,cur,n1);     // también en su cuenta de Firebase
     closeModal(); toast('Contraseña actualizada');
   },
   ghCopiar(){                                            // copia el horario del primer día abierto a los demás días abiertos

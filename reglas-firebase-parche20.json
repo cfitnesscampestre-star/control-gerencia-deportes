@@ -1,0 +1,65 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "gerencia_deportes": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.email === 'ger@cuentas.gd-campestre.app'",
+
+      "cfg": {
+        "pass": {
+          "dir": {
+            "$area": {
+              ".write": "auth != null && newData.isString()"
+            }
+          }
+        }
+      },
+      "data": {
+        "$area": {
+          "$coleccion": {
+            "$id": {
+              ".write": "auth != null"
+            }
+          }
+        }
+      },
+      "met": {
+        "$seccion": {
+          "$id": {
+            ".write": "auth != null"
+          }
+        }
+      },
+      "papelera": {
+        "$id": {
+          ".write": "auth != null"
+        }
+      }
+    },
+
+    "gerencia_cuentas": {
+      "emails": {
+        ".read": "auth != null",
+        "$clave": {
+          ".write": "auth != null && (auth.token.email === 'ger@cuentas.gd-campestre.app' || (root.child('gerencia_cuentas/usuarios/' + auth.uid + '/rol').val() === 'dir' && ((newData.exists() && (newData.child('rol').val() === 'prof' || newData.child('rol').val() === 'rec') && root.child('gerencia_cuentas/usuarios/' + auth.uid + '/areas/' + newData.child('area').val()).exists() && $clave.beginsWith(newData.child('rol').val() + '-' + newData.child('area').val() + '-')) || (!newData.exists() && (data.child('rol').val() === 'prof' || data.child('rol').val() === 'rec') && root.child('gerencia_cuentas/usuarios/' + auth.uid + '/areas/' + data.child('area').val()).exists()))))"
+        }
+      },
+      "usuarios": {
+        ".read": "auth != null && auth.token.email === 'ger@cuentas.gd-campestre.app'",
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && (auth.token.email === 'ger@cuentas.gd-campestre.app' || (root.child('gerencia_cuentas/usuarios/' + auth.uid + '/rol').val() === 'dir' && ((newData.exists() && (newData.child('rol').val() === 'prof' || newData.child('rol').val() === 'rec') && !newData.child('areas').exists() && root.child('gerencia_cuentas/usuarios/' + auth.uid + '/areas/' + newData.child('area').val()).exists() && newData.child('key').val().beginsWith(newData.child('rol').val() + '-' + newData.child('area').val() + '-')) || (!newData.exists() && (data.child('rol').val() === 'prof' || data.child('rol').val() === 'rec') && root.child('gerencia_cuentas/usuarios/' + auth.uid + '/areas/' + data.child('area').val()).exists()))))"
+        }
+      },
+      "pendientes": {
+        ".read": "auth != null && auth.token.email === 'ger@cuentas.gd-campestre.app'",
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && (auth.token.email === 'ger@cuentas.gd-campestre.app' || (auth.uid === $uid && (!newData.exists() || (newData.child('email').val() === auth.token.email && auth.token.email.endsWith('@cuentas.gd-campestre.app') && auth.token.email.beginsWith(newData.child('key').val() + '.')))))"
+        }
+      }
+    }
+  }
+}
