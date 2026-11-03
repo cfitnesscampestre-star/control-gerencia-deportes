@@ -464,7 +464,10 @@ const areasList = () => Object.values((state.cfg&&state.cfg.areas)||{}).sort((a,
 const getArea = id => (state.cfg&&state.cfg.areas&&state.cfg.areas[id])||null;
 const LINK_KEYS = ['profesores','grupos','asistencia','eventos','incidencias','reportes'];
 /* Orden de prioridad: simulación < datos capturados en Gerencia < datos vinculados de Fitness Control */
-const mezcla = (aid,k) => { const n=((state.data&&state.data[aid])||{})[k]||{}, s=SIM[aid]&&SIM[aid][k], l=LINK[aid]&&LINK[aid][k]; return (s||l)?{...(s||{}),...n,...(l||{})}:n; };
+const mezcla0 = (aid,k) => { const n=((state.data&&state.data[aid])||{})[k]||{}, s=SIM[aid]&&SIM[aid][k], l=LINK[aid]&&LINK[aid][k]; return (s||l)?{...(s||{}),...n,...(l||{})}:n; };
+/* Eventos de Fitness Control que la dirección quitó de Gerencia (data/<área>/eventosOcultos/<id>): no se borran en Fitness Control, solo dejan de contarse aquí */
+const evOcultos = aid => ((state.data&&state.data[aid])||{}).eventosOcultos||{};
+const mezcla = (aid,k) => { const m=mezcla0(aid,k); if(k!=='eventos') return m; const oc=evOcultos(aid); if(!Object.keys(oc).length) return m; const o={}; Object.keys(m).forEach(id=>{ if(!oc[id]) o[id]=m[id]; }); return o; };
 const areaData = aid => {
   const n=(state.data&&state.data[aid])||{}; if(!SIM[aid]&&!LINK[aid]) return n;
   const o={...n}; LINK_KEYS.forEach(k=>{ o[k]=mezcla(aid,k); }); return o;
