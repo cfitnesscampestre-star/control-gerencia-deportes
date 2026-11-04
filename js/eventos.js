@@ -21,7 +21,8 @@ function vEventos(aid){
       <div class="ev-d"><b>${d.getDate()}</b><span>${MESES[d.getMonth()].slice(0,3)}</span></div>
       <div class="ev-i"><b>${esc(e.nombre)}</b><small>${esc([evFin(e)>e.fecha?evFechaTxt(e):'',e.tipo,e.hora,e.lugar].filter(Boolean).join(' · '))}${e.participantes?' · '+(+e.participantes)+' participantes':''}${e.fc?' · Fitness Control':''}${(typeof infTag==='function'&&session&&session.rol==='dir')?infTag(aid,e):''}</small></div>
       ${pill(e.estado||'planificado',EST_EV_CLS[e.estado]||'info')}</button>${rojo?rojo+'</div>':''}`; }).join('')}</div>`
-      :empty(ui.evFil==='proximos'?(isRO()?'No hay eventos próximos.':'No hay eventos próximos. Registra el siguiente con “+ Evento”.'):'No hay eventos en esta lista.')}`;
+      :empty(ui.evFil==='proximos'?(isRO()?'No hay eventos próximos.':'No hay eventos próximos. Registra el siguiente con “+ Evento”.'):'No hay eventos en esta lista.')}
+    ${(!isRO()&&Object.keys(evOcultos(aid)).length)?`<div class="btns"><button class="btn sm" data-act="evOcultosVer">${plu(Object.keys(evOcultos(aid)).length,'evento quitado de Fitness Control','eventos quitados de Fitness Control')} · Ver</button></div>`:''}`;
 }
 
 /* Informe del evento realizado: lo captura la dirección y solo lo ven Dirección y Metodología (Gerencia no) */
@@ -49,7 +50,8 @@ function openEvento(id,fecha,aidIn){
     <label class="f"><span>Participantes</span><input id="e_part" type="number" inputmode="numeric" min="0" value="${esc(e.participantes)}"${dis}></label>
     <label class="f"><span>Notas y resultados</span><textarea id="e_notas"${dis}>${esc(e.notas)}</textarea></label>
     ${id?evInformeBtn(aid,id,e):''}
-    ${ro?`<div class="btns"><button class="btn" data-act="closeModal">Cerrar</button>${(typeof isMet==='function'&&isMet())?`<button class="btn primary" data-act="mtEvPrint" data-aid="${esc(aid)}" data-id="${esc(id)}">Imprimir ficha</button>`:''}</div>`:
+    ${ro?`<div class="btns"><button class="btn" data-act="closeModal">Cerrar</button>${(typeof isMet==='function'&&isMet())?`<button class="btn primary" data-act="mtEvPrint" data-aid="${esc(aid)}" data-id="${esc(id)}">Imprimir ficha</button>`:''}</div>
+     ${(!isRO()&&/^fc_/.test(String(id)))?`<p class="mut" style="margin:10px 0 4px;font-size:.85em">Este evento viene de Fitness Control. Puedes quitarlo de Gerencia (no se borra en Fitness Control).</p><div class="btns"><button class="btn danger" data-act="ocultarEvento" data-id="${esc(id)}">Eliminar evento</button></div>`:''}`:
     `<div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="saveEvento" data-id="${esc(id||'')}">Guardar evento</button></div>
      ${id?`<div class="btns"><button class="btn danger" data-act="delEvento" data-id="${esc(id)}">Eliminar evento</button></div>`:''}`}`);
 }
@@ -65,6 +67,24 @@ Object.assign(actions,{
     const id=d.id||('e'+uid()), prev=d.id?(getPath(`data/${aid}/eventos/${id}`)||{}):{};
     setPath(`data/${aid}/eventos/${id}`,{...prev,id,nombre,fecha,fechaFin:(fin&&fin>fecha)?fin:'',hora:$('#e_hora').value,lugar:$('#e_lugar').value.trim(),tipo:$('#e_tipo').value,estado:$('#e_estado').value,participantes:+$('#e_part').value||0,notas:$('#e_notas').value});
     closeModal(); render(); toast('Evento guardado');
+  },
+  ocultarEvento(d){
+    const aid=curArea(), e=getPath(`data/${aid}/eventos/${d.id}`)||mezcla0(aid,'eventos')[d.id]||{};
+    if(!confirm('¿Eliminar este evento de Gerencia? Seguirá en Fitness Control; si también quieres borrarlo allá, hazlo en Fitness Control.')) return;
+    setPath(`data/${aid}/eventosOcultos/${d.id}`,{id:d.id,nombre:String(e.nombre||''),fecha:String(e.fecha||''),ts:Date.now()});
+    closeModal(); render(); toast('Evento eliminado');
+  },
+  evOcultosVer(){
+    const aid=curArea(), L=Object.entries(evOcultos(aid)).map(([id,v])=>({id,...(v&&typeof v==='object'?v:{})})).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+    openModal(`${mHead('Eventos quitados')}
+      <p class="mut" style="margin:0 0 10px">Vienen de Fitness Control y no se cuentan en Gerencia. Puedes regresarlos.</p>
+      ${L.map(x=>`<div class="row"><div><b>${esc(x.nombre||'Evento')}</b><small>${x.fecha?esc(fmtFecha(x.fecha)):''}</small></div><button class="btn sm" data-act="evRestaurar" data-id="${esc(x.id)}">Regresar</button></div>`).join('')}
+      <div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`);
+  },
+  evRestaurar(d){
+    setPath(`data/${curArea()}/eventosOcultos/${d.id}`,undefined);
+    if(Object.keys(evOcultos(curArea())).length) actions.evOcultosVer(); else closeModal();
+    render(); toast('Evento regresado');
   },
   delEvento(d){ if(!confirm('¿Eliminar este evento?')) return; setPath(`data/${curArea()}/eventos/${d.id}`,undefined); closeModal(); render(); toast('Evento eliminado'); }
 });

@@ -1,0 +1,15 @@
+PARCHE 22 - Eliminar eventos que vienen de Fitness Control
+==========================================================
+Requiere el parche 21. Deja el service worker en gd-v97. No cambia reglas de Firebase.
+Sube (reemplazando): index.html, sw.js, js/core.js, js/eventos.js
+
+QUÉ CAMBIA
+Los eventos que dicen "· Fitness Control" se leen de Fitness Control y antes no se podían borrar en Gerencia
+(la ventana solo tenía "Cerrar"). Ahora la dirección del área ve el botón "Eliminar evento" también en ellos.
+ - Se quitan de la lista, del calendario, de los conteos y de los reportes de Gerencia.
+ - NO se borran en Fitness Control (Gerencia nunca escribe allá). Si también los quieres borrar allá, hazlo en Fitness Control.
+ - Abajo de la lista aparece "N eventos quitados de Fitness Control · Ver", donde se pueden regresar si se quitaron por error.
+ - Se guarda en data/<área>/eventosOcultos, así que se sincroniza a todos los equipos.
+Los eventos capturados en Gerencia se siguen eliminando como antes (botón "Eliminar evento" al abrirlos).
+
+NOTA: lo que antes se llamaba "parche 22" (reglas estrictas por área) pasa a ser el parche 23.
