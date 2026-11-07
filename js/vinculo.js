@@ -214,7 +214,13 @@ function fcCuadre(raw,desde,hasta,areaId,gimRecs){
   const gidDe = r => `fc_g${r.inst_id}_${fcNorm(r.clase).replace(/[^a-z0-9]/g,'')}_${fcHora(r.hora).replace(':','')}`;
   const B = () => ({regs:0,asis:0,clases:{},items:[]});
   const instN=Object.fromEntries(fcArr(raw.instructores).map(i=>[String(i.id),String(i.nombre||'')]));
-  const item=(r,v,cl,extra)=>({fecha:r.fecha||'',hora:fcHora(r.hora)||'',clase:String(cl||r.clase||''),inst:instN[String(r.inst_id)]||'',asis:v,estado:r.estado||'',...(extra||{})});
+  /* de dónde salió el registro en Fitness Control (para entender por qué se repitió) */
+  const origen=r=>{
+    const o=r.estimado?'estimado importado':r.tipo==='recorrido'?'recorrido de coordinación':r.captura_por==='inst'?'captura del profesor':r.captura_por==='ger'?'importado de Gerencia':r.captura_por==='coord'?'registro de clase de coordinación':'';
+    const t=+r.updatedAt>1e11?new Date(+r.updatedAt):null;
+    return [o,t?`guardado ${t.toLocaleDateString('es-MX',{day:'numeric',month:'short'})} ${pad(t.getHours())}:${pad(t.getMinutes())}`:''].filter(Boolean).join(', ');
+  };
+  const item=(r,v,cl,extra)=>({fecha:r.fecha||'',hora:fcHora(r.hora)||'',clase:String(cl||r.clase||''),inst:instN[String(r.inst_id)]||'',asis:v,estado:r.estado||'',origen:origen(r),...(extra||{})});
   const out={fc:B(),fitness:B(),ger:B(),excluidas:B(),sinHora:B(),repetidos:B(),otroEstado:B(),otras:{},
     gim:{ger:B(),igual:B(),distinto:{regs:0,asisG:0,asisF:0,clases:{}},soloGerAntes:B(),soloGer:B(),soloFc:B()}};
   const suma=(b,r,v,cl,extra)=>{ v=v==null?n(r):v; b.regs++; b.asis+=v; if(b.items&&b.items.length<200) b.items.push(item(r,v,cl,extra)); const k=String(cl||r.clase||r.nombre||'Sin nombre'), c=b.clases[k]=b.clases[k]||{regs:0,asis:0}; c.regs++; c.asis+=v; };
@@ -232,7 +238,7 @@ function fcCuadre(raw,desde,hasta,areaId,gimRecs){
     cand.push({r,id,aid,fcCuenta});
   });
   cand.forEach(({r,id,aid,fcCuenta})=>{
-    if(bolsa[id]!==r){ if(fcCuenta) suma(out.repetidos,r,null,null,{queda:n(bolsa[id]),quedaEst:bolsa[id].estado||''}); return; }
+    if(bolsa[id]!==r){ if(fcCuenta) suma(out.repetidos,r,null,null,{queda:n(bolsa[id]),quedaEst:bolsa[id].estado||'',quedaOrigen:origen(bolsa[id])}); return; }
     if(!fcCuenta){ if(aid===areaId) suma(out.otroEstado,r); return; }
     if(aid===areaId) suma(out.fitness,r); else suma(out.otras[aid]=out.otras[aid]||B(),r);
   });
@@ -277,7 +283,7 @@ function fcCuadreTabla(C,aid){
   const fF=f=>{ try{ return fmtFecha(f); }catch(e){ return f; } };
   /* lista de registros, para encontrarlos y corregirlos en Registro Fitness */
   const regsTxt=b=>b.items.slice().sort((x,y)=>String(x.fecha).localeCompare(String(y.fecha))||String(x.hora).localeCompare(String(y.hora))).map(x=>
-    `<div class="dg-r"><div class="dg-rt"><b>${esc(fF(x.fecha))}${x.hora?' · '+esc(x.hora):''} · ${esc(x.clase||'—')}</b><small>${esc([x.inst,EST[x.estado]||''].filter(Boolean).join(' · '))}${x.queda!=null?` · repetido: se cuenta el otro registro (${N(x.queda)} asistentes${x.quedaEst&&x.quedaEst!==x.estado?', '+esc(EST[x.quedaEst]||x.quedaEst):''})`:''}</small></div><div class="dg-rv"><b>${N(x.asis)}</b><small>asistentes</small></div></div>`).join('')
+    `<div class="dg-r"><div class="dg-rt"><b>${esc(fF(x.fecha))}${x.hora?' · '+esc(x.hora):''} · ${esc(x.clase||'—')}</b><small>${esc([x.inst,EST[x.estado]||''].filter(Boolean).join(' · '))}${x.origen?` · <i>${esc(x.origen)}</i>`:''}${x.queda!=null?`<br>Repetido. Se cuenta el otro registro: ${N(x.queda)} asistentes${x.quedaEst&&x.quedaEst!==x.estado?', '+esc(EST[x.quedaEst]||x.quedaEst):''}${x.quedaOrigen?` · <i>${esc(x.quedaOrigen)}</i>`:''}`:''}</small></div><div class="dg-rv"><b>${N(x.asis)}</b><small>asistentes</small></div></div>`).join('')
     +(b.regs>b.items.length?`<div class="dg-r"><div class="dg-rt"><small>… y ${N(b.regs-b.items.length)} más</small></div></div>`:'');
   const clasesTxt=(b,f)=>Object.entries(b.clases).sort((x,y)=>Math.abs(y[1].asis)-Math.abs(x[1].asis)).slice(0,8).map(([k,v])=>`${esc(k)} (${(f||N)(v.asis)})`).join(' · ');
   const fila=(t,expl,b,cls,val,f)=>b.regs?`<details class="dg-a"><summary><div class="dg-t"><b>${t}</b><small>${expl}</small></div><div class="dg-v"><b class="${cls||''}">${val!=null?val:N(b.asis)}</b><small>${plu(b.regs,'registro','registros')}</small></div><span class="dg-chev">${ic('next')}</span></summary>
