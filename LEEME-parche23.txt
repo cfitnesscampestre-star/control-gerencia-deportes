@@ -2,20 +2,25 @@ PARCHE 23 — Cuadre con Fitness Control y aviso de "Memoria llena"
 =================================================================
 
 1) CUADRE CON FITNESS CONTROL
-   El tablero de Registro Fitness suma TODOS sus registros "ok" y "sub" del período. Gerencia no los cuenta
-   todos en el área Fitness. Ahora se puede ver la diferencia, registro por registro:
+   Cómo fluyen los datos:
+     · Clases fitness   → se registran en Fitness Control; Gerencia las lee (área Fitness).
+     · Gimnasia rítmica → se registra SOLO en Gerencia (área Gimnasia); Fitness Control la importa.
+   Por eso debe cumplirse:  tablero de Fitness Control  =  Gerencia·Fitness + Gerencia·Gimnasia.
+   Dónde verlo:
      · Metodología → Aforos → tarjeta Fitness → al final, "Cuadre con Fitness Control" (mismas fechas).
      · Gerencia → Ajustes → Fitness Control → "Ver cuadre" (con fechas a elegir).
-   Separa los asistentes de Fitness Control en:
-     · Contados en Fitness.
-     · Aforos de Gimnasia capturados en Gerencia: Fitness Control los importa de Gerencia (desde el 6 oct 2026)
-       y los suma en su tablero; en Gerencia ya están en la tarjeta de Gimnasia.
-     · No se cuentan — área sin clases automáticas: clases cuyo nombre coincide con un área marcada
-       "No traer clases automáticas de Fitness Control" (hoy, Gimnasia).
-     · No se cuentan — registros sin hora (o 00:00).
-     · No se cuentan — registros repetidos (misma clase, instructor, hora y fecha).
-     · Contados en otra área (el nombre de la clase coincide con esa área).
-   No cambia ningún número de Gerencia: solo lo explica.
+   Muestra los dos totales, la diferencia y de qué lado sale:
+     Clases fitness
+       · Gimnasia registrada en Fitness Control (no debería: la gimnasia va en Gerencia). Fitness Control la
+         suma, Gerencia no. Hay que borrarla en Fitness Control o capturarla en Gerencia.
+       · Registros sin hora · registros repetidos · clases que caen en otra área por su nombre.
+     Gimnasia rítmica
+       · Importados con otro número (coordinación lo corrigió en Fitness Control).
+       · Antes del 6 oct 2026 (Fitness Control no importa esas fechas).
+       · No llegaron a Fitness Control (profesora sin instructor con el mismo nombre, o Fitness Control no se
+         ha abierto con la sesión de coordinación).
+       · Ya no están en Gerencia (se borraron o se marcaron "no hubo clase"; Fitness Control no los quita solo).
+   No cambia ningún número: solo lo explica.
 
 2) "MEMORIA LLENA"
    Antes el aviso rojo "Memoria llena: sube los cambios" salía aunque no hubiera nada por subir (pasa cuando la
