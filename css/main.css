@@ -627,3 +627,12 @@ button.cloud{background:none;border:0;padding:0;font:inherit;color:inherit;curso
 .aj-sw.on{background:var(--g)}
 .aj-sw.on i{left:25px}
 .aj-sw:focus-visible{outline:2px solid var(--g);outline-offset:2px}
+/* cuadre con Fitness Control */
+.fcq-t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.fcq-t th,.fcq-t td{padding:8px 6px;text-align:right;border-bottom:1px solid var(--line);vertical-align:top}
+.fcq-t thead th{font-size:12px;font-weight:600;opacity:.7}
+.fcq-t tbody th{text-align:left;font-weight:600}
+.fcq-t th small,.fcq-t td small{display:block;font-size:11px;font-weight:400;opacity:.65}
+.fcq-t td.bad{color:var(--bad);font-weight:700}
+.fcq-t td.ok{color:var(--g);font-weight:700}
+.fcq-t tr.fcq-tot th,.fcq-t tr.fcq-tot td{border-bottom:0;font-size:1.05em;font-weight:800}

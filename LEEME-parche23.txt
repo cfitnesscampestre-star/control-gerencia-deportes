@@ -9,12 +9,14 @@ PARCHE 23 — Cuadre con Fitness Control y aviso de "Memoria llena"
    Dónde verlo:
      · Metodología → Aforos → tarjeta Fitness → al final, "Cuadre con Fitness Control" (mismas fechas).
      · Gerencia → Ajustes → Fitness Control → "Ver cuadre" (con fechas a elegir).
-   Muestra los dos totales, la diferencia y de qué lado sale:
+   Arriba, una tabla con tres renglones (asistentes y registros, Registro Fitness contra Gerencia):
+     · Clases fitness sin gimnasia   · Gimnasia rítmica   · Total
+   Debajo, de dónde sale cada diferencia:
      Clases fitness
-       · Gimnasia registrada en Fitness Control (no debería: la gimnasia va en Gerencia). Fitness Control la
-         suma, Gerencia no. Hay que borrarla en Fitness Control o capturarla en Gerencia.
        · Registros sin hora · registros repetidos · clases que caen en otra área por su nombre.
      Gimnasia rítmica
+       · Gimnasia capturada en Registro Fitness (no debería: la gimnasia va en Gerencia). Registro Fitness la
+         suma, Gerencia no. Hay que borrarla en Registro Fitness o capturarla en Gerencia.
        · Importados con otro número (coordinación lo corrigió en Fitness Control).
        · Antes del 6 oct 2026 (Fitness Control no importa esas fechas).
        · No llegaron a Fitness Control (profesora sin instructor con el mismo nombre, o Fitness Control no se

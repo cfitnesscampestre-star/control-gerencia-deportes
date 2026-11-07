@@ -275,23 +275,28 @@ function fcCuadreTabla(C,aid){
       <div class="dg-rows"><div class="dg-r"><div class="dg-rt"><small>${clasesTxt(b,f)||'—'}</small></div></div></div></details>`:'';
   const G=C.gim, gimNom=nom('gimnasia')||'Gimnasia';
   const otrasAsis=Object.values(C.otras).reduce((s,b)=>s+b.asis,0);
-  const fitG=C.fitness.asis+C.otroEstado.asis, gerTot=fitG+G.ger.asis, dif=C.fc.asis-gerTot;   // lo que Gerencia muestra en sus dos tarjetas
-  // de dónde sale la diferencia (positivo = Fitness Control tiene de más)
-  const dFit=C.excluidas.asis+C.sinHora.asis+C.repetidos.asis+otrasAsis-C.otroEstado.asis;
-  const dGim=C.ger.asis-G.ger.asis;
+  // tres renglones: clases fitness SIN gimnasia, gimnasia rítmica y total (positivo = Fitness Control tiene de más)
+  const fitFc ={a:C.fc.asis-C.ger.asis-C.excluidas.asis, s:C.fc.regs-C.ger.regs-C.excluidas.regs};
+  const fitGer={a:C.fitness.asis+C.otroEstado.asis,       s:C.fitness.regs+C.otroEstado.regs};
+  const gimFc ={a:C.ger.asis+C.excluidas.asis,            s:C.ger.regs+C.excluidas.regs};
+  const gimGer={a:G.ger.asis,                             s:G.ger.regs};
+  const totFc ={a:fitFc.a+gimFc.a, s:fitFc.s+gimFc.s}, totGer={a:fitGer.a+gimGer.a, s:fitGer.s+gimGer.s};
+  const renglon=(t,f,g,fuerte)=>{ const d=f.a-g.a; return `<tr${fuerte?' class="fcq-tot"':''}><th>${t}</th><td>${N(f.a)}<small>${plu(f.s,'registro','registros')}</small></td><td>${N(g.a)}<small>${plu(g.s,'sesión','sesiones')}</small></td><td class="${d?'bad':'ok'}">${d?sg(d):'✔'}</td></tr>`; };
   const otras=Object.entries(C.otras).map(([id,b])=>fila(`Contadas en ${esc(nom(id))}`,(getArea(id)||{}).tipo==='gimnasio'?'El nombre de la clase coincide con esta área; Gimnasio solo muestra el conteo por hora, así que no salen en ninguna tarjeta de clases.':'El nombre de la clase coincide con esta área: se suman en su tarjeta, no en Fitness.',b,'bad')).join('');
-  return `<div class="card mt-res"><div class="mt-split"><div><b>${N(C.fc.asis)}</b><span>Fitness Control (tablero)</span></div><div><b>${N(gerTot)}</b><span>Gerencia · ${esc(nom(aid))} + ${esc(gimNom)}</span></div></div>
-      <div class="mt-sub">${N(fitG)} de ${esc(nom(aid))} + ${N(G.ger.asis)} de ${esc(gimNom)} · ${dif===0?'cuadra ✔':`diferencia ${sg(dif)} asistentes`}</div>
-      ${dFit||dGim?`<div class="mt-sub">De dónde sale: clases fitness ${sg(dFit)} · gimnasia rítmica ${sg(dGim)}${dif===0?" (se compensan)":""}</div>`:''}</div>
-    <div class="h2 sm">Clases fitness (se registran en Fitness Control)</div>
-    ${fila(`Contadas en ${esc(nom(aid))}`,'Iguales en las dos apps.',C.fitness)}
-    ${fila(`Gimnasia registrada en Fitness Control`,`Clases cuyo nombre coincide con ${esc(gimNom)} pero que se capturaron directo en Fitness Control, no en Gerencia. Fitness Control las suma; Gerencia no, porque la gimnasia solo se registra en Gerencia. Hay que borrarlas en Fitness Control o capturarlas en Gerencia.`,C.excluidas,'bad')}
+  return `<div class="card mt-res fcq"><table class="fcq-t"><thead><tr><th></th><th>Registro Fitness</th><th>Gerencia</th><th>Diferencia</th></tr></thead><tbody>
+      ${renglon('Clases fitness <small>sin gimnasia</small>',fitFc,fitGer)}
+      ${renglon(`Gimnasia rítmica`,gimFc,gimGer)}
+      ${renglon('Total',totFc,totGer,true)}</tbody></table>
+      <div class="mt-sub">Asistentes. Registro Fitness = su tablero; Gerencia = tarjetas ${esc(nom(aid))} + ${esc(gimNom)} de Metodología.</div></div>
+    <div class="h2 sm">Clases fitness, sin gimnasia (se registran en Registro Fitness)</div>
+    ${fila(`Iguales en las dos apps`,`Registros de Registro Fitness que Gerencia cuenta en ${esc(nom(aid))}.`,C.fitness)}
     ${fila('Registros sin hora','Fitness Control los suma, pero Gerencia no sabe a qué clase pertenecen (sin hora o 00:00).',C.sinHora,'bad')}
     ${fila('Registros repetidos','La misma clase, instructor, hora y fecha aparece dos veces en Fitness Control. Fitness Control suma las dos; Gerencia solo la última.',C.repetidos,'bad')}
     ${otras}
     ${fila('Solo los cuenta Gerencia','Registros con un estado distinto de "impartida" o "suplencia": Gerencia los suma, Fitness Control no.',C.otroEstado,'bad')}
     <div class="h2 sm">Gimnasia rítmica (se registra en Gerencia)</div>
-    ${G.ger.regs||C.ger.regs?'':empty('Sin aforos de gimnasia en este período.')}
+    ${G.ger.regs||C.ger.regs||C.excluidas.regs?'':empty('Sin aforos de gimnasia en este período.')}
+    ${fila('Gimnasia capturada en Registro Fitness',`Clases cuyo nombre coincide con ${esc(gimNom)} capturadas directo en Registro Fitness, no en Gerencia. Registro Fitness las suma; Gerencia no, porque la gimnasia solo se registra en Gerencia. Hay que borrarlas en Registro Fitness (o capturarlas en Gerencia si faltan ahí).`,C.excluidas,'bad')}
     ${fila('Iguales en las dos apps','Aforos de Gerencia que Fitness Control importó con el mismo número.',G.igual)}
     ${fila('Importados con otro número','En Fitness Control el número es distinto al de Gerencia: coordinación lo corrigió ahí, o ya existía un registro suyo a esa hora. Se ve en Fitness Control → observaciones de Gimnasia ("Autorizar el de Gerencia").',G.distinto,'bad',sg(G.distinto.asisF-G.distinto.asisG),sg)}
     ${fila('Antes del 6 de octubre','Fitness Control solo importa los aforos de Gimnasia desde el 6 oct 2026: estos están en Gerencia pero no en Fitness Control.',G.soloGerAntes,'bad')}
