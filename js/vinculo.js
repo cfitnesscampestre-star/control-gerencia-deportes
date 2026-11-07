@@ -212,10 +212,12 @@ function fcCuadre(raw,desde,hasta,areaId,gimRecs){
   const excluida = a => !!(getArea(a)||{}).fcExcluir;
   const n = r => Math.max(0,parseInt(r.asistentes)||0);
   const gidDe = r => `fc_g${r.inst_id}_${fcNorm(r.clase).replace(/[^a-z0-9]/g,'')}_${fcHora(r.hora).replace(':','')}`;
-  const B = () => ({regs:0,asis:0,clases:{}});
+  const B = () => ({regs:0,asis:0,clases:{},items:[]});
+  const instN=Object.fromEntries(fcArr(raw.instructores).map(i=>[String(i.id),String(i.nombre||'')]));
+  const item=(r,v,cl,extra)=>({fecha:r.fecha||'',hora:fcHora(r.hora)||'',clase:String(cl||r.clase||''),inst:instN[String(r.inst_id)]||'',asis:v,estado:r.estado||'',...(extra||{})});
   const out={fc:B(),fitness:B(),ger:B(),excluidas:B(),sinHora:B(),repetidos:B(),otroEstado:B(),otras:{},
     gim:{ger:B(),igual:B(),distinto:{regs:0,asisG:0,asisF:0,clases:{}},soloGerAntes:B(),soloGer:B(),soloFc:B()}};
-  const suma=(b,r,v,cl)=>{ v=v==null?n(r):v; b.regs++; b.asis+=v; const k=String(cl||r.clase||r.nombre||'Sin nombre'), c=b.clases[k]=b.clases[k]||{regs:0,asis:0}; c.regs++; c.asis+=v; };
+  const suma=(b,r,v,cl,extra)=>{ v=v==null?n(r):v; b.regs++; b.asis+=v; if(b.items&&b.items.length<200) b.items.push(item(r,v,cl,extra)); const k=String(cl||r.clase||r.nombre||'Sin nombre'), c=b.clases[k]=b.clases[k]||{regs:0,asis:0}; c.regs++; c.asis+=v; };
   const bolsa={}, cand=[], gerFc={};
   regsAll.forEach(r=>{
     if(!enRango(r)) return;
@@ -230,7 +232,7 @@ function fcCuadre(raw,desde,hasta,areaId,gimRecs){
     cand.push({r,id,aid,fcCuenta});
   });
   cand.forEach(({r,id,aid,fcCuenta})=>{
-    if(bolsa[id]!==r){ if(fcCuenta) suma(out.repetidos,r); return; }
+    if(bolsa[id]!==r){ if(fcCuenta) suma(out.repetidos,r,null,null,{queda:n(bolsa[id]),quedaEst:bolsa[id].estado||''}); return; }
     if(!fcCuenta){ if(aid===areaId) suma(out.otroEstado,r); return; }
     if(aid===areaId) suma(out.fitness,r); else suma(out.otras[aid]=out.otras[aid]||B(),r);
   });
@@ -247,6 +249,7 @@ function fcCuadre(raw,desde,hasta,areaId,gimRecs){
     else { const d=G.distinto; d.regs++; d.asisG+=v; d.asisF+=vf; const k=String(a.clase||'Sin nombre'), c=d.clases[k]=d.clases[k]||{regs:0,asis:0}; c.regs++; c.asis+=vf-v; }
   });
   Object.entries(gerFc).forEach(([k,fs])=>{ if(!vistos.has(k)) fs.forEach(r=>suma(G.soloFc,r)); });
+  out.fitness.items=[]; out.fc.items=[]; out.ger.items=[]; G.ger.items=[]; G.igual.items=[];
   return out;
 }
 /* aforos de Gimnasia de Gerencia que suman en su tarjeta (mismo criterio que anCompute: grupo existente y clase impartida) */
@@ -270,9 +273,15 @@ function fcCuadreHtml(desde,hasta){
 function fcCuadreTabla(C,aid){
   const N=x=>(+x||0).toLocaleString('es-MX'), nom=id=>{ const a=getArea(id); return a?a.nombre:id; };
   const sg=x=>(x>0?'+':x<0?'−':'')+N(Math.abs(x));
+  const EST={ok:'impartida',sub:'suplencia',falta:'falta'};
+  const fF=f=>{ try{ return fmtFecha(f); }catch(e){ return f; } };
+  /* lista de registros, para encontrarlos y corregirlos en Registro Fitness */
+  const regsTxt=b=>b.items.slice().sort((x,y)=>String(x.fecha).localeCompare(String(y.fecha))||String(x.hora).localeCompare(String(y.hora))).map(x=>
+    `<div class="dg-r"><div class="dg-rt"><b>${esc(fF(x.fecha))}${x.hora?' · '+esc(x.hora):''} · ${esc(x.clase||'—')}</b><small>${esc([x.inst,EST[x.estado]||''].filter(Boolean).join(' · '))}${x.queda!=null?` · repetido: se cuenta el otro registro (${N(x.queda)} asistentes${x.quedaEst&&x.quedaEst!==x.estado?', '+esc(EST[x.quedaEst]||x.quedaEst):''})`:''}</small></div><div class="dg-rv"><b>${N(x.asis)}</b><small>asistentes</small></div></div>`).join('')
+    +(b.regs>b.items.length?`<div class="dg-r"><div class="dg-rt"><small>… y ${N(b.regs-b.items.length)} más</small></div></div>`:'');
   const clasesTxt=(b,f)=>Object.entries(b.clases).sort((x,y)=>Math.abs(y[1].asis)-Math.abs(x[1].asis)).slice(0,8).map(([k,v])=>`${esc(k)} (${(f||N)(v.asis)})`).join(' · ');
   const fila=(t,expl,b,cls,val,f)=>b.regs?`<details class="dg-a"><summary><div class="dg-t"><b>${t}</b><small>${expl}</small></div><div class="dg-v"><b class="${cls||''}">${val!=null?val:N(b.asis)}</b><small>${plu(b.regs,'registro','registros')}</small></div><span class="dg-chev">${ic('next')}</span></summary>
-      <div class="dg-rows"><div class="dg-r"><div class="dg-rt"><small>${clasesTxt(b,f)||'—'}</small></div></div></div></details>`:'';
+      <div class="dg-rows">${(b.items&&b.items.length)?regsTxt(b):`<div class="dg-r"><div class="dg-rt"><small>${clasesTxt(b,f)||'—'}</small></div></div>`}</div></details>`:'';
   const G=C.gim, gimNom=nom('gimnasia')||'Gimnasia';
   const otrasAsis=Object.values(C.otras).reduce((s,b)=>s+b.asis,0);
   // tres renglones: clases fitness SIN gimnasia, gimnasia rítmica y total (positivo = Fitness Control tiene de más)
@@ -291,7 +300,7 @@ function fcCuadreTabla(C,aid){
     <div class="h2 sm">Clases fitness, sin gimnasia (se registran en Registro Fitness)</div>
     ${fila(`Iguales en las dos apps`,`Registros de Registro Fitness que Gerencia cuenta en ${esc(nom(aid))}.`,C.fitness)}
     ${fila('Registros sin hora','Fitness Control los suma, pero Gerencia no sabe a qué clase pertenecen (sin hora o 00:00).',C.sinHora,'bad')}
-    ${fila('Registros repetidos','La misma clase, instructor, hora y fecha aparece dos veces en Fitness Control. Fitness Control suma las dos; Gerencia solo la última.',C.repetidos,'bad')}
+    ${fila('Registros repetidos','La misma clase, instructor, hora y fecha aparece dos veces en Registro Fitness: suma las dos; Gerencia solo una. Hay que borrar el repetido en Registro Fitness (toca para ver cuáles).',C.repetidos,'bad')}
     ${otras}
     ${fila('Solo los cuenta Gerencia','Registros con un estado distinto de "impartida" o "suplencia": Gerencia los suma, Fitness Control no.',C.otroEstado,'bad')}
     <div class="h2 sm">Gimnasia rítmica (se registra en Gerencia)</div>
