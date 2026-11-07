@@ -138,6 +138,9 @@ function vMetAforoDetalle(aid,r){
     <div class="mt-per">${esc(mtPerTxt(r))}</div>
     <div class="card mt-res">${resumen}</div>
     ${cuerpo}
+    ${esFitArea(aid)&&typeof fcCuadreHtml==='function'?`<div class="h2 sm">Cuadre con Fitness Control</div>
+      <div class="sub" style="margin:0 0 8px">El tablero de Registro Fitness suma las clases fitness más la gimnasia rítmica (que se registra aquí en Gerencia). Aquí se compara ese total con Fitness + Gimnasia de Gerencia, en las mismas fechas, y se explica cualquier diferencia.</div>
+      ${fcCuadreHtml(r.desde,r.hasta)}`:''}
     ${typeof peSeccionMet==='function'?peSeccionMet(aid):''}`;
 }
 /* mujeres / hombres de las clases (dato que manda Fitness Control); si el área no lo trae, no se muestra */
