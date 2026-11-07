@@ -107,7 +107,15 @@ let session = null;
 try{ session = JSON.parse(sessionStorage.getItem(SS_KEY)); }catch(e){ session = null; }
 const saveSession = () => { try{ session ? sessionStorage.setItem(SS_KEY,JSON.stringify(session)) : sessionStorage.removeItem(SS_KEY); }catch(e){} if(typeof fbSuscribirLuego==='function') fbSuscribirLuego(); };   // al entrar o salir cambia lo que descarga el equipo
 const lsLoad = () => { try{ return JSON.parse(localStorage.getItem(LS_KEY))||{}; }catch(e){ return {}; } };
-const lsSave = () => { try{ localStorage.setItem(LS_KEY,JSON.stringify(state)); }catch(e){ if(typeof memFalla==='function') memFalla(); } };
+/* Copia completa en el equipo (para abrir sin internet). Si no cabe, primero se libera la copia de
+   Fitness Control (se vuelve a descargar sola) y se intenta otra vez; solo si aun así no cabe se avisa. */
+let fcCacheOff = false;                                   // la copia de Fitness Control ya no cabe junto con la de Gerencia
+const lsSave = () => {
+  const intenta = () => { localStorage.setItem(LS_KEY,JSON.stringify(state)); };
+  try{ intenta(); if(typeof memCopiaOk==='function') memCopiaOk(); return; }catch(e){}
+  try{ localStorage.removeItem('gd_fc_cache_v1'); fcCacheOff=true; intenta(); if(typeof memCopiaOk==='function') memCopiaOk(); return; }catch(e){}
+  if(typeof memFalla==='function') memFalla('copia');
+};
 const getPath = p => {
   const ks=p.split('/'), v=ks.reduce((o,k)=>o==null?undefined:o[k],state);
   if(v!==undefined) return v;
@@ -141,10 +149,19 @@ function setPath(p,val,baseForzada){           // val === undefined → borrar �
 const OB_KEY = 'gd_outbox_v1', CF_KEY = 'gd_conflictos_v1', SYNC_KEY = 'gd_lastsync_v1';
 let outbox = (()=>{ try{ return JSON.parse(localStorage.getItem(OB_KEY))||[]; }catch(e){ return []; } })();
 let conflictos = (()=>{ try{ return JSON.parse(localStorage.getItem(CF_KEY))||[]; }catch(e){ return []; } })();
-let obEnviando = false, srvState = null, memLlena = false, memAviso = 0;
-function memFalla(){ memLlena=true; if(Date.now()-memAviso>60000){ memAviso=Date.now(); try{ toast('La memoria de este equipo está llena: conéctate a internet para subir los cambios'); }catch(e){} } }
-const obSave = () => { try{ localStorage.setItem(OB_KEY,JSON.stringify(outbox)); memLlena=false; }catch(e){ memFalla(); } };
-const cfSave = () => { try{ localStorage.setItem(CF_KEY,JSON.stringify(conflictos)); }catch(e){ memFalla(); } };
+/* Memoria del equipo llena. Son dos cosas distintas:
+     memCola  → no se pudo guardar la cola de cambios pendientes: si se cierra la app sin internet, esos cambios se pierden.
+     memCopia → no cupo la copia completa para abrir sin internet: los datos siguen en la nube, solo falla el modo sin conexión.
+   Cada una se apaga sola en cuanto el guardado vuelve a funcionar. */
+let obEnviando = false, srvState = null, memCola = false, memCopia = false, memAviso = 0;
+function memFalla(tipo){
+  if(tipo==='copia') memCopia=true; else memCola=true;
+  if(tipo==='copia') return;                                // no es urgente: se ve en el indicador, sin interrumpir
+  if(Date.now()-memAviso>60000){ memAviso=Date.now(); try{ toast('La memoria de este equipo está llena: conéctate a internet para subir los cambios'); }catch(e){} }
+}
+function memCopiaOk(){ memCopia=false; }
+const obSave = () => { try{ localStorage.setItem(OB_KEY,JSON.stringify(outbox)); memCola=false; }catch(e){ memFalla('cola'); } };
+const cfSave = () => { try{ localStorage.setItem(CF_KEY,JSON.stringify(conflictos)); }catch(e){ memFalla('cola'); } };
 const pendientes = () => outbox.length;
 const getIn = (o,p) => String(p).split('/').reduce((x,k)=>x==null?undefined:x[k],o);
 function setIn(o,rel,val){                                 // pone (o quita, si val es null) un valor dentro de o, en la ruta relativa rel
@@ -225,7 +242,9 @@ function obFlush(){
 function cloudChip(){
   if(simActiva()) return {cls:'sim',txt:'Datos de simulación'};
   const n=pendientes(), c=conflictos.length, rev=c?` · ${c} por revisar`:'';
-  if(memLlena) return {cls:'bad',txt:'Memoria llena: sube los cambios'};
+  if(memCola&&n) return {cls:'bad',txt:online?`Memoria llena · subiendo ${n} cambio${n>1?'s':''}…`:`Memoria llena · conéctate para subir ${n} cambio${n>1?'s':''}`};
+  if(memCopia&&online&&FIREBASE_CONFIG.databaseURL&&!n) return {cls:c?'warn':'on',txt:`Guardado en la nube ✔ · sin copia sin internet${rev}`};
+  if(memCopia||memCola) return {cls:'warn',txt:`Memoria del equipo llena${n?` · ${n} por subir`:''}${rev}`};
   if(!FIREBASE_CONFIG.databaseURL) return {cls:'',txt:'Solo en este equipo'};
   if(online) return n?{cls:'on',txt:`Subiendo ${n} cambio${n>1?'s':''}…${rev}`}:{cls:c?'warn':'on',txt:`Guardado en la nube ✔${rev}`};
   return {cls:c?'warn':'',txt:(n?`Sin internet · ${n} por subir`:'Sin internet · guardando en el equipo')+rev};

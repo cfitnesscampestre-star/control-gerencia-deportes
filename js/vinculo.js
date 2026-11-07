@@ -183,6 +183,79 @@ function fcAdapt(raw,areaId,areas){
     meta:{sexoRegs:regs.filter(r=>fcSexo(r,parseInt(r.asistentes)||0)).length,sexoClaves:[...new Set([...regs,...insts,...sals].flatMap(x=>fcSexoClaves(x).map(c=>c.k)))].slice(0,12),campos:[...new Set(regs.slice(-300).flatMap(r=>Object.keys(r||{})))].slice(0,40),instructores:insts.length,registros:regs.length,grupos:Object.values(gruposPorArea).reduce((n,g)=>n+Object.keys(g).length,0),eventos:evs.length,ultimo}};
 }
 
+/* ---------- cuadre con Fitness Control ----------
+   Fitness Control suma, en su tablero, los asistentes de TODOS sus registros "ok" y "sub" del período.
+   Gerencia no los cuenta todos en el área Fitness. Esta función (pura, igual que fcAdapt) reparte cada
+   registro del período en el lugar donde Gerencia lo dejó, para que la diferencia se pueda explicar:
+     fitness    → se cuenta en el área vinculada (Fitness)
+     otras      → se cuenta en otra área porque el nombre de la clase coincide con esa área
+     ger        → vino de Gerencia (aforos de Gimnasia que Fitness Control importa): se cuenta en Gerencia
+                  con el número que capturó la profesora, no se vuelve a sumar
+     excluidas  → la clase cae en un área marcada "No traer clases automáticas de Fitness Control": no se cuenta
+     sinHora    → registro sin hora (o 00:00): Gerencia no sabe a qué clase pertenece y no lo cuenta
+     repetidos  → misma clase, instructor, hora y fecha registrada dos veces: Gerencia se queda con el último
+   Además: "otroEstado" = registros que Gerencia sí cuenta pero Fitness Control no (estado distinto de ok/sub). */
+function fcCuadre(raw,desde,hasta,areaId){
+  raw=raw||{};
+  const regsAll=fcArr(raw.registros), enRango=r=>r&&r.fecha&&r.fecha>=desde&&r.fecha<=hasta;
+  const esManual = r => r.tipo==='falta' || !fcHora(r.hora) || fcHora(r.hora)==='00:00';
+  const excluida = a => !!(getArea(a)||{}).fcExcluir;
+  const n = r => Math.max(0,parseInt(r.asistentes)||0);
+  const gidDe = r => `fc_g${r.inst_id}_${fcNorm(r.clase).replace(/[^a-z0-9]/g,'')}_${fcHora(r.hora).replace(':','')}`;
+  const B = () => ({regs:0,asis:0,clases:{}});
+  const out={fc:B(),fitness:B(),ger:B(),excluidas:B(),sinHora:B(),repetidos:B(),otroEstado:B(),otras:{}};
+  const suma=(b,r)=>{ b.regs++; b.asis+=n(r); const k=String(r.clase||'Sin nombre'), c=b.clases[k]=b.clases[k]||{regs:0,asis:0}; c.regs++; c.asis+=n(r); };
+  // misma regla que fcAdapt para quedarse con un solo registro por clase y fecha (gana el updatedAt más alto; empate: el último)
+  const bolsa={}, cand=[];
+  regsAll.forEach(r=>{
+    if(!enRango(r)) return;
+    const fcCuenta = r.estado==='ok'||r.estado==='sub';
+    if(fcCuenta) suma(out.fc,r);
+    if(r.ger_id){ if(fcCuenta) suma(out.ger,r); return; }
+    if(r.estado==='falta'||esManual(r)){ if(fcCuenta&&r.estado!=='falta') suma(out.sinHora,r); return; }
+    const aid=fcAreaPorDeporte(r.clase,areaId)||areaId;
+    if(excluida(aid)){ if(fcCuenta) suma(out.excluidas,r); return; }
+    const id=`${gidDe(r)}_${r.fecha}`, prev=bolsa[id];
+    if(!(prev&&(+prev.updatedAt||0)>(+r.updatedAt||0))) bolsa[id]=r;
+    cand.push({r,id,aid,fcCuenta});
+  });
+  cand.forEach(({r,id,aid,fcCuenta})=>{
+    if(bolsa[id]!==r){ if(fcCuenta) suma(out.repetidos,r); return; }
+    if(!fcCuenta){ suma(out.otroEstado,r); return; }
+    if(aid===areaId) suma(out.fitness,r); else suma(out.otras[aid]=out.otras[aid]||B(),r);
+  });
+  return out;
+}
+/* pantalla del cuadre (se usa en Metodología → Fitness y en Ajustes → Fitness Control) */
+function fcCuadreHtml(desde,hasta){
+  const aid=fcAreaVinculada();
+  if(!aid) return empty('Ninguna área está marcada como vinculada a Fitness Control.');
+  if(LINKMETA.estado!=='ok'||!fcRaw||!fcRaw.registros){
+    const c=(()=>{ try{ return JSON.parse(localStorage.getItem(FC_CACHE)); }catch(e){ return null; } })();
+    if(!(c&&c.raw&&c.raw.registros)) return empty('Todavía no llegan los registros de Fitness Control. Intenta de nuevo en unos segundos.');
+    return fcCuadreTabla(fcCuadre(c.raw,desde,hasta,aid),aid);
+  }
+  return fcCuadreTabla(fcCuadre(fcRaw,desde,hasta,aid),aid);
+}
+function fcCuadreTabla(C,aid){
+  const N=x=>(+x||0).toLocaleString('es-MX'), nom=id=>{ const a=getArea(id); return a?a.nombre:id; };
+  const clasesTxt=b=>Object.entries(b.clases).sort((x,y)=>y[1].asis-x[1].asis).slice(0,8).map(([k,v])=>`${esc(k)} (${N(v.asis)})`).join(' · ');
+  const fila=(t,expl,b,cls)=>b.regs?`<details class="dg-a"><summary><div class="dg-t"><b>${t}</b><small>${expl}</small></div><div class="dg-v"><b class="${cls||''}">${N(b.asis)}</b><small>${plu(b.regs,'registro','registros')}</small></div><span class="dg-chev">${ic('next')}</span></summary>
+      <div class="dg-rows"><div class="dg-r"><div class="dg-rt"><small>${clasesTxt(b)||'—'}</small></div></div></div></details>`:'';
+  const otras=Object.entries(C.otras).map(([id,b])=>fila(`Contados en ${esc(nom(id))}`,(getArea(id)||{}).tipo==='gimnasio'?'El nombre de la clase coincide con esta área; Gimnasio solo muestra el conteo por hora, así que estos asistentes no salen en su tarjeta.':'El nombre de la clase coincide con esta área: se suman en su tarjeta, no en Fitness.',b)).join('');
+  const exclAreas=areasList().filter(a=>a.fcExcluir).map(a=>a.nombre).join(', ');
+  const cuadra=C.fitness.asis+C.ger.asis+C.excluidas.asis+C.sinHora.asis+C.repetidos.asis+Object.values(C.otras).reduce((s,b)=>s+b.asis,0);
+  return `<div class="card mt-res"><div class="mt-split"><div><b>${N(C.fc.asis)}</b><span>Fitness Control</span></div><div><b>${N(C.fitness.asis)}</b><span>Gerencia · ${esc(nom(aid))}</span></div></div>
+      <div class="mt-sub">${N(C.fc.regs)} registros con clase impartida en Fitness Control · ${N(C.fitness.regs)} sesiones en Gerencia · diferencia ${N(C.fc.asis-C.fitness.asis)} asistentes</div></div>
+    ${fila(`Contados en ${esc(nom(aid))}`,'Registros de Fitness Control que Gerencia suma en esta área.',C.fitness)}
+    ${fila('Aforos de Gimnasia capturados en Gerencia','Fitness Control los importa de Gerencia y los suma en su tablero. En Gerencia ya están en la tarjeta de Gimnasia (con el número de la profesora), por eso no se suman otra vez en Fitness.',C.ger)}
+    ${fila('No se cuentan: área sin clases automáticas',`El nombre de la clase coincide con ${esc(exclAreas||'un área')}, marcada "No traer clases automáticas de Fitness Control" (Ajustes → Áreas). Estos asistentes no se suman en ninguna tarjeta.`,C.excluidas,'bad')}
+    ${fila('No se cuentan: registros sin hora','Fitness Control los guardó sin hora (o 00:00), así que Gerencia no sabe a qué clase pertenecen.',C.sinHora,'bad')}
+    ${fila('No se cuentan: registros repetidos','La misma clase, instructor, hora y fecha aparece dos veces en Fitness Control. Gerencia solo cuenta el último; Fitness Control suma los dos.',C.repetidos,'bad')}
+    ${otras}
+    ${fila('Solo los cuenta Gerencia','Registros con un estado distinto de "impartida" o "suplencia": Fitness Control no los suma, Gerencia sí.',C.otroEstado)}
+    ${cuadra!==C.fc.asis?`<div class="sub">Nota: quedan ${N(C.fc.asis-cuadra)} asistentes sin clasificar.</div>`:''}`;
+}
 /* ---------- aplicar y conectar ---------- */
 function fcAplicar(raw){
   const aid=fcAreaVinculada();
@@ -198,6 +271,7 @@ function fcAplicar(raw){
 /* Copia de Fitness Control en el equipo: el área Fitness se ve aunque no haya internet */
 const FC_CACHE = 'gd_fc_cache_v1';
 function fcGuardarCache(raw){
+  if(typeof fcCacheOff!=='undefined'&&fcCacheOff) return;   // no cabe junto con la copia de Gerencia: Gerencia tiene prioridad
   try{
     const c={...raw};
     if(c.instructores) c.instructores=fcArr(c.instructores).map(({foto,pin,PIN,pinHash,...r})=>r);  // sin fotos ni PIN
@@ -255,13 +329,29 @@ function gVinculoCard(){
     ${m.estado==='ok'?`<div class="row"><div><b>Datos recibidos</b><small>${m.n.instructores} instructores · ${m.n.grupos} clases · ${(m.n.registros||0).toLocaleString('es-MX')} registros de asistencia · ${m.n.eventos} eventos${m.n.ultimo?' · último '+esc(fmtFecha(m.n.ultimo)):''}</small></div></div>`:''}
     ${m.estado==='ok'?`<div class="row"><div><b>Hombres y mujeres</b><small>${m.n.sexoRegs?`Los registros de Fitness Control traen el dato en ${(m.n.sexoRegs).toLocaleString('es-MX')} casos${m.n.sexoClaves&&m.n.sexoClaves.length?' (campos: '+esc(m.n.sexoClaves.join(', '))+')':''}; en los demás se aplica la proporción de abajo.`:'Fitness Control no manda hombres y mujeres por clase: se aplica la proporción de abajo.'}</small></div></div>`:''}
     <div class="row"><div><small>La proporción de hombres y mujeres de las clases fitness se ajusta en la ficha del área (Ajustes → Áreas).</small></div></div>
+    ${m.estado==='ok'?`<div class="row"><div><b>Cuadre con Fitness Control</b><small>Explica por qué el total de asistentes del tablero de Fitness Control no coincide con el de Gerencia.</small></div><button class="btn sm" data-act="fcCuadreAbrir">Ver cuadre</button></div>`:''}
     ${m.estado==='error'?`<div class="row"><div><b>No se pudo leer</b><small>${esc(m.msg)}. Revisa las reglas de Firebase (LEEME-vinculo.txt).</small></div></div>`:''}
     ${!cfg?`<div class="row"><div><small>Pon <b>CONECTAR_FIREBASE = true</b> en <b>js/config.js</b> para conectar la base de datos y activar el vínculo.</small></div></div>`:''}
     <div class="row"><div><small>Gerencia solo lee. Nunca escribe en Fitness Control y no copia los PIN de los instructores.</small></div></div>
     ${propios&&m.estado==='ok'?`<div class="row"><div><b>Datos manuales duplicados</b><small>Esta área tiene ${propios} registros capturados a mano en Gerencia que ya vienen de Fitness Control.</small></div><button class="btn sm danger" data-act="fcLimpiar">Quitar</button></div>`:''}
   </div>`;
 }
+function fcCuadreModal(){
+  const t=todayStr(), d=ui.fcCq||{desde:t.slice(0,8)+'01',hasta:t};
+  openModal(`${mHead('Cuadre con Fitness Control')}
+    <div class="two"><label class="f"><span>Desde</span><input id="fcq_desde" type="date" max="${t}" value="${esc(d.desde)}"></label><label class="f"><span>Hasta</span><input id="fcq_hasta" type="date" max="${t}" value="${esc(d.hasta)}"></label></div>
+    <div class="btns" style="margin-bottom:10px"><button class="btn primary" data-act="fcCuadreAbrir" data-leer="1">Calcular</button></div>
+    ${fcCuadreHtml(d.desde,d.hasta)}
+    <div class="btns"><button class="btn" data-act="closeModal">Cerrar</button></div>`);
+}
 Object.assign(actions,{
+  fcCuadreAbrir(d){
+    if(d&&d.leer){
+      let a=($('#fcq_desde')||{}).value, b=($('#fcq_hasta')||{}).value;
+      if(a&&b){ if(a>b){ const x=a; a=b; b=x; } ui.fcCq={desde:a,hasta:b}; }
+    }
+    fcCuadreModal();
+  },
   fitHoGuardar(){
     const v=Math.round(+(($('#fit_ho')||{}).value)); if(isNaN(v)||v<0||v>100){ toast('Escribe un porcentaje de hombres entre 0 y 100'); return; }
     setPath('cfg/fitHo',v); render(); toast(`Proporción guardada: ${v}% hombres · ${100-v}% mujeres`);

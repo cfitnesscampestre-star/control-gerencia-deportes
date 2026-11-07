@@ -1,0 +1,27 @@
+PARCHE 23 — Cuadre con Fitness Control y aviso de "Memoria llena"
+=================================================================
+
+1) CUADRE CON FITNESS CONTROL
+   El tablero de Registro Fitness suma TODOS sus registros "ok" y "sub" del período. Gerencia no los cuenta
+   todos en el área Fitness. Ahora se puede ver la diferencia, registro por registro:
+     · Metodología → Aforos → tarjeta Fitness → al final, "Cuadre con Fitness Control" (mismas fechas).
+     · Gerencia → Ajustes → Fitness Control → "Ver cuadre" (con fechas a elegir).
+   Separa los asistentes de Fitness Control en:
+     · Contados en Fitness.
+     · Aforos de Gimnasia capturados en Gerencia: Fitness Control los importa de Gerencia (desde el 6 oct 2026)
+       y los suma en su tablero; en Gerencia ya están en la tarjeta de Gimnasia.
+     · No se cuentan — área sin clases automáticas: clases cuyo nombre coincide con un área marcada
+       "No traer clases automáticas de Fitness Control" (hoy, Gimnasia).
+     · No se cuentan — registros sin hora (o 00:00).
+     · No se cuentan — registros repetidos (misma clase, instructor, hora y fecha).
+     · Contados en otra área (el nombre de la clase coincide con esa área).
+   No cambia ningún número de Gerencia: solo lo explica.
+
+2) "MEMORIA LLENA"
+   Antes el aviso rojo "Memoria llena: sube los cambios" salía aunque no hubiera nada por subir (pasa cuando la
+   copia completa para abrir sin internet ya no cabe en el navegador) y no se apagaba solo.
+   Ahora:
+     · Si no cabe, primero se libera la copia de Fitness Control del equipo y se vuelve a intentar.
+     · Rojo solo si hay cambios sin subir y no se pudieron guardar en el equipo.
+     · Si todo está en la nube: "Guardado en la nube ✔ · sin copia sin internet".
+     · Se apaga solo cuando el guardado vuelve a funcionar.
