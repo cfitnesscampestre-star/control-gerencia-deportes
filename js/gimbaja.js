@@ -7,6 +7,10 @@
        Si alguna choca con su agenda, se le avisa para que la reagende.
      · Cerrarlo: deja de ocupar horas y se conserva su historial (sesiones dadas, bitácora, reportes).
    Si la dirección no decide en ese momento, los paquetes quedan en “Requiere atención” como “por decidir”.
+   Un paquete cerrado ya no tiene sesiones por dar ni “sin registrar”: solo conserva lo que sí se registró.
+   Los paquetes que ya no tienen instructor (cerrados, completados o vencidos) se ven al final de Personalizados,
+   en “De instructores que ya no están”: ahí la dirección puede borrarlos definitivamente (con sus movimientos
+   de la bitácora), por ejemplo los registros de prueba.
    ===================================================================== */
 const ptDe = (aid,pid) => coll(aid,'paquetes').filter(x=>x.profId===pid&&!fcId(x.id));
 const ptPendientesDe = (aid,pid) => ptDe(aid,pid).filter(ptVigente);
@@ -14,6 +18,27 @@ function ptHuerfanos(aid){                                   // paquetes vigente
   return coll(aid,'paquetes').filter(x=>ptVigente(x)&&!fcId(x.id)&&(()=>{ const p=getProf(aid,x.profId); return !p||p.activo===false; })());
 }
 const ptProfNom = (aid,x) => (getProf(aid,x.profId)||{}).nombre||x.profNom||'Instructor dado de baja';
+function ptSinInstructor(aid){                              // paquetes ya no vigentes de instructores eliminados (los vigentes están “por decidir”)
+  return coll(aid,'paquetes').filter(x=>!fcId(x.id)&&!getProf(aid,x.profId)&&!ptVigente(x))
+    .sort((a,b)=>(b.cerradoTs||0)-(a.cerradoTs||0)||String(b.fin||'').localeCompare(String(a.fin||'')));
+}
+const ptMovs = (aid,pkId) => coll(aid,'gimlog').filter(l=>l.pk===pkId);
+function ptSinInstructorHTML(aid){
+  const L=ptSinInstructor(aid); if(!L.length) return '';
+  const puede=!roDatos(aid)&&!isProf()&&!isRec();
+  return `<div class="h2 sm">De instructores que ya no están <span class="pill mut">${L.length}</span></div>
+    <div class="sub">Personalizados que quedaron cerrados al dar de baja a su instructor. Ya no ocupan horas ni salen como pendientes; se guardan solo como historial. Si eran de prueba o ya no los necesitas, bórralos definitivamente.</div>
+    ${L.map(x=>{ const est=ptEstado(x), n=ptMovs(aid,x.id).length;
+      return `<div class="card pb-arch"><div class="row"><div><b>${esc(x.cliente||'Cliente')}</b>
+        <small>${esc(ptProfNom(aid,x))} · ${ptReal(x)} de ${+x.total||0} sesiones usadas${x.cerradoTs?` · cerrado el ${esc(fmtTs(x.cerradoTs))}`:''}${n?` · ${plu(n,'movimiento','movimientos')} en la bitácora`:''}</small></div>${pill(est,PT_CLS[est])}</div>
+        <div class="btns"><button class="btn sm" data-act="ptAgenda" data-id="${esc(x.id)}">Ver agenda</button>
+          ${puede?`<button class="btn sm danger" data-act="ptPurgar" data-id="${esc(x.id)}">Borrar definitivamente</button>`:''}</div></div>`; }).join('')}`;
+}
+/* borra el paquete, sus sesiones y sus movimientos de la bitácora. Sin dejar rastro: es para limpiar datos de prueba o ya sin uso */
+function ptPurgar(aid,x){
+  ptMovs(aid,x.id).forEach(l=>setPath(`data/${aid}/gimlog/${l.id}`,undefined));
+  setPath(`data/${aid}/paquetes/${x.id}`,undefined);
+}
 function ptBajaModal(pid,modo){
   const aid=curArea(), p=getProf(aid,pid), L=ptPendientesDe(aid,pid), nom=p?p.nombre:(L[0]?ptProfNom(aid,L[0]):'Instructor');
   if(!L.length){ toast('No tiene personalizados pendientes'); return; }
@@ -38,6 +63,13 @@ function ptReasignar(aid,x,nuevo){                           // pasa el paquete 
 }
 Object.assign(actions,{
   ptBajaAbrir(d){ ptBajaModal(d.prof,''); },
+  ptPurgar(d){
+    const aid=curArea(), x=getPath(`data/${aid}/paquetes/${d.id}`); if(!x||roDatos(aid)||isProf()||isRec()||fcId(x.id)) return;
+    if(getProf(aid,x.profId)&&ptVigente(x)){ toast('Este personalizado sigue activo'); return; }
+    const n=ptMovs(aid,x.id).length;
+    if(!confirm(`¿Borrar definitivamente el personalizado de ${x.cliente||'este cliente'}?\n\nSe borran sus sesiones${n?` y sus ${n} movimientos de la bitácora`:''}. Ya no aparecerá en ningún lado y no se puede deshacer.`)) return;
+    ptPurgar(aid,x); closeModal(); render(); toast('Personalizado borrado definitivamente');
+  },
   ptBajaAplicar(d){
     const aid=curArea(); if(roDatos(aid)||isProf()||isRec()) return;
     const pid=d.prof, p=getProf(aid,pid), nom=p?p.nombre:'';

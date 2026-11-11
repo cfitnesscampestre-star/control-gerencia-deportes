@@ -256,6 +256,7 @@ function vGimPT(aid){
     <div class="h2 sm">Por instructor</div>
     ${conP.length?`<div class="ptlist">${conP.map(ptCard).join('')}</div>`:empty('Todavía no hay personalizados. Los registra cada instructor desde su pantalla.')}
     ${sinP.length?`<div class="an-cs" style="margin-top:12px">Sin personalizados: ${esc(sinP.map(x=>x.p.nombre).join(', '))}.</div>`:''}
+    ${(isRec()||typeof ptSinInstructorHTML!=='function')?'':ptSinInstructorHTML(aid)}
     ${isRec()?'':gimLogHTML(aid)}`;
 }
 function ptDetalle(pid){

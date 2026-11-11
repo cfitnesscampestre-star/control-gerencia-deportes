@@ -225,3 +225,4 @@ span.gh-c.sel{opacity:.55;cursor:default}
 .gh-tb.pt-cal .gh-c{height:34px}
 .pt-rep{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;margin:4px 0 6px;cursor:pointer}
 .pt-rep input[type=checkbox]{width:18px;height:18px;flex:0 0 18px;min-height:0;padding:0;margin:2px 0 0;box-shadow:none}
+.card.pb-arch{border-left:4px solid var(--line-2);margin-bottom:10px}.card.pb-arch .row{display:flex;gap:10px;align-items:center;justify-content:space-between}.card.pb-arch small{display:block;color:var(--ink-2)}

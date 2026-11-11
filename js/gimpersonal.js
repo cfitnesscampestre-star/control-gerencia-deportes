@@ -213,8 +213,12 @@ Object.assign(actions,{
     const aid=curArea(), pkx=getPath(`data/${aid}/paquetes/${d.id}`)||{}; if(roDatos(aid)) return;
     if(isProf()&&(pkx.profId!==session.profId||ptSes(pkx).length)){ toast('Ya tiene sesiones registradas: solo la dirección puede eliminarlo'); return; }
     if(!confirm('¿Eliminar este personalizado y sus sesiones?')) return;
+    const n=isProf()?0:ptMovs(aid,d.id).length;             // la dirección puede borrar también su rastro (p. ej. un registro de prueba)
+    if(n&&confirm(`¿Borrar también sus ${n} movimientos de la bitácora?\n\nAceptar: no queda rastro (úsalo para registros de prueba).\nCancelar: la bitácora conserva su historial.`)){
+      ptPurgar(aid,{...pkx,id:d.id}); ptForm=null; closeModal(); render(); toast('Personalizado y sus movimientos borrados'); return;
+    }
     setPath(`data/${aid}/paquetes/${d.id}`,undefined);
-    if(pkx.profId) gimLog(aid,{tipo:'baja',txt:`${pkx.cliente||'Cliente'}: se eliminó el personalizado (${ptReal(pkx)} de ${+pkx.total||0} sesiones usadas)`,prof:pkx.profId,aviso:!isProf()});
+    if(pkx.profId) gimLog(aid,{tipo:'baja',txt:`${pkx.cliente||'Cliente'}: se eliminó el personalizado (${ptReal(pkx)} de ${+pkx.total||0} sesiones usadas)`,pk:d.id,prof:pkx.profId,aviso:!isProf()});
     ptForm=null; closeModal(); render(); toast('Personalizado eliminado');
   },
   ctNueva(d){ ctNueva(d.pk); },
