@@ -15,7 +15,7 @@
 const MP_FALLAS = ['No enciende','Ruido extraño','Flojo o roto','Falta pieza'];
 const MP_COLA = 'gd_mant_cola_v1';
 const MP_WEB = 'https://cfitnesscampestre-star.github.io/control-mantenimiento/';      // las fotos de los equipos viven en el repositorio de Control Mantenimiento
-const mp = { vista:'reportar', salonManual:null, salonQR:false, eligiendo:false, sel:null, todo:false, q:'', chips:[], texto:'', urg:'normal', forzar:false, enviando:false, scan:null };
+const mp = { vista:'reportar', salonManual:null, salonQR:false, eligiendo:false, sel:null, todo:false, q:'', libre:false, eqTxt:'', chips:[], texto:'', urg:'normal', forzar:false, enviando:false, scan:null };
 
 if(typeof ICONS!=='undefined'){ ICONS.camara = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'; }
 
@@ -102,7 +102,7 @@ function mantAvisoProf(){
   return Object.keys(porSalon).map(sid=>{
     const lista=abiertos.filter(r=>{ const eq=E[r.equipoId]; return String(eq&&eq.salonId!=null?eq.salonId:r.salonId)===String(sid); });
     if(!lista.length) return '';
-    const nom=r=>(E[r.equipoId]&&E[r.equipoId].nombre)||'Equipo', fuera=lista.some(r=>r.urg==='fuera');
+    const nom=r=>(E[r.equipoId]&&E[r.equipoId].nombre)||r.equipoTxt||'Equipo', fuera=lista.some(r=>r.urg==='fuera');
     const items=lista.slice(0,4).map(r=>`${esc(nom(r))} <em>(${r.urg==='fuera'?'fuera de servicio':r.estado==='atencion'?'en reparación':'reportado'})</em>`);
     if(lista.length>4) items.push(`y ${lista.length-4} más`);
     return `<div class="mp-av ${fuera?'fuera':'otro'}"><span>${fuera?'⛔':'🔧'}</span><div><b>${esc(porSalon[sid].nombre)} · ${esc(porSalon[sid].clases[0])}</b>${items.join(' · ')}</div></div>`;
@@ -126,7 +126,7 @@ function mpListaHTML(ctx){
   return arr.length?arr.map(e=>mpEquipoHTML(e)).join(''):`<div class="empty">${mp.q?'Sin resultados para esa búsqueda.':'No hay equipos registrados en este salón.'}</div>`;
 }
 function mpBotonOk(ctx){
-  return !mp.enviando&&!!mp.sel&&ctx.salonId!=null&&!!(mp.chips.length||mp.texto.trim())&&!(mpAbierto(mp.sel)&&!mp.forzar);
+  return !mp.enviando&&!!(mp.sel||(mp.libre&&mp.eqTxt.trim()))&&ctx.salonId!=null&&!!(mp.chips.length||mp.texto.trim())&&!(mpAbierto(mp.sel)&&!mp.forzar);
 }
 function mpReportar(){
   if(!mpCatalogoListo()) return '<div class="empty">Cargando equipos…</div>';
@@ -158,12 +158,17 @@ function mpReportar(){
       h+=`<div class="mp-aviso mal"><b>⚠ Este equipo ya fue reportado</b><br>${esc(ab.desc||'')}<br><small>Por ${esc(quien)}${ab.creado?' · '+mpHace(Date.now()-ab.creado):''} · ${est}</small>
         ${mp.forzar?'':'<br><button class="mp-link" data-act="mpForzar">Es otra falla distinta, reportar de todos modos</button>'}</div>`;
     }
+  } else if(mp.libre){
+    h+=`<div class="card"><div class="sub" style="margin:0 0 6px">No está en la lista: escribe qué es. Mantenimiento lo recibe igual y, si es un equipo nuevo, lo da de alta.</div>
+      <input id="mp_eqtxt" class="mp-in" maxlength="120" placeholder="Ej. Red nueva de la cancha 3, puerta del vestidor" value="${esc(mp.eqTxt)}" autocomplete="off">
+      <button class="mp-link" data-act="mpLibreNo">← Buscar en la lista</button></div>`;
   } else {
     h+=`<button class="mp-qr" data-act="mpQr">${ic('camara')} Escanear código QR del equipo</button>
       <div class="sub" style="text-align:center;margin:6px 0 10px">o búscalo por nombre</div>
       <input id="mp_q" class="mp-in" type="search" placeholder="🔍 Buscar equipo…" value="${esc(mp.q)}" autocomplete="off" style="margin-bottom:10px">
       <div id="mp_lista">${mpListaHTML(ctx)}</div>
-      <button class="mp-link" data-act="mpTodo">${mp.todo?`← Ver solo equipos de ${esc(ctx.salonNombre)}`:'Mi equipo no está en esta lista'}</button>`;
+      <button class="mp-link" data-act="mpTodo">${mp.todo?`← Ver solo equipos de ${esc(ctx.salonNombre)}`:'Mi equipo no está en esta lista'}</button>
+      ${mp.todo?'<button class="mp-link" data-act="mpLibre">¿Tampoco aparece? Escríbelo (equipo nuevo, puerta, barandal…)</button>':''}`;
   }
   h+=`<div class="mp-lbl">2 · ¿Qué falla tiene?</div><div class="chips" style="flex-wrap:wrap;overflow:visible">${MP_FALLAS.map(f=>`<button class="chip${mp.chips.includes(f)?' on':''}" data-act="mpChip" data-id="${esc(f)}">${esc(f)}</button>`).join('')}</div>
     <textarea id="mp_txt" class="mp-in" rows="3" placeholder="Describe la falla (opcional si elegiste una arriba)">${esc(mp.texto)}</textarea>
@@ -174,15 +179,15 @@ function mpReportar(){
 }
 function mpMis(){
   const E=mpEquipos()||{}, S=mpSalones()||{};
-  const nombreEq=id=>(E[id]&&E[id].nombre)||'Equipo', nombreSal=id=>(S[id]&&S[id].nombre)||'';
+  const nombreEq=(id,txt)=>(E[id]&&E[id].nombre)||txt||'Equipo', nombreSal=id=>(S[id]&&S[id].nombre)||'';
   let h='';
   mpLeerCola().filter(x=>String(x.rep.profId)===String(session.profId)).forEach(x=>{
-    h+=`<div class="mp-rep cola"><div class="mp-rep-h"><b>${esc(nombreEq(x.rep.equipoId))}</b><span class="mp-tag warn">⏳ Por enviar</span></div><div class="sub" style="margin:2px 0 0">${esc(x.rep.desc)}</div></div>`;
+    h+=`<div class="mp-rep cola"><div class="mp-rep-h"><b>${esc(nombreEq(x.rep.equipoId,x.rep.equipoTxt))}</b><span class="mp-tag warn">⏳ Por enviar</span></div><div class="sub" style="margin:2px 0 0">${esc(x.rep.desc)}</div></div>`;
   });
   mpMios().sort((a,b)=>(b.creado||0)-(a.creado||0)).forEach(r=>{
     const clase=r.estado==='nuevo'?'rojo':r.estado==='atencion'?'amar':'verde';
     const tag=r.estado==='nuevo'?'<span class="mp-tag bad">🔴 Sin abrir · esperando a mantenimiento</span>':r.estado==='atencion'?'<span class="mp-tag warn">🟡 En atención</span>':'<span class="mp-tag ok">🟢 Resuelto</span>';
-    h+=`<div class="mp-rep ${clase}"><div class="mp-rep-h"><b>${esc(nombreEq(r.equipoId))}</b>${r.urg&&r.urg!=='normal'?`<span class="mp-tag ${r.urg==='fuera'?'bad':'warn'}">${esc(MANT_URG[r.urg])}</span>`:''}</div>
+    h+=`<div class="mp-rep ${clase}"><div class="mp-rep-h"><b>${esc(nombreEq(r.equipoId,r.equipoTxt))}</b>${r.urg&&r.urg!=='normal'?`<span class="mp-tag ${r.urg==='fuera'?'bad':'warn'}">${esc(MANT_URG[r.urg])}</span>`:''}</div>
       <div class="mp-d">${esc(r.desc||'')}</div>
       <small>${esc(nombreSal(r.salonId))}${r.clase&&r.clase!=='Fuera de clase'?' · '+esc(r.clase):''} · ${mpHace(Date.now()-(r.creado||Date.now()))}</small>
       <div style="margin-top:6px">${tag}</div>
@@ -218,15 +223,16 @@ async function mpVaciarCola(){
 }
 async function mpEnviar(){
   if(mp.enviando) return;
-  const ctx=mpCtx(), E=mpEquipos()||{}, eq=mp.sel?E[mp.sel]:null, p=getProf(session.area,session.profId);
+  const ctx=mpCtx(), E=mpEquipos()||{}, eq=!mp.libre&&mp.sel?E[mp.sel]:null, eqTxt=mp.libre?mp.eqTxt.trim().slice(0,120):'', p=getProf(session.area,session.profId);
   const desc=[mp.chips.join(', '),mp.texto.trim()].filter(Boolean).join('. ');
-  if(!p||!eq||ctx.salonId==null||!desc||(mpAbierto(mp.sel)&&!mp.forzar)) return;
+  if(!p||!(eq||eqTxt)||ctx.salonId==null||!desc||(eq&&mpAbierto(mp.sel)&&!mp.forzar)) return;
   mp.enviando=true;
-  const rep={ equipoId:mp.sel, desc, urg:mp.urg, profId:p.id, prof:p.nombre, area:(getArea(session.area)||{}).nombre||'', areaId:session.area,
-    clase:ctx.clase, salonId:ctx.salonId, otroLugar:String(eq.salonId)!==String(ctx.salonId), creado:Date.now(), estado:'nuevo',
+  const rep={ desc, urg:mp.urg, profId:p.id, prof:p.nombre, area:(getArea(session.area)||{}).nombre||'', areaId:session.area,
+    clase:ctx.clase, salonId:ctx.salonId, otroLugar:eq?String(eq.salonId)!==String(ctx.salonId):false, creado:Date.now(), estado:'nuevo',
     tipos:mp.chips.slice(), origen:'gerencia' };
+  if(eq) rep.equipoId=mp.sel; else rep.equipoTxt=eqTxt;      // no está en el catálogo: llega con el nombre escrito
   const cola=mpLeerCola(); cola.push({local:'l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),key:null,rep}); mpGuardarCola(cola);   // primero local; luego se intenta enviar
-  mp.sel=null; mp.chips=[]; mp.texto=''; mp.urg='normal'; mp.q=''; mp.todo=false; mp.forzar=false;
+  mp.sel=null; mp.chips=[]; mp.texto=''; mp.urg='normal'; mp.q=''; mp.todo=false; mp.forzar=false; mp.libre=false; mp.eqTxt='';
   if(mp.salonQR){ mp.salonManual=null; mp.salonQR=false; }
   const n=await mpVaciarCola();
   mp.enviando=false; mp.vista='mis';
@@ -321,8 +327,10 @@ Object.assign(actions,{
   mpEq(d){ mp.sel=d.id; mp.forzar=false; render(); },
   mpCambiarEq(){ mp.sel=null; mp.forzar=false; if(mp.salonQR){ mp.salonManual=null; mp.salonQR=false; } render(); },
   mpTodo(){ mp.todo=!mp.todo; mp.q=''; render(); },
-  mpCambiarSalon(){ mp.eligiendo=true; mp.sel=null; mp.todo=false; mp.q=''; render(); },
-  mpSalon(d){ mp.salonQR=false; mp.salonManual=d.id; mp.eligiendo=false; mp.sel=null; mp.todo=false; mp.q=''; render(); },
+  mpCambiarSalon(){ mp.eligiendo=true; mp.sel=null; mp.todo=false; mp.q=''; mp.libre=false; mp.eqTxt=''; render(); },
+  mpSalon(d){ mp.salonQR=false; mp.salonManual=d.id; mp.eligiendo=false; mp.sel=null; mp.todo=false; mp.q=''; mp.libre=false; mp.eqTxt=''; render(); },
+  mpLibre(){ mp.libre=true; mp.sel=null; mp.forzar=false; render(); setTimeout(()=>{ const i=document.getElementById('mp_eqtxt'); if(i) i.focus(); },50); },
+  mpLibreNo(){ mp.libre=false; mp.eqTxt=''; render(); },
   mpChip(d){ mp.chips=mp.chips.includes(d.id)?mp.chips.filter(c=>c!==d.id):mp.chips.concat(d.id); render(); },
   mpUrg(d){ mp.urg=d.id; render(); },
   mpForzar(){ mp.forzar=true; render(); },
@@ -333,6 +341,7 @@ Object.assign(actions,{
 document.addEventListener('input',e=>{
   if(e.target.id==='mp_q'){ mp.q=e.target.value; const l=document.getElementById('mp_lista'); if(l) l.innerHTML=mpListaHTML(mpCtx()); }
   else if(e.target.id==='mp_txt'){ mp.texto=e.target.value; const b=document.getElementById('mp_enviar'); if(b) b.disabled=!mpBotonOk(mpCtx()); }
+  else if(e.target.id==='mp_eqtxt'){ mp.eqTxt=e.target.value; const b=document.getElementById('mp_enviar'); if(b) b.disabled=!mpBotonOk(mpCtx()); }
 });
 window.addEventListener('online',()=>{ mpVaciarCola().then(n=>{ if(n&&mantProfActivo()) safeRender(); }); });
 setInterval(()=>{ if(mpLeerCola().length) mpVaciarCola().then(n=>{ if(n&&mantProfActivo()) safeRender(); }); },60000);
