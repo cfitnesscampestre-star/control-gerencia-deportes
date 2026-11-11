@@ -79,8 +79,8 @@ function ctNombre(key){
 /* ---------- al entrar ---------- */
 /* Se llama después de validar la contraseña o el PIN en la pantalla de entrada. No detiene la entrada:
    si no hay internet se reintenta al volver la señal (la contraseña solo vive en memoria mientras tanto). */
-function ctAlEntrar(x,pw){ ct.pend={key:ctClave(x),rol:x.rol,pw:String(pw)}; ctReintentar(); }
-function ctReintentar(){ if(ct.pend&&ctListo()&&!ct.entrando){ const p=ct.pend; ctEntrar(p).then(ok=>{ if(ok&&ct.pend===p) ct.pend=null; }); } }
+function ctAlEntrar(x,pw){ ct.pend={key:ctClave(x),rol:x.rol,pw:String(pw)}; ctReintentar(); if(x.rol==='ger'&&typeof mtAdmEntrar==='function') mtAdmEntrar(pw); }   // Gerencia también entra a Mantenimiento (mant-tecnicos.js)
+function ctReintentar(){ if(typeof mtReintentar==='function') mtReintentar(); if(ct.pend&&ctListo()&&!ct.entrando){ const p=ct.pend; ctEntrar(p).then(ok=>{ if(ok&&ct.pend===p) ct.pend=null; }); } }
 async function ctEntrar({key,rol,pw}){
   const au=ctAuth(); if(!au) return false;
   ct.entrando=true;
@@ -117,6 +117,7 @@ async function ctRevisar(key,rol){
 /* al salir: el equipo vuelve a una sesión anónima (lo justo para mostrar la pantalla de entrada) */
 function ctAlSalir(){
   ct.pend=null; ct.estado='';
+  if(typeof mtAdmSalir==='function') mtAdmSalir();
   const au=ctAuth(); if(!au||!online||!au.currentUser||au.currentUser.isAnonymous) return;
   au.signInAnonymously().catch(e=>console.warn('[Cuentas] sesión anónima',e&&e.message));
 }
@@ -176,6 +177,7 @@ async function ctPassCambiada(kind,aid,grupo,actual,nueva){
       const u=ctYo(); if(!u||u.isAnonymous) return;
       const cred=firebase.auth.EmailAuthProvider.credential(u.email,ctPass(actual));
       await u.reauthenticateWithCredential(cred); await u.updatePassword(ctPass(nueva));
+      if(kind==='ger'&&typeof mtAdmPassCambiada==='function') mtAdmPassCambiada(actual,nueva);   // y en su cuenta de Control Mantenimiento
       return;
     }
     if(!ctEsGer()) return;                                  // Gerencia cambia la de Metodología o una dirección: cuenta nueva, ya aprobada

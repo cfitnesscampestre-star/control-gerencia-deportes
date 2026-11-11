@@ -1,0 +1,34 @@
+PARCHE 24 — Gerencia asigna los usuarios de los técnicos de Control Mantenimiento
+=================================================================================
+
+QUÉ HACE
+  En Ajustes, debajo de "Cuentas de acceso", aparece "Técnicos de Control Mantenimiento" (solo para Gerencia):
+    · + Técnico:   usuario (ej. tecnico), nombre y PIN (la app sugiere uno de 6 dígitos; se puede cambiar).
+                   Al guardar se muestran el usuario y el PIN para entregárselos al técnico (botón "Copiar").
+    · PIN nuevo:   si al técnico se le olvidó, o para cambiarlo. El PIN anterior deja de servir.
+    · Desactivar:  ya no puede entrar a Control Mantenimiento (si tenía la app abierta, se le cierra la sesión).
+    · Reactivar:   le asigna un PIN nuevo y vuelve a entrar.
+  El PIN NO se guarda en ningún lado: se ve una sola vez, al asignarlo.
+  El técnico entra a Control Mantenimiento con ese usuario y ese PIN; su nombre sale solo en los reportes que atiende.
+
+CÓMO FUNCIONA
+  Gerencia entra a la base de Control Mantenimiento con la cuenta gerencia@mantenimiento.club, que tiene LA MISMA
+  contraseña que Gerencia en esta app. La app entra sola cada vez que Gerencia entra; si cambias la contraseña de Gerencia
+  en Ajustes, se cambia también allá. Si la conexión no se logra, la tarjeta pide la contraseña de Gerencia.
+  Detalle técnico: js/mant-tecnicos.js.
+
+PASOS, EN ESTE ORDEN
+  Son los de reglas-firebase.txt del repositorio control-mantenimiento (versión 17). En resumen:
+  1. Consola de Firebase, proyecto registro-mantenimiento-9854c → Authentication → Usuarios → Agregar usuario:
+        Correo:      gerencia@mantenimiento.club
+        Contraseña:  tu contraseña de Gerencia de esta app, exactamente igual.
+     Deja activada la creación de cuentas (Authentication → Configuración → Acciones de usuario → "Habilitar creación").
+  2. Sube este parche (index.html, sw.js, js/cuentas.js, js/ajustes.js y el archivo nuevo js/mant-tecnicos.js) y la
+     versión 17 de Control Mantenimiento.
+  3. Publica las reglas nuevas en la base de Control Mantenimiento (reglas-firebase.txt de control-mantenimiento).
+     Sin ellas Gerencia no puede dar de alta técnicos: las reglas actuales no dejan escribir en /cuentas ni /tecnicos.
+  4. En esta app: sal y vuelve a entrar como Gerencia, con internet. Ajustes → "Técnicos de Control Mantenimiento" →
+     "+ Técnico". Para el técnico actual usa el usuario "tecnico", su nombre y un PIN nuevo, y entrégale los datos.
+
+PARA REGRESAR
+  Vuelve a subir los archivos del parche 23. La tarjeta desaparece; los técnicos ya dados de alta siguen entrando.

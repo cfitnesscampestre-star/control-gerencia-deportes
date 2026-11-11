@@ -57,6 +57,7 @@ function gAjustes(){
       ${ajFila('','La contraseña de cada dirección está en la ficha de su área.')}
     </div>
     ${typeof ctCard==='function'&&FIREBASE_CONFIG.databaseURL?`<div id="aj-cuentas" class="aj-sub">Cuentas de acceso</div>${ctCard()}`:''}
+    ${typeof mtCard==='function'&&mantConfig()&&session&&session.rol==='ger'?`<div id="aj-tecnicos" class="aj-sub">Técnicos de Control Mantenimiento</div>${mtCard()}`:''}
     <div class="h2">Respaldo y datos</div>
     <div class="card">
       ${ajFila('Nube',esc(nube[0]),pill(nube[1],nube[2]))}
