@@ -1,0 +1,23 @@
+PARCHE 26 — Reportes de mantenimiento sin equipo del catálogo y reportes de Gerencia
+====================================================================================
+
+QUÉ HACE
+1) Profesores (portal → Mantenimiento → Reportar equipo): después de "Mi equipo no está en esta lista", si tampoco
+   aparece, "¿Tampoco aparece? Escríbelo": se escribe qué es (equipo nuevo, puerta, barandal…) y se manda igual.
+   Llega a Control Mantenimiento con la etiqueta "No está en el catálogo"; el técnico puede darlo de alta en el catálogo.
+2) Gerencia (pestaña Mantenimiento): botón "Reportar a mantenimiento". Elige el salón u "Otro lugar" (escrito), el equipo
+   de la lista o escribe qué es, qué hay que hacer y la urgencia. Llega como "mantenimiento general".
+3) En la pestaña Mantenimiento de Gerencia hay un filtro nuevo, "Mantenimiento general": lo que reportan Gerencia y los
+   técnicos (por ejemplo, pendientes para el siguiente turno). También sale en el resumen de Mantenimiento.
+   Las direcciones no lo ven: solo ven lo de sus áreas.
+4) Los reportes sin equipo del catálogo se ven con el nombre escrito en todas las pantallas.
+
+Va junto con Control Mantenimiento versión 18 y Control Fitness (instructores: lo mismo que el punto 1).
+Reglas: publicar las de Control Mantenimiento versión 18 (reglas-firebase.txt): solo agregan un límite de largo para los
+textos nuevos; si no se publican, todo funciona igual.
+
+Archivos: index.html, sw.js (gd-v103), js/mantprof.js, js/mantenimiento.js, js/app.js.
+
+PARA REGRESAR
+  Vuelve a subir los archivos del parche 25. Los reportes ya enviados sin equipo del catálogo siguen en Control
+  Mantenimiento; en Gerencia se verían como "Sin equipo".

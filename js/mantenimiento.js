@@ -1,11 +1,12 @@
 'use strict';
 /* =====================================================================
-   mantenimiento.js — Control Mantenimiento → Gerencia y direcciones (SOLO LECTURA)
+   mantenimiento.js — Control Mantenimiento → Gerencia y direcciones (lectura; Gerencia además reporta a mantenimiento general)
    Lee en tiempo real la base de Control Mantenimiento (proyecto registro-mantenimiento-9854c):
      /reportes    reportes abiertos que mandan los entrenadores
      /historial   reportes que el entrenador ya cerró
      /equipos, /salones, /preventivo, /fotos/{id}   (las fotos solo se piden al abrir un reporte)
-   Gerencia y las direcciones NUNCA escriben en esa base. Los reportes los atiende el técnico en su app.
+   Las direcciones nunca escriben en esa base. Gerencia solo escribe reportes nuevos de mantenimiento general (mnNuevoGuarda);
+   los profesores escriben los suyos (mantprof.js). Los reportes los atiende el técnico en su app.
 
    Pantalla "Mantenimiento": la misma de Reportes de Control Mantenimiento (periodo con calendario, filtro de urgencia,
    carrusel que avanza solo, botones rojo / amarillo / verde y detalle del reporte), pero sin poder modificar nada.
@@ -64,11 +65,19 @@ const mantEsFitness = r => r.origen==='fitness' || (r.origen==null && /^\d+$/.te
 /* ¿De qué área es un reporte? Devuelve el id del área en Gerencia, o null (no se muestra). */
 function mantArea(r){
   if(mantEsPrueba(r)) return null;
+  if(r.origen==='mantenimiento'||r.origen==='general') return 'general';   // mantenimiento general: lo levantó el técnico o Gerencia (solo lo ve Gerencia)
   if(mantEsFitness(r)) return typeof fcAreaVinculada==='function' ? fcAreaVinculada() : null;
   if(r.origen==='gerencia' && r.areaId && getArea(r.areaId)) return r.areaId;
   return null;
 }
 const mantDe = (aid,r) => !!aid && mantArea(r)===aid;
+const MANT_GEN = {id:'general',nombre:'Mantenimiento general',color:'#5b6f78'};
+const mantAreaObj = aid => aid==='general' ? MANT_GEN : getArea(aid);
+/* nombre y lugar de un reporte: con equipo del catálogo, o escritos (equipoTxt / lugarTxt) cuando no está en el catálogo */
+const mantRepEq = r => r.equipoId&&(mantRaw.equipos||{})[r.equipoId] ? mantEq(r.equipoId) : null;
+const mantRepNombre = r => { const e=mantRepEq(r); return e?e.nombre:r.equipoTxt?r.equipoTxt:r.equipoId?'Equipo (eliminado)':'Sin equipo'; };
+const mantRepLugar = r => { const e=mantRepEq(r); if(e&&e.salonId) return mantSalon(e.salonId).nombre; if(r.salonId&&(mantRaw.salones||{})[r.salonId]) return mantSalon(r.salonId).nombre; return r.lugarTxt||'—'; };
+const mantRepQuien = r => r.prof||(r.origen==='mantenimiento'?'Mantenimiento':r.origen==='general'?'Gerencia':'Entrenador');
 /* ¿El área usa Mantenimiento? Fitness siempre (sus reportes vienen de Control Fitness); las demás, solo si gerencia deportiva
    la activó (Ajustes → Mantenimiento por área). Después, la dirección activa a cada profesor. */
 function mantAplica(aid){
@@ -85,10 +94,11 @@ function mantHace(ts){
   return 'hace '+Math.round(h/24)+' días';
 }
 function mantStats(aid){
-  const rs=mantAplica(aid)?mantArr('reportes').filter(r=>mantDe(aid,r)):[];
+  const ap=aid==='general'||mantAplica(aid);
+  const rs=ap?mantArr('reportes').filter(r=>mantDe(aid,r)):[];
   const compras=rs.filter(r=>(r.compra||r.cambio)&&r.estado!=='resuelto');
   const hace30=Date.now()-30*864e5;
-  const cer=mantAplica(aid)?Object.keys(mantRaw.historial||{}).map(id=>mantRaw.historial[id]).filter(r=>mantDe(aid,r)&&(r.cerrado||0)>=hace30).length:0;
+  const cer=ap?Object.keys(mantRaw.historial||{}).map(id=>mantRaw.historial[id]).filter(r=>mantDe(aid,r)&&(r.cerrado||0)>=hace30).length:0;
   return {
     rs, cer,
     rojos:rs.filter(mantVence),
@@ -104,7 +114,7 @@ function mantPrevVencidos(){
 /* Todos los reportes (abiertos y ya cerrados por el entrenador) de un área, o de todas si scope es null. Cada uno trae _a = su área. */
 function mantFilas(scope){
   const out=[];
-  const toma=(r,cerrada)=>{ const a=mantArea(r); if(!a) return; if(scope?a!==scope:!mantAplica(a)) return; out.push(Object.assign({},r,{_a:a,cerrada})); };
+  const toma=(r,cerrada)=>{ const a=mantArea(r); if(!a) return; if(scope?a!==scope:(a!=='general'&&!mantAplica(a))) return; out.push(Object.assign({},r,{_a:a,cerrada})); };
   mantArr('reportes').forEach(r=>toma(r,false));
   mantArr('historial').forEach(r=>toma(r,true));
   return out;
@@ -151,17 +161,18 @@ function mnTimer(r){
   return `<div class="rep-time">${ic('reloj')}<span>${fin?'Resuelto en':'Tiempo desde que llegó'}</span><b class="timer${fin?' stop':''}" data-t0="${r.creado}">${mnDur((fin||Date.now())-r.creado)}</b></div>`;
 }
 function mnRepCard(r,todas){
-  const e=mantEq(r.equipoId), x=[];
-  const a=todas&&r._a?getArea(r._a):null;
+  const x=[];
+  const a=todas&&r._a?mantAreaObj(r._a):null;
   if(r.otroLugar) x.push('<small><b>Reportado desde otro salón</b></small>');
-  if(r.cerrada) x.push('<small>El entrenador ya cerró este aviso</small>');
+  if(!mantRepEq(r)&&r.equipoTxt) x.push('<small><b>No está en el catálogo</b></small>');
+  if(r.cerrada) x.push(`<small>${r._a==='general'?'Mantenimiento ya lo quitó de la lista':'El entrenador ya cerró este aviso'}</small>`);
   if(r.tecnico&&r.estado!=='nuevo') x.push(`<small>Atiende: ${esc(r.tecnico)}</small>`);
   if(r.diag) x.push(`<small><b>Diagnóstico:</b> ${esc(r.diag)}</small>`);
   if(r.compra||r.cambio) x.push(`<small>${r.compra?'Requiere compra':''}${r.compra&&r.cambio?' · ':''}${r.cambio?'Requiere cambio':''}${r.costo?' · estimado $'+esc(r.costo):''}</small>`);
   return `<button class="rep ${mnSem(r)}" data-act="mnOpen" data-id="${esc(r.id)}">
     <div class="rep-h">${mnPillEstado(r)}${mnPillUrg(r)}<span class="go">${ic('next')}</span></div>
-    <b class="rep-t">${esc(e.nombre)}</b><span class="rep-d">${esc(r.desc||'')}</span>
-    <small>${esc(mantSalon(e.salonId).nombre)} · ${esc(r.prof||'Entrenador')}${r.clase?' · '+esc(r.clase):''}${a?' · '+esc(a.nombre):''} · llegó ${mnFechaHora(r.creado)}</small>
+    <b class="rep-t">${esc(mantRepNombre(r))}</b><span class="rep-d">${esc(r.desc||'')}</span>
+    <small>${esc(mantRepLugar(r))} · ${esc(mantRepQuien(r))}${r.clase?' · '+esc(r.clase):''}${a?' · '+esc(a.nombre):''} · llegó ${mnFechaHora(r.creado)}</small>
     ${x.length?`<div class="rep-x">${x.join('')}</div>`:''}${mnTimer(r)}</button>`;
 }
 function mnBarraPeriodo(R,total){
@@ -178,7 +189,7 @@ function mnBarraPeriodo(R,total){
 }
 function mantEstadoConexion(){
   const m=mantMeta;
-  if(m.estado==='ok') return '<div class="mn-conn"><i></i>Conectado · solo lectura</div>';
+  if(m.estado==='ok') return '<div class="mn-conn"><i></i>Conectado'+(session&&session.rol==='ger'?'':' · solo lectura')+'</div>';
   if(m.estado==='error') return `<div class="vinc off"><b>No se pudo leer Control Mantenimiento</b><span>${esc(m.msg)}</span></div>`;
   if(m.estado==='cache') return '<div class="vinc off"><b>Copia guardada de Control Mantenimiento</b><span>Se muestra lo último que se recibió en este equipo.</span></div>';
   return '<div class="vinc off"><b>Conectando con Control Mantenimiento…</b><span>Un momento…</span></div>';
@@ -218,10 +229,53 @@ function vMantenimiento(aid){
 /* Pestaña "Mantenimiento" de gerencia: todas las áreas, con filtro por área */
 function vMantGerencia(){
   if(!mantConfig()) return empty('Control Mantenimiento no está conectado.');
-  const as=areasList().filter(a=>mantAplica(a.id));
+  const as=areasList().filter(a=>mantAplica(a.id)).concat([MANT_GEN]);
   if(mnUi.area!=='todas'&&!as.some(a=>a.id===mnUi.area)) mnUi.area='todas';
-  const chips=as.length>1?`<div class="chips"><button class="chip${mnUi.area==='todas'?' on':''}" data-act="mnArea" data-v="todas">Todas las áreas</button>${as.map(a=>`<button class="chip${mnUi.area===a.id?' on':''}" data-act="mnArea" data-v="${esc(a.id)}">${esc(a.nombre)}</button>`).join('')}</div>`:'';
-  return `<div class="mantv">${mnInformesHTML()}${chips}${vMantPantalla(null)}</div>`;
+  const chips=`<div class="chips"><button class="chip${mnUi.area==='todas'?' on':''}" data-act="mnArea" data-v="todas">Todas las áreas</button>${as.map(a=>`<button class="chip${mnUi.area===a.id?' on':''}" data-act="mnArea" data-v="${esc(a.id)}">${esc(a.nombre)}</button>`).join('')}</div>`;
+  const nuevo=session&&session.rol==='ger'?`<div class="btns" style="margin:0 0 10px"><button class="btn primary" data-act="mnNuevo">${ic('plus')} Reportar a mantenimiento</button></div>`:'';
+  return `<div class="mantv">${mnInformesHTML()}${nuevo}${chips}${vMantPantalla(null)}</div>`;
+}
+
+/* ---------- Gerencia reporta directo a mantenimiento general (origen "general") ----------
+   Por ejemplo: "se cayó una puerta, hay que asegurarla". Puede ser un equipo del catálogo o algo escrito, en un salón o en
+   otro lugar escrito. Llega a Control Mantenimiento como cualquier reporte; el técnico lo quita de la lista al resolverlo. */
+const mnNv = { salonId:'', lugarTxt:'', equipoId:'', equipoTxt:'', desc:'', urg:'normal' };
+function mnNuevoHTML(){
+  const S=mantRaw.salones||{}, E=mantRaw.equipos||{};
+  const sals=Object.keys(S).map(id=>({id,n:(S[id]||{}).nombre||id})).sort((a,b)=>a.n.localeCompare(b.n,'es',{numeric:true}));
+  const eqs=mnNv.salonId&&mnNv.salonId!=='_otro'?Object.keys(E).filter(id=>E[id]&&String(E[id].salonId)===String(mnNv.salonId)).map(id=>({id,n:E[id].nombre||id})).sort((a,b)=>a.n.localeCompare(b.n,'es',{numeric:true})):[];
+  return `<div class="mantv">${mHead('Reportar a mantenimiento')}
+    <div class="sub">Llega a Control Mantenimiento como "mantenimiento general". Sirve para lo que no es un equipo del catálogo (una puerta, un barandal, una fuga) o para un equipo que viste con falla.</div>
+    <label class="f"><span>Dónde</span><select id="mn_nv_sal" data-mnnv="salonId"><option value="">Elige el salón o lugar…</option>${sals.map(x=>`<option value="${esc(x.id)}"${mnNv.salonId===x.id?' selected':''}>${esc(x.n)}</option>`).join('')}<option value="_otro"${mnNv.salonId==='_otro'?' selected':''}>Otro lugar (escribirlo)</option></select></label>
+    ${mnNv.salonId==='_otro'?`<label class="f"><span>¿Qué lugar?</span><input id="mn_nv_lug" data-mnnv="lugarTxt" maxlength="120" placeholder="Ej. Pasillo de vestidores" value="${esc(mnNv.lugarTxt)}"></label>`:''}
+    ${eqs.length?`<label class="f"><span>Equipo</span><select id="mn_nv_eq" data-mnnv="equipoId"><option value="">No está en la lista / no es un equipo</option>${eqs.map(x=>`<option value="${esc(x.id)}"${mnNv.equipoId===x.id?' selected':''}>${esc(x.n)}</option>`).join('')}</select></label>`:''}
+    ${mnNv.equipoId?'':`<label class="f"><span>¿Qué es?</span><input id="mn_nv_eqtxt" data-mnnv="equipoTxt" maxlength="120" placeholder="Ej. Puerta de la bodega, barandal de la escalera" value="${esc(mnNv.equipoTxt)}"></label>`}
+    <label class="f"><span>Qué hay que hacer</span><textarea id="mn_nv_desc" data-mnnv="desc" maxlength="2000" rows="3" placeholder="Ej. Se cayó la puerta, hay que asegurarla">${esc(mnNv.desc)}</textarea></label>
+    <label class="f"><span>Urgencia</span><select id="mn_nv_urg" data-mnnv="urg">${['normal','urgente','fuera'].map(u=>`<option value="${u}"${mnNv.urg===u?' selected':''}>${MANT_URG[u]}</option>`).join('')}</select></label>
+    <div class="btns"><button class="btn" data-act="closeModal">Cancelar</button><button class="btn primary" data-act="mnNuevoGuarda">Enviar a mantenimiento</button></div></div>`;
+}
+if(typeof document!=='undefined'){
+  document.addEventListener('input',e=>{ const k=e.target&&e.target.dataset&&e.target.dataset.mnnv; if(k) mnNv[k]=e.target.value; });
+  document.addEventListener('change',e=>{ const k=e.target&&e.target.dataset&&e.target.dataset.mnnv; if(!k) return; mnNv[k]=e.target.value;
+    if(k==='salonId'||k==='equipoId'){ if(k==='salonId') mnNv.equipoId=''; openModal(mnNuevoHTML()); } });
+}
+async function mnNuevoGuarda(){
+  const v=mnNv, E=mantRaw.equipos||{}, eq=v.equipoId&&E[v.equipoId], txt=v.equipoTxt.trim(), lug=v.lugarTxt.trim(), d=v.desc.trim();
+  if(!v.salonId){ toast('Elige dónde es'); return; }
+  if(v.salonId==='_otro'&&!lug){ toast('Escribe qué lugar es'); return; }
+  if(!eq&&!txt){ toast('Escribe qué es'); return; }
+  if(!d){ toast('Escribe qué hay que hacer'); return; }
+  if(!mantDb){ toast('Sin conexión con Control Mantenimiento'); return; }
+  const rep={ desc:d.slice(0,2000), urg:v.urg||'normal', creado:Date.now(), estado:'nuevo', origen:'general', prof:'Gerencia', profId:'ger', otroLugar:false };
+  if(eq) rep.equipoId=v.equipoId; else rep.equipoTxt=txt.slice(0,120);
+  if(v.salonId!=='_otro') rep.salonId=v.salonId; else rep.lugarTxt=lug.slice(0,120);
+  const b=document.querySelector('[data-act="mnNuevoGuarda"]'); if(b){ b.disabled=true; b.textContent='Enviando…'; }
+  try{
+    const ref=mantDb.ref('reportes').push();
+    await Promise.race([ref.set(rep),new Promise((_,ko)=>setTimeout(()=>ko(new Error('sin respuesta')),10000))]);
+    Object.assign(mnNv,{salonId:'',lugarTxt:'',equipoId:'',equipoTxt:'',desc:'',urg:'normal'});
+    closeModal(); mnUi.area='general'; render(); toast('Reporte enviado a mantenimiento');
+  }catch(e){ toast('No se pudo enviar: '+((e&&e.message)||e)); if(b){ b.disabled=false; b.textContent='Enviar a mantenimiento'; } }
 }
 
 /* ---------- reportes que manda Mantenimiento (informes) ----------
@@ -262,12 +316,12 @@ function mnFotosHTML(id){
 }
 function mnDetalle(id){
   const raw=(mantRaw.reportes||{})[id]||(mantRaw.historial||{})[id]; if(!raw) return '';
-  const r=Object.assign({id},raw), e=mantEq(r.equipoId), a=mantArea(r)?getArea(mantArea(r)):null;
+  const r=Object.assign({id},raw), a=mantArea(r)?mantAreaObj(mantArea(r)):null;
   const fila=(t,v)=>`<div class="row"><div><b>${t}</b><small>${v}</small></div></div>`;
-  return `<div class="mantv">${mHead(esc(e.nombre))}
+  return `<div class="mantv">${mHead(esc(mantRepNombre(r)))}
     <div class="rep ${mnSem(r)}" style="margin-bottom:14px"><div class="rep-h">${mnPillEstado(r)}${mnPillUrg(r)}</div>
       <span class="rep-d">${esc(r.desc||'')}</span>
-      <small>${esc(mantSalon(e.salonId).nombre)} · ${esc(r.prof||'Entrenador')}${a?' · '+esc(a.nombre):''}${r.clase?' · '+esc(r.clase):''} · ${mantHace(r.creado)}</small>${mnTimer(r)}</div>
+      <small>${esc(mantRepLugar(r))} · ${esc(mantRepQuien(r))}${a?' · '+esc(a.nombre):''}${r.clase?' · '+esc(r.clase):''} · ${mantHace(r.creado)}</small>${mnTimer(r)}</div>
     <div class="card" style="margin-bottom:14px"><div class="h2 sm" style="margin:0 0 8px">Tiempos</div>
       ${fila('Llegó',mnFechaHora(r.creado))}
       ${r.tecnico?fila('Atiende',esc(r.tecnico)):''}
@@ -342,6 +396,9 @@ Object.assign(actions,{
   mnInfAbre(d){ mnInfImprime(d.id); },
   mnInfTodos(){ mnUi.infTodos=!mnUi.infTodos; render(); },
   mnArea(d){ mnUi.area=d.v; mnUi.reset=true; render(); },
+  mnNuevo(){ if(!(session&&session.rol==='ger')) return; mnSheetId=null; openModal(mnNuevoHTML()); },
+  mnNuevoGuarda(){ mnNuevoGuarda(); },
+  mnIrGeneral(){ ui.gTab='mantenimiento'; mnUi.area='general'; mnUi.reset=true; render(); if(typeof top0==='function') top0(); },
   mnCal(){ mnSheetId=null; openModal(mnCalendario()); },
   mnPer(d){ mnUi.per={t:d.v}; mnUi.estado=null; mnUi.reset=true; closeModal(); render(); },
   mnPerAplicar(){
@@ -362,7 +419,8 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ const z=document.
 /* ---------- resumen general para gerencia ---------- */
 function mantResumenGerencia(){
   const aids=(typeof areasList==='function'?areasList().map(a=>a.id):[]).filter(mantAplica); if(!aids.length) return '';
-  const st=aids.map(aid=>({aid,a:getArea(aid),S:mantStats(aid)}));
+  const st=aids.map(aid=>({aid,a:getArea(aid),S:mantStats(aid)})), G=mantStats('general');
+  if(G.rs.length) st.push({aid:'general',a:MANT_GEN,S:G});
   const sum=f=>st.reduce((n,x)=>n+f(x.S),0);
   const rojos=sum(S=>S.rojos.length), proc=sum(S=>S.proceso.length), res=sum(S=>S.res.length), cer=sum(S=>S.cer), ven=mantPrevVencidos();
   return `<div class="h2">Mantenimiento</div>
@@ -372,7 +430,7 @@ function mantResumenGerencia(){
       ${kpi('Atendidos',res+cer,`${res} por cerrar · ${cer} cerrados en 30 días`,{cls:'ok',color:'var(--b1)'})}
     </div>
     ${ven?`<div class="sub">${plu(ven,'revisión de preventivo vencida','revisiones de preventivo vencidas')} en el club.</div>`:''}
-    ${st.map(x=>`<button class="line" style="--ac:${x.a.color}" data-act="openArea" data-id="${esc(x.aid)}" data-tab="mantenimiento">
+    ${st.map(x=>`<button class="line" style="--ac:${x.a.color}" ${x.aid==='general'?'data-act="mnIrGeneral"':`data-act="openArea" data-id="${esc(x.aid)}" data-tab="mantenimiento"`}>
       <div class="t">${ic('llave')}</div>
       <div class="b"><b>${esc(x.a.nombre)}</b><small>${plu(x.S.rojos.length,'reporte en rojo','reportes en rojo')} · ${plu(x.S.proceso.length,'en proceso','en proceso')} · ${plu(x.S.compras.length,'compra pendiente','compras pendientes')}</small></div>
       <div class="r">${x.S.rojos.length?pill('atención','bad'):pill('al día','ok')}</div></button>`).join('')}`;
@@ -385,7 +443,7 @@ function mantCard(){
     <div class="row"><div><b>Control Mantenimiento</b><small>Solo lectura · reportes de equipo de los entrenadores</small></div>${pill(est[1],est[0])}</div>
     ${m.estado==='ok'||m.estado==='cache'?`<div class="row"><div><b>Datos recibidos</b><small>${plu(mantArr('reportes').length,'reporte abierto','reportes abiertos')} · ${plu(mantArr('equipos').length,'equipo','equipos')} · ${plu(mantArr('preventivo').length,'revisión de preventivo','revisiones de preventivo')}</small></div></div>`:''}
     ${m.estado==='error'?`<div class="row"><div><b>No se pudo leer</b><small>${esc(m.msg)}. Revisa las reglas de Firebase del proyecto de mantenimiento.</small></div></div>`:''}
-    <div class="row"><div><small>Gerencia y las direcciones solo leen. Los profesores solo envían sus reportes y eliminan sus avisos ya resueltos.</small></div></div>
+    <div class="row"><div><small>Las direcciones solo leen. Gerencia puede reportar a mantenimiento general (pestaña Mantenimiento). Los profesores envían sus reportes, también de algo que no está en la lista, y eliminan sus avisos ya resueltos.</small></div></div>
     <div class="row"><div><small>Qué áreas usan Mantenimiento se elige en la ficha de cada área (Ajustes → Áreas).</small></div></div>
   </div>`;
 }

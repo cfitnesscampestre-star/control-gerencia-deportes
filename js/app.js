@@ -66,7 +66,7 @@ function viewGerencia(){
   if(ui.gTab==='resumen') body=respaldoAviso()+gResumen();
   else if(ui.gTab==='comite'){ body=gComite(); title='Comité directivo'; sub='Informe para gerencia general'; }
   else if(ui.gTab==='reportes'){ body=gReportes(); title='Reportes'; sub='Cualquier fecha, cualquier área, para imprimir o guardar'; }
-  else if(ui.gTab==='mantenimiento'){ body=vMantGerencia(); title='Mantenimiento'; sub='Reportes de equipo · solo lectura'; }
+  else if(ui.gTab==='mantenimiento'){ body=vMantGerencia(); title='Mantenimiento'; sub='Reportes de equipo y generales'; }
   else if(ui.gTab==='ajustes') body=gAjustes();
   else if(ui.gArea&&getArea(ui.gArea)){
     const a=getArea(ui.gArea), gs=enGrupoSalud(ui.gArea); title=gs?esc(SV_GRUPO_NOM):`${areaIco(a,{size:22})} ${esc(a.nombre)}`; sub=gs?`${esc(a.nombre)} · vista de gerencia · solo lectura`:'Vista de gerencia · solo lectura'; back=ui.lista?'listaBack':'gBack';

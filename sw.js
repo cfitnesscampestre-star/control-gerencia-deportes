@@ -6,7 +6,7 @@
    Si agregas un archivo nuevo a css/, js/ o img/, agrégalo también a ARCHIVOS
    y sube el número de VERSION.
    ===================================================================== */
-const VERSION = 'gd-v102';
+const VERSION = 'gd-v103';
 const ARCHIVOS = [
   './',
   'index.html',
