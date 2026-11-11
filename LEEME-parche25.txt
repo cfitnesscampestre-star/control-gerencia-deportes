@@ -1,0 +1,34 @@
+PARCHE 25 — Gimnasio: los personalizados de instructores dados de baja ya no salen como pendientes
+=====================================================================================================
+
+EL PROBLEMA
+  Al eliminar a un instructor, sus personalizados se "cierran" (o se pasan a otro instructor). El paquete cerrado ya no
+  bloqueaba horas, pero sus sesiones viejas seguían saliendo en "Requiere atención" como "Sin registrar" (nadie las iba a
+  registrar), y los avisos que ese instructor nunca vio seguían contando como "avisos sin ver por el instructor".
+  Además, esos paquetes ya no aparecían en ninguna lista (no tienen instructor), así que no había cómo borrarlos.
+
+QUÉ CAMBIA
+  1) Un paquete CERRADO ya no tiene sesiones por dar ni "sin registrar": solo conserva las que sí se registraron.
+     Deja de salir en Requiere atención, en los calendarios, en el Inicio y en el reporte semanal.
+  2) Los avisos de un instructor que ya no está no cuentan como "sin ver". En la bitácora dicen
+     "El instructor ya no está: no cuenta como pendiente".
+  3) Personalizados de instructores dados de baja que siguen vigentes: salen SOLO en la tarjeta "… ya no está activo ·
+     Decidir" (pasarlo a otro instructor o cerrarlo), ya no también como "Sin registrar" ni "Sesiones sin fecha".
+  4) Nuevo, al final de Gimnasio → Personalizados: "De instructores que ya no están". Lista los paquetes cerrados,
+     completados o vencidos cuyo instructor ya se eliminó, con "Ver agenda" y "Borrar definitivamente".
+     Borrar definitivamente quita el paquete, sus sesiones y TODOS sus movimientos de la bitácora (no se puede deshacer).
+     Es para los registros de prueba o lo que ya no se necesita. Si quieres conservar el historial, no lo borres:
+     ya no estorba.
+  5) Bitácora: los movimientos cuyo personalizado ya no existe o cuyo instructor ya no está tienen el botón
+     "Quitar de la bitácora" (solo dirección/gerencia). Los de personalizados e instructores vigentes no se pueden quitar.
+  6) "Eliminar personalizado" (en Editar), hecho por la dirección: pregunta además si se borran sus movimientos de la
+     bitácora. Aceptar = no queda rastro (pruebas). Cancelar = la bitácora conserva su historial, como antes.
+
+CÓMO LIMPIAR LOS DATOS DE PRUEBA QUE YA TIENES
+  Gimnasio → Personalizados → "De instructores que ya no están" → "Borrar definitivamente" en Lonche, Personalizado de
+  prueba, etc. Luego, en la Bitácora del área, "Quitar de la bitácora" en los movimientos sueltos que queden
+  (p. ej. "Ger: se eliminó el personalizado").
+
+ARCHIVOS
+  js/gimagenda.js, js/gimbaja.js, js/gimpersonal.js, js/gimnasio.js, css/gimnasio.css, index.html, sw.js (gd-v102).
+  No cambian las reglas de Firebase.

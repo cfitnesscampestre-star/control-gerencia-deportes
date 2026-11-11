@@ -105,12 +105,19 @@ function gimLog(aid,o){                                    // o: {tipo, txt, pk,
   setPath(`data/${aid}/gimlog/${id}`,x);
 }
 const gimLogs = aid => coll(aid,'gimlog').sort((a,b)=>(b.ts||0)-(a.ts||0));
+const gimProfActivo = (aid,pid) => { const p=pid?getProf(aid,pid):null; return !!p&&p.activo!==false; };
+const lgPend = (aid,l) => !!l.aviso&&!l.visto&&gimProfActivo(aid,l.prof);      // aviso que el instructor todavía puede ver (si ya no está, no cuenta)
+function lgBorrable(aid,l){                                // solo restos: su personalizado ya no existe o su instructor ya no está
+  if(roDatos(aid)||isProf()||isRec()||fcId(l.id)) return false;
+  return !(l.pk&&getPath(`data/${aid}/paquetes/${l.pk}`))||!(l.prof&&getProf(aid,l.prof));
+}
 function lgFila(aid,l,o){
   o=o||{}; const T=LG_T[l.tipo]||[l.tipo||'Movimiento','mut'], p=l.prof?((getProf(aid,l.prof)||{}).nombre||''):'';
   return `<div class="lg"><div class="lg-h">${pill(T[0],T[1])}<small>${esc(fmtTs(l.ts))}${l.por?' · '+esc(l.por):''}</small></div>
     <div class="lg-t">${esc(l.txt||'')}</div>
     ${(o.prof&&p)?`<small class="mut">Instructor: ${esc(p)}</small>`:''}
-    ${(l.aviso&&!o.sinVisto)?`<small class="${l.visto?'ok':'warn'}">${l.visto?`✓ Visto por el instructor el ${esc(fmtTs(l.visto))}`:'El instructor todavía no lo ve'}</small>`:''}</div>`;
+    ${(l.aviso&&!o.sinVisto)?(l.visto?`<small class="ok">✓ Visto por el instructor el ${esc(fmtTs(l.visto))}</small>`:gimProfActivo(aid,l.prof)?`<small class="warn">El instructor todavía no lo ve</small>`:`<small class="mut">El instructor ya no está: no cuenta como pendiente</small>`):''}
+    ${(o.borrar&&lgBorrable(aid,l))?`<div class="btns"><button class="btn sm" data-act="lgBorrar" data-id="${esc(l.id)}">Quitar de la bitácora</button></div>`:''}</div>`;
 }
 function gimAvisosProf(aid,pid){
   const L=gimLogs(aid).filter(l=>l.aviso&&l.prof===pid&&!l.visto).reverse();
@@ -133,7 +140,8 @@ function ctFila(aid,pk,c,o){
 }
 /* todas las citas del área (o de un instructor) con su paquete */
 function gimCitas(aid,profId){
-  const out=[]; coll(aid,'paquetes').forEach(pk=>{ if(profId&&pk.profId!==profId) return; ptMapa(pk).ag.forEach(c=>out.push({pk,c})); });
+  const out=[]; coll(aid,'paquetes').forEach(pk=>{ if(profId&&pk.profId!==profId) return;
+    ptMapa(pk).ag.forEach(c=>{ if(pk.cerrado&&!c.reg) return; out.push({pk,c}); }); });   // paquete cerrado: ya no tiene sesiones por dar ni por registrar, solo su historial
   return out.sort((a,b)=>ctOrd(a.c,b.c));
 }
 
@@ -264,9 +272,9 @@ function gimHoyHTML(aid){
 }
 function gimAtencion(aid){
   const t=todayStr(), desde=addDays(t,-30), C=gimCitas(aid);
-  const sinReg=C.filter(y=>y.c.st==='sin registrar'&&y.c.f>=desde).reverse();
-  const sinVer=gimLogs(aid).filter(l=>l.aviso&&!l.visto);
-  const sinAg=coll(aid,'paquetes').filter(x=>ptVigente(x)&&!fcId(x.id)).map(x=>({x,n:ptMapa(x).sinAgendar})).filter(y=>y.n>0);
+  const sinReg=C.filter(y=>y.c.st==='sin registrar'&&y.c.f>=desde&&gimProfActivo(aid,y.pk.profId)).reverse();   // los de instructores que ya no están van en “por decidir”
+  const sinVer=gimLogs(aid).filter(l=>lgPend(aid,l));
+  const sinAg=coll(aid,'paquetes').filter(x=>ptVigente(x)&&!fcId(x.id)&&gimProfActivo(aid,x.profId)).map(x=>({x,n:ptMapa(x).sinAgendar})).filter(y=>y.n>0);
   const sinAt=typeof solPendientes==='function'?solPendientes(aid).filter(s=>Date.now()-(s.ts||0)>864e5):[];     // solicitudes de recepción de más de un día sin atender
   const huerf=typeof ptHuerfanos==='function'?ptHuerfanos(aid):[];                 // personalizados de instructores dados de baja, por decidir
   const rutAtr=typeof rutAtrasadas==='function'?rutAtrasadas(aid):[];
@@ -287,11 +295,11 @@ function gimAtencionHTML(aid){
 const LG_FIL = {todo:['Todo',null],agenda:['Agenda',['alta','cambio','reasigna','reagenda','cancelacion','reposicion','baja','edicion']],sesiones:['Sesiones',['sesion','borrado']],sinver:['Sin ver por el instructor',null]};
 function gimLogHTML(aid){
   const fil=ui.lgFil||'todo', n=ui.lgN||15, F=LG_FIL[fil]||LG_FIL.todo;
-  const L=gimLogs(aid).filter(l=>fil==='sinver'?(l.aviso&&!l.visto):(!F[1]||F[1].includes(l.tipo)));
+  const L=gimLogs(aid).filter(l=>fil==='sinver'?lgPend(aid,l):(!F[1]||F[1].includes(l.tipo)));
   return `<div class="h2 sm">Bitácora del área</div>
     <div class="sub">Todo lo que pasa con los personalizados: altas, cambios de horario, reagendas, cancelaciones y sesiones registradas, con quién lo hizo y si el instructor ya lo vio.</div>
     <div class="chips">${Object.entries(LG_FIL).map(([k,[l]])=>`<button class="chip${fil===k?' on':''}" data-act="lgFil" data-f="${k}">${l}</button>`).join('')}</div>
-    ${L.length?L.slice(0,n).map(l=>`<div class="card lg-c">${lgFila(aid,l,{prof:true})}</div>`).join(''):empty('Sin movimientos en esta lista.')}
+    ${L.length?L.slice(0,n).map(l=>`<div class="card lg-c">${lgFila(aid,l,{prof:true,borrar:true})}</div>`).join(''):empty('Sin movimientos en esta lista.')}
     ${L.length>n?`<div class="btns"><button class="btn block" data-act="lgMas">Ver más (${L.length-n})</button></div>`:''}`;
 }
 /* resumen corto para el Inicio del director */
@@ -375,6 +383,11 @@ Object.assign(actions,{
     render(); toast('Avisos marcados como enterado');
   },
   lgFil(d){ ui.lgFil=d.f; ui.lgN=15; render(); },
-  lgMas(){ ui.lgN=(ui.lgN||15)+20; render(); }
+  lgMas(){ ui.lgN=(ui.lgN||15)+20; render(); },
+  lgBorrar(d){
+    const aid=curArea(), l=getPath(`data/${aid}/gimlog/${d.id}`); if(!l||!lgBorrable(aid,l)) return;
+    if(!confirm('¿Quitar este movimiento de la bitácora? Su personalizado o su instructor ya no existen. No se puede deshacer.')) return;
+    setPath(`data/${aid}/gimlog/${d.id}`,undefined); render(); toast('Movimiento quitado de la bitácora');
+  }
 });
 document.addEventListener('change',e=>{ if(e.target&&e.target.id==='rg_f') rgFillHoras(); });
